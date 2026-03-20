@@ -1,0 +1,203 @@
+package systems.lupine.sheaf.ui.members
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.model.*
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.time.Instant
+import javax.inject.Inject
+
+// ── List ──────────────────────────────────────────────────────────────────────
+
+data class MembersUiState(
+    val members: List<MemberRead> = emptyList(),
+    val currentFronts: List<FrontRead> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+)
+
+@HiltViewModel
+class MembersViewModel @Inject constructor(
+    private val api: SheafApiService,
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(MembersUiState(isLoading = true))
+    val state: StateFlow<MembersUiState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
+            runCatching {
+                val members = api.listMembers()
+                val fronts = api.getCurrentFronts()
+                _state.update { it.copy(members = members, currentFronts = fronts, isLoading = false) }
+            }.onFailure { e ->
+                _state.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun addToFront(memberId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            runCatching {
+                val activeFront = _state.value.currentFronts.firstOrNull()
+                if (activeFront != null) {
+                    api.updateFront(activeFront.id, FrontUpdate(memberIds = activeFront.memberIds + memberId))
+                } else {
+                    api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
+                }
+            }.onFailure { e ->
+                _state.update { it.copy(error = e.message) }
+                return@launch
+            }
+            _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
+        }
+    }
+
+    fun switchFrontToOnly(memberId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            runCatching {
+                _state.value.currentFronts.forEach { front ->
+                    api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
+                }
+                api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
+            }.onFailure { e ->
+                _state.update { it.copy(error = e.message) }
+                return@launch
+            }
+            _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
+        }
+    }
+
+    fun deleteMember(memberId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            runCatching { api.deleteMember(memberId) }
+                .onSuccess { _state.update { it.copy(members = it.members.filter { m -> m.id != memberId }) } }
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+}
+
+// ── Detail / create / edit ────────────────────────────────────────────────────
+
+data class MemberFormState(
+    val name: String = "",
+    val displayName: String = "",
+    val pronouns: String = "",
+    val description: String = "",
+    val color: String = "#7F77DD",
+    val birthday: String = "",
+    val privacy: String = "private",
+)
+
+data class MemberDetailUiState(
+    val member: MemberRead? = null,
+    val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
+    val isDeleting: Boolean = false,
+    val error: String? = null,
+    val saved: Boolean = false,
+    val deleted: Boolean = false,
+)
+
+@HiltViewModel
+class MemberDetailViewModel @Inject constructor(
+    private val api: SheafApiService,
+    savedStateHandle: SavedStateHandle,
+) : ViewModel() {
+
+    // "new" means create mode; any UUID means edit mode
+    private val rawId: String? = savedStateHandle["memberId"]
+    val isNewMember: Boolean = rawId == null || rawId == "new"
+    private val memberId: String? = if (isNewMember) null else rawId
+
+    private val _state = MutableStateFlow(MemberDetailUiState(isLoading = !isNewMember))
+    val state: StateFlow<MemberDetailUiState> = _state.asStateFlow()
+
+    private val _form = MutableStateFlow(MemberFormState())
+    val form: StateFlow<MemberFormState> = _form.asStateFlow()
+
+    init {
+        if (!isNewMember && memberId != null) loadMember()
+    }
+
+    private fun loadMember() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            runCatching { api.getMember(memberId!!) }
+                .onSuccess { m ->
+                    _state.update { it.copy(member = m, isLoading = false) }
+                    _form.value = MemberFormState(
+                        name        = m.name,
+                        displayName = m.displayName ?: "",
+                        pronouns    = m.pronouns ?: "",
+                        description = m.description ?: "",
+                        color       = m.color ?: "#7F77DD",
+                        birthday    = m.birthday ?: "",
+                        privacy     = m.privacy,
+                    )
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isLoading = false, error = e.message) }
+                }
+        }
+    }
+
+    fun updateForm(update: MemberFormState.() -> MemberFormState) {
+        _form.update(update)
+    }
+
+    fun save() {
+        val f = _form.value
+        if (f.name.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(isSaving = true, error = null) }
+            runCatching {
+                if (isNewMember) {
+                    api.createMember(MemberCreate(
+                        name        = f.name.trim(),
+                        displayName = f.displayName.takeIf { it.isNotBlank() },
+                        pronouns    = f.pronouns.takeIf { it.isNotBlank() },
+                        description = f.description.takeIf { it.isNotBlank() },
+                        color       = f.color.takeIf { it.isNotBlank() },
+                        birthday    = f.birthday.takeIf { it.isNotBlank() },
+                        privacy     = f.privacy,
+                    ))
+                } else {
+                    api.updateMember(memberId!!, MemberUpdate(
+                        name        = f.name.trim(),
+                        displayName = f.displayName.takeIf { it.isNotBlank() },
+                        pronouns    = f.pronouns.takeIf { it.isNotBlank() },
+                        description = f.description.takeIf { it.isNotBlank() },
+                        color       = f.color.takeIf { it.isNotBlank() },
+                        birthday    = f.birthday.takeIf { it.isNotBlank() },
+                        privacy     = f.privacy,
+                    ))
+                }
+            }
+                .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
+                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.message) } }
+        }
+    }
+
+    fun delete() {
+        if (memberId == null) return
+        viewModelScope.launch {
+            _state.update { it.copy(isDeleting = true, error = null) }
+            runCatching { api.deleteMember(memberId) }
+                .onSuccess { _state.update { it.copy(isDeleting = false, deleted = true) } }
+                .onFailure { e -> _state.update { it.copy(isDeleting = false, error = e.message) } }
+        }
+    }
+
+    fun clearError() { _state.update { it.copy(error = null) } }
+}
