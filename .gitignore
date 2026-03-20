@@ -8,5 +8,5 @@ sheaf/.gradle
 .externalNativeBuild
 .cxx
 local.properties
-sheaf/app/build
+/app/build
 /gradle/wrapper/gradle-wrapper.jar

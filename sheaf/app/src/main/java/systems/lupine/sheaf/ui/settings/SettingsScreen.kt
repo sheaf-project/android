@@ -1,15 +1,9 @@
 package systems.lupine.sheaf.ui.settings
 
-import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,7 +41,6 @@ fun SettingsScreen(
     val state by settingsViewModel.state.collectAsState()
     val savedBaseUrl by settingsViewModel.baseUrl.collectAsState()
     val themeMode by settingsViewModel.themeMode.collectAsState()
-    val frontNotificationEnabled by settingsViewModel.frontNotificationEnabled.collectAsState()
     val context = LocalContext.current
 
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
@@ -149,45 +142,6 @@ fun SettingsScreen(
                 }
                 if (mode != "dark") HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             }
-
-            // ── Notifications ────────────────────────────────────────────────
-            SectionHeader("Notifications")
-            val permissionLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission()
-            ) { granted ->
-                if (granted) settingsViewModel.toggleFrontNotification(true)
-            }
-            ListItem(
-                headlineContent = { Text("Fronting Notification") },
-                supportingContent = { Text("Persistent silent notification showing who's fronting") },
-                leadingContent = {
-                    Icon(
-                        Icons.Outlined.Notifications,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                trailingContent = {
-                    Switch(
-                        checked = frontNotificationEnabled,
-                        onCheckedChange = { enabled ->
-                            if (enabled) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    val granted = ContextCompat.checkSelfPermission(
-                                        context, Manifest.permission.POST_NOTIFICATIONS
-                                    ) == PackageManager.PERMISSION_GRANTED
-                                    if (granted) settingsViewModel.toggleFrontNotification(true)
-                                    else permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                } else {
-                                    settingsViewModel.toggleFrontNotification(true)
-                                }
-                            } else {
-                                settingsViewModel.toggleFrontNotification(false)
-                            }
-                        },
-                    )
-                },
-            )
 
             // ── Security ─────────────────────────────────────────────────────
             SectionHeader("Security")

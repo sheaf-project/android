@@ -3,7 +3,6 @@ package systems.lupine.sheaf.data.repository
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -24,14 +23,12 @@ class PreferencesRepository @Inject constructor(
         val KEY_ACCESS_TOKEN = stringPreferencesKey("access_token")
         val KEY_REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val KEY_THEME = stringPreferencesKey("theme")
-        val KEY_FRONT_NOTIFICATION = booleanPreferencesKey("front_notification")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
     val accessToken: Flow<String?> = context.dataStore.data.map { it[KEY_ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[KEY_REFRESH_TOKEN] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[KEY_THEME] ?: "system" }
-    val frontNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_FRONT_NOTIFICATION] ?: false }
 
     suspend fun saveBaseUrl(url: String) {
         context.dataStore.edit { it[KEY_BASE_URL] = url.trimEnd('/') }
@@ -46,10 +43,6 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveTheme(mode: String) {
         context.dataStore.edit { it[KEY_THEME] = mode }
-    }
-
-    suspend fun saveFrontNotification(enabled: Boolean) {
-        context.dataStore.edit { it[KEY_FRONT_NOTIFICATION] = enabled }
     }
 
     suspend fun clearTokens() {

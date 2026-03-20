@@ -8,7 +8,6 @@ import systems.lupine.sheaf.data.model.TOTPSetupResponse
 import systems.lupine.sheaf.data.model.TOTPVerify
 import systems.lupine.sheaf.data.model.UserRead
 import systems.lupine.sheaf.data.repository.PreferencesRepository
-import systems.lupine.sheaf.notification.FrontNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -35,7 +34,6 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val api: SheafApiService,
     private val prefs: PreferencesRepository,
-    private val notificationHelper: FrontNotificationHelper,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState(isLoading = true))
@@ -47,9 +45,6 @@ class SettingsViewModel @Inject constructor(
 
     val themeMode: StateFlow<String> = prefs.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "system")
-
-    val frontNotificationEnabled: StateFlow<Boolean> = prefs.frontNotification
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     init { load() }
 
@@ -74,13 +69,6 @@ class SettingsViewModel @Inject constructor(
 
     fun saveTheme(mode: String) {
         viewModelScope.launch { prefs.saveTheme(mode) }
-    }
-
-    fun toggleFrontNotification(enabled: Boolean) {
-        viewModelScope.launch {
-            prefs.saveFrontNotification(enabled)
-            if (!enabled) notificationHelper.cancel()
-        }
     }
 
     fun exportData() {

@@ -8,8 +8,6 @@ import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.data.model.SystemRead
-import systems.lupine.sheaf.data.repository.PreferencesRepository
-import systems.lupine.sheaf.notification.FrontNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -31,8 +29,6 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val api: SheafApiService,
-    private val prefs: PreferencesRepository,
-    private val notificationHelper: FrontNotificationHelper,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState(isLoading = true))
@@ -57,9 +53,6 @@ class HomeViewModel @Inject constructor(
                         allMembers = members,
                         isLoading = false,
                     )
-                }
-                if (prefs.frontNotification.first()) {
-                    notificationHelper.post(frontingMembers.map { it.displayNameOrName })
                 }
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = e.message) }
