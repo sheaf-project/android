@@ -22,6 +22,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Generate Gradle wrapper JAR
+        working-directory: sheaf
+        run: gradle wrapper
+
       - name: Make gradlew executable
         run: chmod +x sheaf/gradlew
 
