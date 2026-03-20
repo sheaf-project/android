@@ -194,7 +194,7 @@ private fun SwitchFrontSheet(
     isSwitching: Boolean,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 "Select who's fronting",
                 style = MaterialTheme.typography.titleLarge,
@@ -208,20 +208,22 @@ private fun SwitchFrontSheet(
                     subtitle = "Add members first.",
                 )
             } else {
-                members.forEach { member ->
-                    val isSelected = member.id in selected
-                    ListItem(
-                        headlineContent = { Text(member.displayNameOrName) },
-                        supportingContent = member.pronouns?.let { { Text(it) } },
-                        leadingContent = { MemberAvatar(member, size = 40.dp) },
-                        trailingContent = {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = { onToggle(member.id) },
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                    )
+                LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+                    items(members, key = { it.id }) { member ->
+                        val isSelected = member.id in selected
+                        ListItem(
+                            headlineContent = { Text(member.displayNameOrName) },
+                            supportingContent = member.pronouns?.let { { Text(it) } },
+                            leadingContent = { MemberAvatar(member, size = 40.dp) },
+                            trailingContent = {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { onToggle(member.id) },
+                                )
+                            },
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                    }
                 }
             }
             HorizontalDivider()
