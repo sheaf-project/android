@@ -228,17 +228,19 @@ fun GroupDetailScreen(
 
     if (state.showMemberSheet) {
         ModalBottomSheet(onDismissRequest = { viewModel.closeMemberSheet() }) {
-            Column {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Edit Group Members", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(20.dp, 12.dp))
                 HorizontalDivider()
-                state.allMembers.forEach { member ->
-                    val isSelected = member.id in state.memberSelection
-                    ListItem(
-                        headlineContent = { Text(member.displayNameOrName) },
-                        leadingContent = { MemberAvatar(member, size = 40.dp) },
-                        trailingContent = { Checkbox(checked = isSelected, onCheckedChange = { viewModel.toggleMember(member.id) }) },
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                    )
+                LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+                    items(state.allMembers, key = { it.id }) { member ->
+                        val isSelected = member.id in state.memberSelection
+                        ListItem(
+                            headlineContent = { Text(member.displayNameOrName) },
+                            leadingContent = { MemberAvatar(member, size = 40.dp) },
+                            trailingContent = { Checkbox(checked = isSelected, onCheckedChange = { viewModel.toggleMember(member.id) }) },
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                    }
                 }
                 HorizontalDivider()
                 Button(
