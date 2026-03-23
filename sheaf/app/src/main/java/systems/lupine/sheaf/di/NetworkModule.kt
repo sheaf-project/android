@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.di
 
+import android.content.Context
 import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
 import systems.lupine.sheaf.data.api.SheafApiService
@@ -7,9 +8,12 @@ import systems.lupine.sheaf.data.api.TokenAuthenticator
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import coil.ImageLoader
+import systems.lupine.sheaf.data.api.RelativeUrlInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -60,4 +64,18 @@ object NetworkModule {
     @Singleton
     fun provideSheafApiService(retrofit: Retrofit): SheafApiService =
         retrofit.create(SheafApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideImageLoader(
+        @ApplicationContext context: Context,
+        okHttpClient: OkHttpClient,
+        relativeUrlInterceptor: RelativeUrlInterceptor,
+    ): ImageLoader = ImageLoader.Builder(context)
+        .okHttpClient(okHttpClient)
+        .components {
+            add(relativeUrlInterceptor)
+        }
+        .crossfade(true)
+        .build()
 }
