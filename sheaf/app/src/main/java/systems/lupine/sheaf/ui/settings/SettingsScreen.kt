@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -54,6 +56,7 @@ fun SettingsScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showUrlDialog by remember { mutableStateOf(false) }
     var showTotpSheet by remember { mutableStateOf(false) }
+    var showDisableTotpDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.exportJson) {
         state.exportJson?.let { json ->
@@ -91,7 +94,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         Surface(
-                            shape = MaterialTheme.shapes.extraLarge,
+                            shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer,
                             modifier = Modifier.size(52.dp),
                         ) {
@@ -205,12 +208,22 @@ fun SettingsScreen(
                 },
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingItem(
-                icon = if (totpEnabled) Icons.Outlined.ManageAccounts else Icons.Outlined.AddCircle,
-                title = if (totpEnabled) "Manage 2FA" else "Set Up 2FA",
-                subtitle = null,
-                onClick = { settingsViewModel.startTotpSetup(); showTotpSheet = true },
-            )
+            if (totpEnabled) {
+                SettingItem(
+                    icon = Icons.Outlined.LockOpen,
+                    title = "Disable 2FA",
+                    subtitle = null,
+                    onClick = { showDisableTotpDialog = true },
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            } else {
+                SettingItem(
+                    icon = Icons.Outlined.AddCircle,
+                    title = "Set Up 2FA",
+                    subtitle = null,
+                    onClick = { settingsViewModel.startTotpSetup(); showTotpSheet = true },
+                )
+            }
 
             // ── System ───────────────────────────────────────────────────────
             SectionHeader("System")
@@ -321,6 +334,59 @@ fun SettingsScreen(
             dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") } },
         )
     }
+
+    if (showDisableTotpDialog) {
+        var disablePassword by remember { mutableStateOf("") }
+        var disableTotpCode by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showDisableTotpDialog = false },
+            title = { Text("Disable 2FA") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Enter your password and a current authenticator code to confirm.")
+                    OutlinedTextField(
+                        value = disablePassword,
+                        onValueChange = { disablePassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = disableTotpCode,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) disableTotpCode = it },
+                        label = { Text("Authenticator code") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (state.totpError != null) {
+                        Text(state.totpError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        settingsViewModel.disableTotp(disablePassword, disableTotpCode)
+                    },
+                    enabled = disablePassword.isNotBlank() && disableTotpCode.length == 6 && !state.totpIsDisabling,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    if (state.totpIsDisabling) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Disable")
+                    }
+                }
+            },
+            dismissButton = { TextButton(onClick = { showDisableTotpDialog = false; settingsViewModel.clearTotpError() }) { Text("Cancel") } },
+        )
+        LaunchedEffect(state.user?.totpEnabled) {
+            if (state.user?.totpEnabled == false) showDisableTotpDialog = false
+        }
+    }
 }
 
 // ── TOTP Setup Sheet ──────────────────────────────────────────────────────────
@@ -399,7 +465,7 @@ private fun TotpSetupSheet(
                     }
                     Button(
                         onClick = onAdvanceToVerify,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                     ) { Text("I've added it — Next") }
                 }
 
@@ -429,7 +495,7 @@ private fun TotpSetupSheet(
                     Button(
                         onClick = { onVerify(code) },
                         enabled = code.length == 6 && !state.totpIsVerifying,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                     ) {
                         if (state.totpIsVerifying) {
                             CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
@@ -482,7 +548,7 @@ private fun TotpSetupSheet(
                     }
                     Button(
                         onClick = onAdvanceToDone,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                     ) { Text("I've saved them — Done") }
                 }
 
@@ -510,7 +576,7 @@ private fun TotpSetupSheet(
                     )
                     Button(
                         onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                     ) { Text("Close") }
                 }
             }
@@ -623,15 +689,10 @@ fun SystemEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Colour", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ColorSwatch(hex = form.color, size = 36.dp)
-                Text(form.color, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            SystemColorPalette(selected = form.color, onSelect = { viewModel.updateForm { copy(color = it) } })
+            ColorPicker(
+                hex = form.color,
+                onColorChange = { viewModel.updateForm { copy(color = it) } },
+            )
 
             SectionHeader("Privacy")
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -649,7 +710,7 @@ fun SystemEditScreen(
             Button(
                 onClick = { viewModel.save() },
                 enabled = !state.isSaving && form.name.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
             ) {
                 if (state.isSaving) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 else Text("Save Changes")
@@ -658,35 +719,3 @@ fun SystemEditScreen(
     }
 }
 
-private val systemPalette = listOf(
-    "#7F77DD", "#534AB7", "#1D9E75", "#E24B4A",
-    "#BA7517", "#185FA5", "#D4537E", "#888780",
-    "#639922", "#D85A30",
-)
-
-@Composable
-private fun SystemColorPalette(selected: String, onSelect: (String) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        systemPalette.forEach { hex ->
-            val color = parseColor(hex) ?: return@forEach
-            val isSelected = hex.equals(selected, ignoreCase = true)
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSelect(hex) },
-                label = {},
-                leadingIcon = { Box(Modifier.size(16.dp).padding(1.dp)) },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = color,
-                    selectedContainerColor = color,
-                ),
-                border = if (isSelected) FilterChipDefaults.filterChipBorder(
-                    enabled = true, selected = true,
-                    borderColor = MaterialTheme.colorScheme.primary,
-                    selectedBorderColor = MaterialTheme.colorScheme.primary,
-                    selectedBorderWidth = 2.dp,
-                ) else FilterChipDefaults.filterChipBorder(enabled = true, selected = false),
-                modifier = Modifier.size(36.dp),
-            )
-        }
-    }
-}

@@ -58,6 +58,7 @@ fun MembersScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
             )
             else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = 0.dp, end = 0.dp,
                     top = padding.calculateTopPadding(),
@@ -242,17 +243,10 @@ fun MemberDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Color picker row
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Colour", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ColorSwatch(hex = form.color, size = 36.dp)
-                Text(form.color, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            // Quick palette
-            ColorPalette(selected = form.color, onSelect = { viewModel.updateForm { copy(color = it) } })
+            ColorPicker(
+                hex = form.color,
+                onColorChange = { viewModel.updateForm { copy(color = it) } },
+            )
 
             // Privacy
             SectionHeader("Privacy")
@@ -271,7 +265,7 @@ fun MemberDetailScreen(
             Button(
                 onClick = { viewModel.save() },
                 enabled = !state.isSaving && form.name.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
             ) {
                 if (state.isSaving) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 else Text(if (viewModel.isNewMember) "Add Member" else "Save Changes")
@@ -297,41 +291,5 @@ fun MemberDetailScreen(
     }
 }
 
-// ── Colour palette ─────────────────────────────────────────────────────────────
+// ── Color palette ────────────────────────────────────────────────────────────
 
-private val palette = listOf(
-    "#7F77DD", "#534AB7", "#1D9E75", "#E24B4A",
-    "#BA7517", "#185FA5", "#D4537E", "#888780",
-    "#639922", "#D85A30",
-)
-
-@Composable
-private fun ColorPalette(selected: String, onSelect: (String) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        palette.forEach { hex ->
-            val color = parseColor(hex) ?: return@forEach
-            val isSelected = hex.equals(selected, ignoreCase = true)
-            FilterChip(
-                selected = isSelected,
-                onClick = { onSelect(hex) },
-                label = {},
-                leadingIcon = { Box(Modifier.size(16.dp).padding(1.dp)) },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = color,
-                    selectedContainerColor = color,
-                ),
-                border = if (isSelected) FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = true,
-                    borderColor = MaterialTheme.colorScheme.primary,
-                    selectedBorderColor = MaterialTheme.colorScheme.primary,
-                    selectedBorderWidth = 2.dp,
-                ) else FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = false,
-                ),
-                modifier = Modifier.size(36.dp),
-            )
-        }
-    }
-}

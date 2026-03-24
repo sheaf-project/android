@@ -19,6 +19,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
@@ -159,7 +160,7 @@ private fun ServerUrlStep(
             keyboardActions = KeyboardActions(onDone = { if (urlDraft.isNotBlank()) onContinue() }),
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = onContinue, enabled = urlDraft.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+        Button(onClick = onContinue, enabled = urlDraft.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) {
             Text("Continue")
         }
     }
@@ -218,7 +219,7 @@ private fun AuthStep(
             },
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = onSubmit, enabled = !isLoading && email.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+        Button(onClick = onSubmit, enabled = !isLoading && email.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) {
             if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
             else Text(if (mode == "login") "Sign In" else "Create Account")
         }
@@ -242,7 +243,7 @@ private fun TotpStep(
     Column(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // Lock icon
         Surface(
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = CircleShape,
             color = MaterialTheme.colorScheme.secondaryContainer,
             modifier = Modifier.size(56.dp),
         ) {
@@ -290,7 +291,7 @@ private fun TotpStep(
         Button(
             onClick = { onSubmit(code) },
             enabled = !isLoading && code.length == 6,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
             else Text("Verify")

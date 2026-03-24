@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Sheaf"
 include(":app")
+include(":wear")

@@ -23,6 +23,9 @@ interface SheafApiService {
     @POST("/v1/auth/totp/verify")
     suspend fun verifyTotp(@Body body: systems.lupine.sheaf.data.model.TOTPVerify)
 
+    @POST("/v1/auth/totp/disable")
+    suspend fun disableTotp(@Body body: systems.lupine.sheaf.data.model.TOTPDisable)
+
     @POST("/v1/auth/refresh")
     suspend fun refresh(@Body body: TokenRefresh): TokenResponse
 

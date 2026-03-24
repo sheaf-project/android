@@ -1,8 +1,10 @@
 package systems.lupine.sheaf.notification
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -32,11 +34,12 @@ class FrontNotificationHelper @Inject constructor(
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     fun post(memberNames: List<String>) {
         val text = when {
             memberNames.isEmpty()  -> "No one is fronting"
             memberNames.size == 1  -> "${memberNames[0]} is fronting"
-            else                   -> "${memberNames.joinToString(", ")} are fronting"
+            else                   -> "${memberNames.dropLast(1).joinToString(", ")} and ${memberNames.last()} are fronting"
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)

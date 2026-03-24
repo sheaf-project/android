@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.SystemRead
+import systems.lupine.sheaf.data.model.TOTPDisable
 import systems.lupine.sheaf.data.model.TOTPSetupResponse
 import systems.lupine.sheaf.data.model.TOTPVerify
 import systems.lupine.sheaf.data.model.UserRead
@@ -12,6 +13,7 @@ import systems.lupine.sheaf.notification.FrontNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import javax.inject.Inject
 
 enum class TotpStep { LOADING, SECRET, VERIFY, RECOVERY_CODES, DONE }
@@ -27,6 +29,7 @@ data class SettingsUiState(
     val totpSetupResponse: TOTPSetupResponse? = null,
     val totpError: String? = null,
     val totpIsVerifying: Boolean = false,
+    val totpIsDisabling: Boolean = false,
     val totpCopiedSecret: Boolean = false,
     val totpCopiedCodes: Boolean = false,
 )
@@ -135,6 +138,28 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun disableTotp(password: String, totpCode: String) {
+        val email = _state.value.user?.email ?: return
+        _state.update { it.copy(totpIsDisabling = true, totpError = null) }
+        viewModelScope.launch {
+            runCatching { api.disableTotp(TOTPDisable(email, password, totpCode)) }
+                .onSuccess {
+                    runCatching { api.getMe() }.onSuccess { user ->
+                        _state.update { it.copy(user = user, totpIsDisabling = false) }
+                    }.onFailure {
+                        _state.update { it.copy(totpIsDisabling = false) }
+                    }
+                }
+                .onFailure { e ->
+                    val msg = if (e is HttpException && e.code() == 400)
+                        "Incorrect password or authenticator code"
+                    else
+                        e.message ?: "Failed to disable 2FA"
+                    _state.update { it.copy(totpIsDisabling = false, totpError = msg) }
+                }
+        }
+    }
+
     fun resetTotpSetup() {
         _state.update { it.copy(
             totpStep = TotpStep.LOADING,
@@ -148,4 +173,5 @@ class SettingsViewModel @Inject constructor(
 
     fun clearExport() { _state.update { it.copy(exportJson = null) } }
     fun clearError()  { _state.update { it.copy(error = null) } }
+    fun clearTotpError() { _state.update { it.copy(totpError = null) } }
 }

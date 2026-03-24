@@ -36,6 +36,13 @@ data class TOTPVerify(
 )
 
 @JsonClass(generateAdapter = true)
+data class TOTPDisable(
+    val email: String,
+    val password: String,
+    @Json(name = "totp_code") val totpCode: String,
+)
+
+@JsonClass(generateAdapter = true)
 data class TOTPSetupResponse(
     val secret: String,
     @Json(name = "provisioning_uri") val provisioningUri: String,

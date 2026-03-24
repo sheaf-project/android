@@ -5,7 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// ── Colour tokens ─────────────────────────────────────────────────────────────
+// ── Color tokens ──────────────────────────────────────────────────────────────
 
 val Purple10  = Color(0xFF26215C)
 val Purple20  = Color(0xFF3C3489)
@@ -26,9 +26,9 @@ val Teal80 = Color(0xFF9FE1CB)
 val Red40  = Color(0xFFE24B4A)
 val Red80  = Color(0xFFF09595)
 
-// ── Colour schemes ────────────────────────────────────────────────────────────
+// ── Color schemes ─────────────────────────────────────────────────────────────
 
-private val LightColorScheme = lightColorScheme(
+internal val LightColorScheme = lightColorScheme(
     primary          = Purple40,
     onPrimary        = Color.White,
     primaryContainer = Purple99,
@@ -50,7 +50,7 @@ private val LightColorScheme = lightColorScheme(
     onError          = Color.White,
 )
 
-private val DarkColorScheme = darkColorScheme(
+internal val DarkColorScheme = darkColorScheme(
     primary          = Purple80,
     onPrimary        = Purple20,
     primaryContainer = Purple40,

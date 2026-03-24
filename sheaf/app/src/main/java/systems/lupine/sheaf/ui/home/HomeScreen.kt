@@ -37,9 +37,10 @@ fun HomeScreen(
                 title = {
                     Text(
                         "Welcome, ${state.system?.name ?: ""}",
-                        modifier = Modifier.padding(bottom = 8.dp),
+                        maxLines = 2,
                     )
                 },
+                expandedHeight = 88.dp,
             )
         },
         floatingActionButton = {
@@ -227,7 +228,7 @@ private fun SwitchFrontSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-                    .height(52.dp),
+                    .height(48.dp),
             ) {
                 if (isSwitching) {
                     CircularProgressIndicator(
