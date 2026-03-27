@@ -2,7 +2,6 @@ package systems.lupine.sheaf.data.api
 
 import systems.lupine.sheaf.data.model.*
 import okhttp3.MultipartBody
-import okhttp3.ResponseBody
 import retrofit2.http.*
 
 interface SheafApiService {
@@ -32,23 +31,6 @@ interface SheafApiService {
 
     @GET("/v1/auth/me")
     suspend fun getMe(): UserRead
-
-    @POST("/v1/auth/resend-verification")
-    suspend fun resendVerification()
-
-    @GET("/v1/auth/verify-email")
-    suspend fun verifyEmail(@Query("token") token: String)
-
-    // ── API Keys ──────────────────────────────────────────────────────────────
-
-    @GET("/v1/auth/keys")
-    suspend fun listApiKeys(): List<ApiKeyRead>
-
-    @POST("/v1/auth/keys")
-    suspend fun createApiKey(@Body body: ApiKeyCreate): ApiKeyCreated
-
-    @DELETE("/v1/auth/keys/{id}")
-    suspend fun revokeApiKey(@Path("id") id: String)
 
     // ── System ────────────────────────────────────────────────────────────────
 
@@ -144,27 +126,7 @@ interface SheafApiService {
     // ── Export ────────────────────────────────────────────────────────────────
 
     @GET("/v1/export")
-    suspend fun exportAll(): ResponseBody
-
-    // ── Sheaf import ──────────────────────────────────────────────────────────
-
-    @Multipart
-    @POST("/v1/import/sheaf/preview")
-    suspend fun previewSheafImport(
-        @Part file: MultipartBody.Part,
-    ): SheafPreviewSummary
-
-    @Multipart
-    @POST("/v1/import/sheaf")
-    suspend fun runSheafImport(
-        @Query("system_profile") systemProfile: Boolean,
-        @Query("fronts") fronts: Boolean,
-        @Query("groups") groups: Boolean,
-        @Query("tags") tags: Boolean,
-        @Query("custom_fields") customFields: Boolean,
-        @Query("member_ids") memberIds: String?,
-        @Part file: MultipartBody.Part,
-    ): SheafImportResult
+    suspend fun exportAll(): Map<String, Any>
 
     // ── Simply Plural import ──────────────────────────────────────────────────
 
@@ -185,46 +147,4 @@ interface SheafApiService {
         @Query("member_ids") memberIds: String?,
         @Part file: MultipartBody.Part,
     ): SPImportResult
-
-    // ── Admin ─────────────────────────────────────────────────────────────────
-
-    @GET("/v1/admin/auth")
-    suspend fun getAdminAuthStatus(): AdminAuthStatus
-
-    @POST("/v1/admin/auth")
-    suspend fun adminStepUp(@Body body: AdminStepUpVerify)
-
-    @GET("/v1/admin/stats")
-    suspend fun getAdminStats(): AdminStats
-
-    @GET("/v1/admin/users")
-    suspend fun getAdminUsers(
-        @Query("search") search: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 50,
-    ): List<AdminUserRead>
-
-    @PATCH("/v1/admin/users/{id}")
-    suspend fun updateAdminUser(
-        @Path("id") id: String,
-        @Body body: AdminUserUpdate,
-    ): AdminUserRead
-
-    @GET("/v1/admin/approvals")
-    suspend fun getApprovals(): List<PendingUserRead>
-
-    @POST("/v1/admin/users/{id}/approve")
-    suspend fun approveUser(@Path("id") id: String)
-
-    @POST("/v1/admin/users/{id}/reject")
-    suspend fun rejectUser(@Path("id") id: String)
-
-    @POST("/v1/admin/retention/run")
-    suspend fun runRetention()
-
-    @POST("/v1/admin/cleanup/run")
-    suspend fun runCleanup()
-
-    @GET("/v1/admin/storage/stats")
-    suspend fun getStorageStats(): Map<String, Any>
 }

@@ -10,4 +10,3 @@ sheaf/.gradle
 local.properties
 sheaf/app/build
 /gradle/wrapper/gradle-wrapper.jar
-sheaf/wear/build

@@ -1,6 +1,9 @@
 package systems.lupine.sheaf.ui.settings
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -40,9 +43,6 @@ fun SettingsScreen(
     onNavigateToSystemEdit: () -> Unit,
     onNavigateToSpImport: () -> Unit,
     onNavigateToCustomFields: () -> Unit,
-    onNavigateToApiKeys: () -> Unit = {},
-    onNavigateToSheafImport: () -> Unit = {},
-    onNavigateToAdminPanel: () -> Unit = {},
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -58,22 +58,15 @@ fun SettingsScreen(
     var showTotpSheet by remember { mutableStateOf(false) }
     var showDisableTotpDialog by remember { mutableStateOf(false) }
 
-    // Launcher for saving the export JSON file
-    val saveFileLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        uri?.let {
-            val json = state.exportJson ?: return@let
-            context.contentResolver.openOutputStream(it)?.use { out ->
-                out.write(json.toByteArray())
-            }
-            settingsViewModel.clearExport()
-        }
-    }
-
     LaunchedEffect(state.exportJson) {
-        if (state.exportJson != null) {
-            saveFileLauncher.launch("sheaf_export.json")
+        state.exportJson?.let { json ->
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_TEXT, json)
+                putExtra(Intent.EXTRA_SUBJECT, "Sheaf data export")
+            }
+            context.startActivity(Intent.createChooser(intent, "Share export"))
+            settingsViewModel.clearExport()
         }
     }
 
@@ -117,19 +110,12 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(state.system?.name ?: "Your System", style = MaterialTheme.typography.titleMedium)
                             Text(state.user!!.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
-                                if (state.user!!.tier.isNotBlank()) {
-                                    SuggestionChip(
-                                        onClick = {},
-                                        label = { Text(formatTier(state.user!!.tier), style = MaterialTheme.typography.labelSmall) },
-                                    )
-                                }
-                                if (state.user!!.isAdmin) {
-                                    SuggestionChip(
-                                        onClick = {},
-                                        label = { Text("Admin", style = MaterialTheme.typography.labelSmall) },
-                                    )
-                                }
+                            if (state.user!!.tier.isNotBlank()) {
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = { Text(formatTier(state.user!!.tier), style = MaterialTheme.typography.labelSmall) },
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
                             }
                         }
                     }
@@ -270,33 +256,6 @@ fun SettingsScreen(
                 subtitle = "Import members, groups, and history",
                 onClick = onNavigateToSpImport,
             )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingItem(
-                icon = Icons.Outlined.Upload,
-                title = "Import from Sheaf Export",
-                subtitle = "Restore from a Sheaf JSON backup",
-                onClick = onNavigateToSheafImport,
-            )
-
-            // ── Developer ────────────────────────────────────────────────────
-            SectionHeader("Developer")
-            SettingItem(
-                icon = Icons.Outlined.Key,
-                title = "API Keys",
-                subtitle = "Manage personal API keys",
-                onClick = onNavigateToApiKeys,
-            )
-
-            if (state.user?.isAdmin == true) {
-                // ── Administration ────────────────────────────────────────────────
-                SectionHeader("Administration")
-                SettingItem(
-                    icon = Icons.Outlined.AdminPanelSettings,
-                    title = "Admin Panel",
-                    subtitle = "User management and maintenance",
-                    onClick = onNavigateToAdminPanel,
-                )
-            }
 
             // ── Server ───────────────────────────────────────────────────────
             SectionHeader("Server")

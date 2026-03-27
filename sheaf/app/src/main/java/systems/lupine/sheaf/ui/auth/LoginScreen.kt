@@ -33,45 +33,14 @@ fun LoginScreen(
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val savedBaseUrl by viewModel.baseUrl.collectAsState()
 
-    LaunchedEffect(isLoggedIn, uiState) {
-        if (isLoggedIn &&
-            uiState !is AuthUiState.AwaitingEmailVerification &&
-            uiState !is AuthUiState.AccountPending &&
-            uiState !is AuthUiState.AccountRejected
-        ) {
-            onLoginSuccess()
-        }
-    }
-
-    // Show gate screens when auth succeeded but account is not yet usable
-    when (uiState) {
-        is AuthUiState.AwaitingEmailVerification -> {
-            EmailVerificationGateView(
-                onResend = { viewModel.resendVerification() },
-                onCheckStatus = { viewModel.checkAccountStatus() },
-                onLogOut = { viewModel.logout() },
-            )
-            return
-        }
-        is AuthUiState.AccountPending -> {
-            AccountPendingGateView(
-                onCheckStatus = { viewModel.checkAccountStatus() },
-                onLogOut = { viewModel.logout() },
-            )
-            return
-        }
-        is AuthUiState.AccountRejected -> {
-            AccountRejectedGateView(onLogOut = { viewModel.logout() })
-            return
-        }
-        else -> {}
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) onLoginSuccess()
     }
 
     var step by remember { mutableStateOf(if (savedBaseUrl.isBlank()) "url" else "auth") }
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var inviteCode by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf("login") }
     val focusManager = LocalFocusManager.current
@@ -136,8 +105,6 @@ fun LoginScreen(
                     onEmailChange = { email = it },
                     password = password,
                     onPasswordChange = { password = it },
-                    inviteCode = inviteCode,
-                    onInviteCodeChange = { inviteCode = it },
                     passwordVisible = passwordVisible,
                     onTogglePassword = { passwordVisible = !passwordVisible },
                     mode = mode,
@@ -147,7 +114,7 @@ fun LoginScreen(
                     onSubmit = {
                         focusManager.clearFocus()
                         if (mode == "login") viewModel.login(email, password)
-                        else viewModel.register(email, password, inviteCode)
+                        else viewModel.register(email, password)
                     },
                 )
                 "totp" -> TotpStep(
@@ -209,8 +176,6 @@ private fun AuthStep(
     onEmailChange: (String) -> Unit,
     password: String,
     onPasswordChange: (String) -> Unit,
-    inviteCode: String,
-    onInviteCodeChange: (String) -> Unit,
     passwordVisible: Boolean,
     onTogglePassword: () -> Unit,
     mode: String,
@@ -245,8 +210,8 @@ private fun AuthStep(
         OutlinedTextField(
             value = password, onValueChange = onPasswordChange, label = { Text("Password") }, singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = if (mode == "register") ImeAction.Next else ImeAction.Done),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }, onDone = { onSubmit() }),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
             trailingIcon = {
                 IconButton(onClick = onTogglePassword) {
                     Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
@@ -254,121 +219,9 @@ private fun AuthStep(
             },
             modifier = Modifier.fillMaxWidth(),
         )
-        if (mode == "register") {
-            OutlinedTextField(
-                value = inviteCode,
-                onValueChange = onInviteCodeChange,
-                label = { Text("Invite Code (optional)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
         Button(onClick = onSubmit, enabled = !isLoading && email.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) {
             if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
             else Text(if (mode == "login") "Sign In" else "Create Account")
-        }
-    }
-}
-
-// ── Gate: Email verification ──────────────────────────────────────────────────
-
-@Composable
-fun EmailVerificationGateView(
-    onResend: () -> Unit,
-    onCheckStatus: () -> Unit,
-    onLogOut: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text("✉️", style = MaterialTheme.typography.displayMedium)
-        Spacer(Modifier.height(16.dp))
-        Text("Check your email", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Please verify your email address before continuing. Check your inbox for a verification link.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onCheckStatus, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-            Text("I've verified — Check Status")
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onResend, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-            Text("Resend Verification Email")
-        }
-        Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onLogOut, modifier = Modifier.fillMaxWidth()) {
-            Text("Sign Out", color = MaterialTheme.colorScheme.error)
-        }
-    }
-}
-
-// ── Gate: Account pending ─────────────────────────────────────────────────────
-
-@Composable
-fun AccountPendingGateView(
-    onCheckStatus: () -> Unit,
-    onLogOut: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text("⏳", style = MaterialTheme.typography.displayMedium)
-        Spacer(Modifier.height(16.dp))
-        Text("Account pending approval", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Your account is waiting for administrator approval. Please check back later.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onCheckStatus, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-            Text("Check Again")
-        }
-        Spacer(Modifier.height(8.dp))
-        TextButton(onClick = onLogOut, modifier = Modifier.fillMaxWidth()) {
-            Text("Sign Out", color = MaterialTheme.colorScheme.error)
-        }
-    }
-}
-
-// ── Gate: Account rejected ────────────────────────────────────────────────────
-
-@Composable
-fun AccountRejectedGateView(onLogOut: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text("🚫", style = MaterialTheme.typography.displayMedium)
-        Spacer(Modifier.height(16.dp))
-        Text("Account rejected", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Your account application was not approved.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onLogOut,
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-        ) {
-            Text("Sign Out")
         }
     }
 }
