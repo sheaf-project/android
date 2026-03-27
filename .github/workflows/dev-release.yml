@@ -42,21 +42,21 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
-            ./gradlew assembleRelease \
+            ./gradlew :app:assembleRelease :wear:assembleRelease \
               -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
               -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
               -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
               -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
             rm -f keystore.jks
           else
-            ./gradlew assembleDebug
+            ./gradlew :app:assembleDebug :wear:assembleDebug
           fi
 
       - name: Locate APKs
         id: apk
         run: |
           APP_APK=$(find sheaf/app/build/outputs/apk -name "*.apk" | head -1)
-          WEAR_APK=$(find sheaf/wear/build/outputs/apk -name "*.apk" | head -1)
+          WEAR_APK=$(find sheaf/wear/build/outputs/apk -name "*.apk" 2>/dev/null | head -1)
           echo "app_path=$APP_APK" >> "$GITHUB_OUTPUT"
           echo "wear_path=$WEAR_APK" >> "$GITHUB_OUTPUT"
 
