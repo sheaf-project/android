@@ -10,6 +10,7 @@ import java.time.OffsetDateTime
 data class UserRegister(
     val email: String,
     val password: String,
+    @Json(name = "invite_code") val inviteCode: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -54,7 +55,10 @@ data class UserRead(
     val id: String,
     val email: String,
     @Json(name = "totp_enabled") val totpEnabled: Boolean,
+    @Json(name = "is_admin") val isAdmin: Boolean = false,
     val tier: String,
+    @Json(name = "account_status") val accountStatus: String = "active",
+    @Json(name = "email_verified") val emailVerified: Boolean = true,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "last_login_at") val lastLoginAt: String?,
 )
@@ -225,6 +229,115 @@ data class CustomFieldUpdate(
 
 @JsonClass(generateAdapter = true)
 data class FileUploadResponse(val url: String)
+
+// ── API Keys ──────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class ApiKeyRead(
+    val id: String,
+    val name: String,
+    val scopes: List<String>,
+    @Json(name = "last_used_at") val lastUsedAt: String?,
+    @Json(name = "expires_at") val expiresAt: String?,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiKeyCreate(
+    val name: String,
+    val scopes: List<String>,
+    @Json(name = "expires_at") val expiresAt: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiKeyCreated(
+    val id: String,
+    val name: String,
+    val scopes: List<String>,
+    @Json(name = "last_used_at") val lastUsedAt: String?,
+    @Json(name = "expires_at") val expiresAt: String?,
+    @Json(name = "created_at") val createdAt: String,
+    val key: String,
+)
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AdminStats(
+    @Json(name = "total_users") val totalUsers: Int,
+    @Json(name = "total_members") val totalMembers: Int,
+    @Json(name = "total_storage_bytes") val totalStorageBytes: Long,
+    @Json(name = "users_by_tier") val usersByTier: Map<String, Int>,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminAuthStatus(
+    val level: String = "none",
+    val verified: Boolean = true,
+    @Json(name = "totp_enabled") val totpEnabled: Boolean = false,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminStepUpVerify(
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminUserRead(
+    val id: String,
+    val email: String,
+    val tier: String,
+    @Json(name = "is_admin") val isAdmin: Boolean,
+    @Json(name = "account_status") val accountStatus: String,
+    @Json(name = "email_verified") val emailVerified: Boolean,
+    @Json(name = "signup_ip") val signupIp: String?,
+    @Json(name = "member_limit") val memberLimit: Int?,
+    @Json(name = "storage_used_bytes") val storageUsedBytes: Long,
+    @Json(name = "member_count") val memberCount: Int,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "last_login_at") val lastLoginAt: String?,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminUserUpdate(
+    val tier: String? = null,
+    @Json(name = "is_admin") val isAdmin: Boolean? = null,
+    @Json(name = "member_limit") val memberLimit: Int? = null,
+    @Json(name = "clear_member_limit") val clearMemberLimit: Boolean? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PendingUserRead(
+    val id: String,
+    val email: String,
+    @Json(name = "email_verified") val emailVerified: Boolean,
+    @Json(name = "signup_ip") val signupIp: String?,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+// ── Sheaf import ──────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class SheafPreviewSummary(
+    @Json(name = "system_name") val systemName: String?,
+    @Json(name = "member_count") val memberCount: Int,
+    val members: List<SPPreviewMember>,
+    @Json(name = "front_count") val frontCount: Int,
+    @Json(name = "group_count") val groupCount: Int,
+    @Json(name = "custom_field_count") val customFieldCount: Int,
+    @Json(name = "tag_count") val tagCount: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class SheafImportResult(
+    @Json(name = "members_imported") val membersImported: Int,
+    @Json(name = "fronts_imported") val frontsImported: Int,
+    @Json(name = "groups_imported") val groupsImported: Int,
+    @Json(name = "tags_imported") val tagsImported: Int,
+    @Json(name = "custom_fields_imported") val customFieldsImported: Int,
+    val warnings: List<String>,
+)
 
 // ── Simply Plural import ──────────────────────────────────────────────────────
 

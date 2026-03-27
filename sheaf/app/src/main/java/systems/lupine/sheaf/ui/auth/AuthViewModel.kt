@@ -1,12 +1,14 @@
 package systems.lupine.sheaf.ui.auth
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.TOTPVerify
 import systems.lupine.sheaf.data.model.UserLogin
 import systems.lupine.sheaf.data.model.UserRegister
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -18,6 +20,12 @@ sealed interface AuthUiState {
     data object Loading : AuthUiState
     // Login succeeded but TOTP code is required to complete auth
     data object AwaitingTotp : AuthUiState
+    // Account requires email verification before use
+    data object AwaitingEmailVerification : AuthUiState
+    // Account is pending admin approval
+    data object AccountPending : AuthUiState
+    // Account was rejected by an admin
+    data object AccountRejected : AuthUiState
     data class Error(val message: String) : AuthUiState
 }
 
@@ -25,7 +33,8 @@ sealed interface AuthUiState {
 class AuthViewModel @Inject constructor(
     private val api: SheafApiService,
     private val prefs: PreferencesRepository,
-) : ViewModel() {
+    application: Application,
+) : AndroidViewModel(application) {
 
     val isLoggedIn: StateFlow<Boolean> = prefs.accessToken
         .map { it != null }
@@ -46,25 +55,44 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch { prefs.saveBaseUrl(url) }
     }
 
+    private fun pushToWatch() {
+        viewModelScope.launch {
+            val baseUrl = prefs.baseUrl.first() ?: return@launch
+            val access  = prefs.accessToken.first() ?: return@launch
+            val refresh = prefs.refreshToken.first() ?: return@launch
+            PhoneDataLayerService.pushCredentials(getApplication(), baseUrl, access, refresh)
+        }
+    }
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             runCatching { api.login(UserLogin(email, password)) }
                 .onSuccess { tokens ->
-                    // Check if TOTP is required by calling /auth/me with this token.
-                    // Save tokens temporarily, then check totp_enabled.
                     pendingAccessToken = tokens.accessToken
                     pendingRefreshToken = tokens.refreshToken
                     prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
 
                     val user = runCatching { api.getMe() }.getOrNull()
-                    if (user?.totpEnabled == true) {
-                        // Don't mark as fully logged in yet — wait for TOTP
-                        prefs.clearTokens()
-                        _uiState.value = AuthUiState.AwaitingTotp
-                    } else {
-                        // No TOTP — fully logged in
-                        _uiState.value = AuthUiState.Idle
+                    when {
+                        user?.totpEnabled == true -> {
+                            prefs.clearTokens()
+                            _uiState.value = AuthUiState.AwaitingTotp
+                        }
+                        user?.emailVerified == false -> {
+                            _uiState.value = AuthUiState.AwaitingEmailVerification
+                        }
+                        user?.accountStatus == "pending" -> {
+                            _uiState.value = AuthUiState.AccountPending
+                        }
+                        user?.accountStatus == "rejected" -> {
+                            prefs.clearTokens()
+                            _uiState.value = AuthUiState.AccountRejected
+                        }
+                        else -> {
+                            pushToWatch()
+                            _uiState.value = AuthUiState.Idle
+                        }
                     }
                 }
                 .onFailure { e ->
@@ -89,6 +117,7 @@ class AuthViewModel @Inject constructor(
                     // TOTP verified — tokens are already saved, mark as done
                     pendingAccessToken  = null
                     pendingRefreshToken = null
+                    pushToWatch()
                     _uiState.value = AuthUiState.Idle
                 }
                 .onFailure { e ->
@@ -103,15 +132,50 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun register(email: String, password: String) {
+    fun register(email: String, password: String, inviteCode: String? = null) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            runCatching { api.register(UserRegister(email, password)) }
+            runCatching { api.register(UserRegister(email, password, inviteCode?.ifBlank { null })) }
                 .onSuccess { tokens ->
                     prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
-                    _uiState.value = AuthUiState.Idle
+                    val user = runCatching { api.getMe() }.getOrNull()
+                    when {
+                        user?.emailVerified == false -> {
+                            _uiState.value = AuthUiState.AwaitingEmailVerification
+                        }
+                        user?.accountStatus == "pending" -> {
+                            _uiState.value = AuthUiState.AccountPending
+                        }
+                        else -> {
+                            pushToWatch()
+                            _uiState.value = AuthUiState.Idle
+                        }
+                    }
                 }
                 .onFailure { _uiState.value = AuthUiState.Error(it.message ?: "Registration failed") }
+        }
+    }
+
+    fun resendVerification() {
+        viewModelScope.launch {
+            runCatching { api.resendVerification() }
+        }
+    }
+
+    fun checkAccountStatus() {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            val user = runCatching { api.getMe() }.getOrNull()
+            when {
+                user == null -> _uiState.value = AuthUiState.Error("Could not check status")
+                user.emailVerified == false -> _uiState.value = AuthUiState.AwaitingEmailVerification
+                user.accountStatus == "pending" -> _uiState.value = AuthUiState.AccountPending
+                user.accountStatus == "rejected" -> {
+                    prefs.clearTokens()
+                    _uiState.value = AuthUiState.AccountRejected
+                }
+                else -> _uiState.value = AuthUiState.Idle
+            }
         }
     }
 

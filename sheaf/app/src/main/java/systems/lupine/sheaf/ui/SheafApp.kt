@@ -12,6 +12,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
+import systems.lupine.sheaf.ui.auth.AuthUiState
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.auth.LoginScreen
 import systems.lupine.sheaf.ui.groups.GroupDetailScreen
@@ -24,6 +25,9 @@ import systems.lupine.sheaf.ui.importsp.ImportScreen
 import systems.lupine.sheaf.ui.fields.CustomFieldsScreen
 import systems.lupine.sheaf.ui.settings.SettingsScreen
 import systems.lupine.sheaf.ui.settings.SystemEditScreen
+import systems.lupine.sheaf.ui.apikeys.ApiKeysScreen
+import systems.lupine.sheaf.ui.sheafimport.SheafImportScreen
+import systems.lupine.sheaf.ui.admin.AdminPanelScreen
 
 // ── Route constants ───────────────────────────────────────────────────────────
 
@@ -38,7 +42,10 @@ object Routes {
     const val SETTINGS      = "settings"
     const val SYSTEM_EDIT   = "settings/system"
     const val SP_IMPORT      = "settings/import/simplyplural"
+    const val SHEAF_IMPORT   = "settings/import/sheaf"
     const val CUSTOM_FIELDS  = "settings/fields"
+    const val API_KEYS       = "settings/apikeys"
+    const val ADMIN_PANEL    = "settings/admin"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -65,15 +72,19 @@ fun SheafApp(
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
+    val authState by authViewModel.uiState.collectAsState()
     val navController = rememberNavController()
 
-    // React to login state changes
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) {
+    // React to login state changes — but not during gate states
+    val isGated = authState is AuthUiState.AwaitingEmailVerification ||
+                  authState is AuthUiState.AccountPending ||
+                  authState is AuthUiState.AccountRejected
+    LaunchedEffect(isLoggedIn, isGated) {
+        if (isLoggedIn && !isGated) {
             navController.navigate(Routes.HOME) {
                 popUpTo(Routes.LOGIN) { inclusive = true }
             }
-        } else {
+        } else if (!isLoggedIn) {
             navController.navigate(Routes.LOGIN) {
                 popUpTo(0) { inclusive = true }
             }
@@ -157,6 +168,9 @@ fun SheafApp(
                     onNavigateToSystemEdit = { navController.navigate(Routes.SYSTEM_EDIT) },
                     onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
                     onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
+                    onNavigateToApiKeys = { navController.navigate(Routes.API_KEYS) },
+                    onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
+                    onNavigateToAdminPanel = { navController.navigate(Routes.ADMIN_PANEL) },
                 )
             }
             composable(Routes.SYSTEM_EDIT) {
@@ -167,6 +181,15 @@ fun SheafApp(
             }
             composable(Routes.CUSTOM_FIELDS) {
                 CustomFieldsScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.API_KEYS) {
+                ApiKeysScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.SHEAF_IMPORT) {
+                SheafImportScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.ADMIN_PANEL) {
+                AdminPanelScreen(onNavigateUp = { navController.navigateUp() })
             }
         }
     }
