@@ -52,12 +52,13 @@ jobs:
             ./gradlew assembleDebug
           fi
 
-      - name: Locate APK
+      - name: Locate APKs
         id: apk
         run: |
-          APK=$(find sheaf/app/build/outputs/apk -name "*.apk" | head -1)
-          echo "path=$APK" >> "$GITHUB_OUTPUT"
-          echo "name=$(basename $APK)" >> "$GITHUB_OUTPUT"
+          APP_APK=$(find sheaf/app/build/outputs/apk -name "*.apk" | head -1)
+          WEAR_APK=$(find sheaf/wear/build/outputs/apk -name "*.apk" | head -1)
+          echo "app_path=$APP_APK" >> "$GITHUB_OUTPUT"
+          echo "wear_path=$WEAR_APK" >> "$GITHUB_OUTPUT"
 
       - name: Update dev release
         uses: softprops/action-gh-release@v2
@@ -70,4 +71,6 @@ jobs:
             Automated development build from commit ${{ github.sha }}.
 
             Built from branch `${{ github.ref_name }}` on ${{ github.run_id }}.
-          files: ${{ steps.apk.outputs.path }}
+          files: |
+            ${{ steps.apk.outputs.app_path }}
+            ${{ steps.apk.outputs.wear_path }}
