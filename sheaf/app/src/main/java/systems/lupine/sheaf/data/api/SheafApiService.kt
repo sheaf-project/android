@@ -6,6 +6,11 @@ import retrofit2.http.*
 
 interface SheafApiService {
 
+    // ── Auth config ───────────────────────────────────────────────────────────
+
+    @GET("/v1/auth/config")
+    suspend fun getAuthConfig(): AuthConfig
+
     // ── Auth ──────────────────────────────────────────────────────────────────
 
     @POST("/v1/auth/register")
@@ -18,19 +23,56 @@ interface SheafApiService {
     suspend fun logout()
 
     @POST("/v1/auth/totp/setup")
-    suspend fun setupTotp(): systems.lupine.sheaf.data.model.TOTPSetupResponse
+    suspend fun setupTotp(): TOTPSetupResponse
 
     @POST("/v1/auth/totp/verify")
-    suspend fun verifyTotp(@Body body: systems.lupine.sheaf.data.model.TOTPVerify)
+    suspend fun verifyTotp(@Body body: TOTPVerify)
 
     @POST("/v1/auth/totp/disable")
-    suspend fun disableTotp(@Body body: systems.lupine.sheaf.data.model.TOTPDisable)
+    suspend fun disableTotp(@Body body: TOTPDisable)
+
+    @POST("/v1/auth/totp/regenerate-recovery-codes")
+    suspend fun regenerateTotpRecoveryCodes(@Body body: TOTPVerify): TOTPRecoveryCodes
 
     @POST("/v1/auth/refresh")
     suspend fun refresh(@Body body: TokenRefresh): TokenResponse
 
     @GET("/v1/auth/me")
     suspend fun getMe(): UserRead
+
+    @POST("/v1/auth/request-password-reset")
+    suspend fun requestPasswordReset(@Body body: PasswordResetRequest)
+
+    @POST("/v1/auth/reset-password")
+    suspend fun resetPassword(@Body body: PasswordReset)
+
+    @POST("/v1/auth/resend-verification")
+    suspend fun resendVerification()
+
+    // ── API Keys ──────────────────────────────────────────────────────────────
+
+    @GET("/v1/auth/keys")
+    suspend fun listApiKeys(): List<ApiKeyRead>
+
+    @POST("/v1/auth/keys")
+    suspend fun createApiKey(@Body body: ApiKeyCreate): ApiKeyCreated
+
+    @DELETE("/v1/auth/keys/{id}")
+    suspend fun revokeApiKey(@Path("id") id: String)
+
+    // ── Sessions ──────────────────────────────────────────────────────────────
+
+    @GET("/v1/auth/sessions")
+    suspend fun listSessions(): List<SessionRead>
+
+    @PATCH("/v1/auth/sessions/{id}")
+    suspend fun renameSession(@Path("id") id: String, @Body body: SessionUpdate)
+
+    @DELETE("/v1/auth/sessions/{id}")
+    suspend fun revokeSession(@Path("id") id: String)
+
+    @POST("/v1/auth/sessions/revoke-others")
+    suspend fun revokeOtherSessions()
 
     // ── System ────────────────────────────────────────────────────────────────
 
@@ -103,7 +145,24 @@ interface SheafApiService {
         @Body body: GroupMemberUpdate,
     ): List<MemberRead>
 
-    // ── Custom Fields ─────────────────────────────────────────────────────────────
+    // ── Tags ──────────────────────────────────────────────────────────────────
+
+    @GET("/v1/tags")
+    suspend fun listTags(): List<TagRead>
+
+    @POST("/v1/tags")
+    suspend fun createTag(@Body body: TagCreate): TagRead
+
+    @GET("/v1/tags/{id}")
+    suspend fun getTag(@Path("id") id: String): TagRead
+
+    @PATCH("/v1/tags/{id}")
+    suspend fun updateTag(@Path("id") id: String, @Body body: TagUpdate): TagRead
+
+    @DELETE("/v1/tags/{id}")
+    suspend fun deleteTag(@Path("id") id: String)
+
+    // ── Custom Fields ─────────────────────────────────────────────────────────
 
     @GET("/v1/fields")
     suspend fun listFields(): List<CustomFieldRead>
@@ -117,11 +176,34 @@ interface SheafApiService {
     @DELETE("/v1/fields/{id}")
     suspend fun deleteField(@Path("id") id: String)
 
-    // ── Files ─────────────────────────────────────────────────────────────────────
+    // ── Files ─────────────────────────────────────────────────────────────────
 
     @Multipart
     @POST("/v1/files/upload")
     suspend fun uploadFile(@Part file: MultipartBody.Part): FileUploadResponse
+
+    @GET("/v1/files/usage")
+    suspend fun getFileUsage(): FileUsage
+
+    @GET("/v1/files/list")
+    suspend fun listFiles(): List<FileRead>
+
+    @DELETE("/v1/files/{id}")
+    suspend fun deleteFile(@Path("id") id: String)
+
+    // ── Client Settings ───────────────────────────────────────────────────────
+
+    @GET("/v1/settings/client/{clientId}")
+    suspend fun getClientSettings(@Path("clientId") clientId: String): ClientSettingsResponse
+
+    @PUT("/v1/settings/client/{clientId}")
+    suspend fun saveClientSettings(
+        @Path("clientId") clientId: String,
+        @Body body: ClientSettingsBody,
+    ): ClientSettingsResponse
+
+    @DELETE("/v1/settings/client/{clientId}")
+    suspend fun deleteClientSettings(@Path("clientId") clientId: String)
 
     // ── Export ────────────────────────────────────────────────────────────────
 
@@ -147,4 +229,59 @@ interface SheafApiService {
         @Query("member_ids") memberIds: String?,
         @Part file: MultipartBody.Part,
     ): SPImportResult
+
+    // ── Sheaf import ──────────────────────────────────────────────────────────
+
+    @Multipart
+    @POST("/v1/import/sheaf/preview")
+    suspend fun previewSheafImport(
+        @Part file: MultipartBody.Part,
+    ): SheafPreviewSummary
+
+    @Multipart
+    @POST("/v1/import/sheaf")
+    suspend fun runSheafImport(
+        @Query("system_profile") systemProfile: Boolean,
+        @Query("fronts") fronts: Boolean,
+        @Query("groups") groups: Boolean,
+        @Query("tags") tags: Boolean,
+        @Query("custom_fields") customFields: Boolean,
+        @Query("member_ids") memberIds: String?,
+        @Part file: MultipartBody.Part,
+    ): SheafImportResult
+
+    // ── Admin ─────────────────────────────────────────────────────────────────
+
+    @GET("/v1/admin/auth")
+    suspend fun getAdminAuthStatus(): AdminAuthStatus
+
+    @POST("/v1/admin/auth")
+    suspend fun adminStepUp(@Body body: AdminStepUpVerify)
+
+    @GET("/v1/admin/stats")
+    suspend fun getAdminStats(): AdminStats
+
+    @GET("/v1/admin/users")
+    suspend fun getAdminUsers(@Query("search") search: String? = null): List<AdminUserRead>
+
+    @PATCH("/v1/admin/users/{id}")
+    suspend fun updateAdminUser(@Path("id") id: String, @Body body: AdminUserUpdate): AdminUserRead
+
+    @GET("/v1/admin/approvals")
+    suspend fun getApprovals(): List<PendingUserRead>
+
+    @POST("/v1/admin/users/{id}/approve")
+    suspend fun approveUser(@Path("id") id: String)
+
+    @POST("/v1/admin/users/{id}/reject")
+    suspend fun rejectUser(@Path("id") id: String)
+
+    @POST("/v1/admin/retention/run")
+    suspend fun runRetention()
+
+    @POST("/v1/admin/cleanup/run")
+    suspend fun runCleanup()
+
+    @GET("/v1/admin/storage/stats")
+    suspend fun getStorageStats(): Map<String, Any>
 }

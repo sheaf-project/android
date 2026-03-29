@@ -42,7 +42,11 @@ import systems.lupine.sheaf.ui.components.*
 fun SettingsScreen(
     onNavigateToSystemEdit: () -> Unit,
     onNavigateToSpImport: () -> Unit,
+    onNavigateToSheafImport: () -> Unit,
     onNavigateToCustomFields: () -> Unit,
+    onNavigateToApiKeys: () -> Unit,
+    onNavigateToSessions: () -> Unit,
+    onNavigateToAdminPanel: () -> Unit,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -256,6 +260,13 @@ fun SettingsScreen(
                 subtitle = "Import members, groups, and history",
                 onClick = onNavigateToSpImport,
             )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.Upload,
+                title = "Import from Sheaf Export",
+                subtitle = "Restore from a Sheaf JSON backup",
+                onClick = onNavigateToSheafImport,
+            )
 
             // ── Server ───────────────────────────────────────────────────────
             SectionHeader("Server")
@@ -268,6 +279,29 @@ fun SettingsScreen(
 
             // ── Account ──────────────────────────────────────────────────────
             SectionHeader("Account")
+            SettingItem(
+                icon = Icons.Outlined.Key,
+                title = "API Keys",
+                subtitle = "Manage API keys for scripts and integrations",
+                onClick = onNavigateToApiKeys,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.Devices,
+                title = "Active Sessions",
+                subtitle = "View and revoke signed-in devices",
+                onClick = onNavigateToSessions,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            if (state.user?.isAdmin == true) {
+                SettingItem(
+                    icon = Icons.Outlined.AdminPanelSettings,
+                    title = "Admin Panel",
+                    subtitle = null,
+                    onClick = onNavigateToAdminPanel,
+                )
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            }
             SettingItem(
                 icon = Icons.Outlined.Logout,
                 title = "Sign Out",

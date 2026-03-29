@@ -14,13 +14,11 @@ class AuthInterceptor @Inject constructor(
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val token = runBlocking { prefs.accessToken.firstOrNull() }
-        val request = if (token != null) {
-            chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer $token")
-                .build()
-        } else {
-            chain.request()
+        val builder = chain.request().newBuilder()
+            .addHeader("X-Sheaf-Client", "Sheaf Android/1.0.0")
+        if (token != null) {
+            builder.addHeader("Authorization", "Bearer $token")
         }
-        return chain.proceed(request)
+        return chain.proceed(builder.build())
     }
 }

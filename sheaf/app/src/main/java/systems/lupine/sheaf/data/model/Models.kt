@@ -2,14 +2,23 @@ package systems.lupine.sheaf.data.model
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
-import java.time.OffsetDateTime
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AuthConfig(
+    @Json(name = "registration_mode") val registrationMode: String,
+    @Json(name = "invite_codes_enabled") val inviteCodesEnabled: Boolean,
+    @Json(name = "email_verification") val emailVerification: String,
+    @Json(name = "email_enabled") val emailEnabled: Boolean,
+    @Json(name = "base_url") val baseUrl: String?,
+)
 
 @JsonClass(generateAdapter = true)
 data class UserRegister(
     val email: String,
     val password: String,
+    @Json(name = "invite_code") val inviteCode: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -50,13 +59,81 @@ data class TOTPSetupResponse(
 )
 
 @JsonClass(generateAdapter = true)
+data class TOTPRecoveryCodes(
+    @Json(name = "recovery_codes") val recoveryCodes: List<String>,
+)
+
+@JsonClass(generateAdapter = true)
 data class UserRead(
     val id: String,
     val email: String,
     @Json(name = "totp_enabled") val totpEnabled: Boolean,
+    @Json(name = "is_admin") val isAdmin: Boolean,
     val tier: String,
+    @Json(name = "account_status") val accountStatus: String,
+    @Json(name = "email_verified") val emailVerified: Boolean,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "last_login_at") val lastLoginAt: String?,
+)
+
+@JsonClass(generateAdapter = true)
+data class PasswordResetRequest(
+    val email: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class PasswordReset(
+    val token: String,
+    @Json(name = "new_password") val newPassword: String,
+)
+
+// ── API Keys ──────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class ApiKeyCreate(
+    val name: String,
+    val scopes: List<String>,
+    @Json(name = "expires_at") val expiresAt: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiKeyRead(
+    val id: String,
+    val name: String,
+    val scopes: List<String>,
+    @Json(name = "last_used_at") val lastUsedAt: String?,
+    @Json(name = "expires_at") val expiresAt: String?,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class ApiKeyCreated(
+    val id: String,
+    val name: String,
+    val scopes: List<String>,
+    @Json(name = "last_used_at") val lastUsedAt: String?,
+    @Json(name = "expires_at") val expiresAt: String?,
+    @Json(name = "created_at") val createdAt: String,
+    val key: String,
+)
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class SessionRead(
+    val id: String,
+    val nickname: String?,
+    @Json(name = "client_name") val clientName: String,
+    @Json(name = "created_at") val createdAt: String?,
+    @Json(name = "created_ip") val createdIp: String?,
+    @Json(name = "last_active_at") val lastActiveAt: String?,
+    @Json(name = "last_active_ip") val lastActiveIp: String?,
+    @Json(name = "is_current") val isCurrent: Boolean,
+)
+
+@JsonClass(generateAdapter = true)
+data class SessionUpdate(
+    val nickname: String,
 )
 
 // ── System ────────────────────────────────────────────────────────────────────
@@ -192,6 +269,30 @@ data class GroupMemberUpdate(
     @Json(name = "member_ids") val memberIds: List<String>,
 )
 
+// ── Tags ──────────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class TagRead(
+    val id: String,
+    @Json(name = "system_id") val systemId: String,
+    val name: String,
+    val color: String?,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "updated_at") val updatedAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class TagCreate(
+    val name: String,
+    val color: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class TagUpdate(
+    val name: String? = null,
+    val color: String? = null,
+)
+
 // ── Custom Fields ─────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)
@@ -223,8 +324,44 @@ data class CustomFieldUpdate(
     val privacy: String? = null,
 )
 
+// ── Files ─────────────────────────────────────────────────────────────────────
+
 @JsonClass(generateAdapter = true)
-data class FileUploadResponse(val url: String)
+data class FileUploadResponse(
+    val url: String,
+    val key: String,
+    val size: Long,
+)
+
+@JsonClass(generateAdapter = true)
+data class FileUsage(
+    @Json(name = "used_bytes") val usedBytes: Long,
+    @Json(name = "quota_bytes") val quotaBytes: Long,
+    @Json(name = "file_count") val fileCount: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class FileRead(
+    val id: String,
+    val key: String,
+    val url: String,
+    val purpose: String,
+    @Json(name = "content_type") val contentType: String,
+    @Json(name = "size_bytes") val sizeBytes: Long,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+// ── Client Settings ───────────────────────────────────────────────────────────
+// No codegen — settings is arbitrary JSON (Map<String, Any>), handled by KotlinJsonAdapterFactory.
+
+data class ClientSettingsBody(
+    val settings: Map<String, Any>,
+)
+
+data class ClientSettingsResponse(
+    val clientId: String,
+    val settings: Map<String, Any>,
+)
 
 // ── Simply Plural import ──────────────────────────────────────────────────────
 
@@ -256,4 +393,89 @@ data class SPImportResult(
     @Json(name = "custom_fields_imported") val customFieldsImported: Int,
     @Json(name = "notes_skipped") val notesSkipped: Int,
     val warnings: List<String>,
+)
+
+// ── Sheaf import ──────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class SheafPreviewMember(
+    val id: String,
+    val name: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class SheafPreviewSummary(
+    @Json(name = "system_name") val systemName: String?,
+    @Json(name = "member_count") val memberCount: Int,
+    val members: List<SheafPreviewMember>,
+    @Json(name = "front_count") val frontCount: Int,
+    @Json(name = "group_count") val groupCount: Int,
+    @Json(name = "tag_count") val tagCount: Int,
+    @Json(name = "custom_field_count") val customFieldCount: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class SheafImportResult(
+    @Json(name = "members_imported") val membersImported: Int,
+    @Json(name = "fronts_imported") val frontsImported: Int,
+    @Json(name = "groups_imported") val groupsImported: Int,
+    @Json(name = "tags_imported") val tagsImported: Int,
+    @Json(name = "custom_fields_imported") val customFieldsImported: Int,
+    val warnings: List<String>,
+)
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AdminAuthStatus(
+    val level: String,
+    val verified: Boolean,
+    @Json(name = "totp_enabled") val totpEnabled: Boolean,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminStepUpVerify(
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminStats(
+    @Json(name = "total_users") val totalUsers: Int,
+    @Json(name = "total_members") val totalMembers: Int,
+    @Json(name = "total_storage_bytes") val totalStorageBytes: Long,
+    @Json(name = "users_by_tier") val usersByTier: Map<String, Int>,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminUserRead(
+    val id: String,
+    val email: String,
+    val tier: String,
+    @Json(name = "is_admin") val isAdmin: Boolean,
+    @Json(name = "account_status") val accountStatus: String,
+    @Json(name = "email_verified") val emailVerified: Boolean,
+    @Json(name = "signup_ip") val signupIp: String?,
+    @Json(name = "member_limit") val memberLimit: Int?,
+    @Json(name = "storage_used_bytes") val storageUsedBytes: Long,
+    @Json(name = "member_count") val memberCount: Int,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "last_login_at") val lastLoginAt: String?,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminUserUpdate(
+    val tier: String? = null,
+    @Json(name = "is_admin") val isAdmin: Boolean? = null,
+    @Json(name = "member_limit") val memberLimit: Int? = null,
+    @Json(name = "clear_member_limit") val clearMemberLimit: Boolean? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PendingUserRead(
+    val id: String,
+    val email: String,
+    @Json(name = "email_verified") val emailVerified: Boolean,
+    @Json(name = "signup_ip") val signupIp: String?,
+    @Json(name = "created_at") val createdAt: String,
 )
