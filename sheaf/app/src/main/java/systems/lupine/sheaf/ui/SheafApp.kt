@@ -12,8 +12,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
-import systems.lupine.sheaf.ui.admin.AdminPanelScreen
-import systems.lupine.sheaf.ui.apikeys.ApiKeysScreen
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.auth.LoginScreen
 import systems.lupine.sheaf.ui.groups.GroupDetailScreen
@@ -26,8 +24,6 @@ import systems.lupine.sheaf.ui.importsp.ImportScreen
 import systems.lupine.sheaf.ui.fields.CustomFieldsScreen
 import systems.lupine.sheaf.ui.settings.SettingsScreen
 import systems.lupine.sheaf.ui.settings.SystemEditScreen
-import systems.lupine.sheaf.ui.sessions.SessionsScreen
-import systems.lupine.sheaf.ui.sheafimport.SheafImportScreen
 
 // ── Route constants ───────────────────────────────────────────────────────────
 
@@ -177,20 +173,8 @@ fun SheafApp(
             composable(Routes.SP_IMPORT) {
                 ImportScreen(onNavigateUp = { navController.navigateUp() })
             }
-            composable(Routes.SHEAF_IMPORT) {
-                SheafImportScreen(onNavigateUp = { navController.navigateUp() })
-            }
             composable(Routes.CUSTOM_FIELDS) {
                 CustomFieldsScreen(onNavigateUp = { navController.navigateUp() })
-            }
-            composable(Routes.API_KEYS) {
-                ApiKeysScreen(onNavigateUp = { navController.navigateUp() })
-            }
-            composable(Routes.SESSIONS) {
-                SessionsScreen(onNavigateUp = { navController.navigateUp() })
-            }
-            composable(Routes.ADMIN_PANEL) {
-                AdminPanelScreen(onNavigateUp = { navController.navigateUp() })
             }
         }
     }
