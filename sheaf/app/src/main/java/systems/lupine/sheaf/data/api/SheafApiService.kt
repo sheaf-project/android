@@ -304,4 +304,21 @@ interface SheafApiService {
 
     @GET("/v1/admin/storage/stats")
     suspend fun getStorageStats(): Map<String, Any>
+
+    // ── Admin account recovery ────────────────────────────────────────────────
+
+    @POST("/v1/admin/users/{id}/reset-password")
+    suspend fun adminResetPassword(@Path("id") id: String, @Body body: AdminResetPasswordRequest)
+
+    @POST("/v1/admin/users/{id}/change-email")
+    suspend fun adminChangeEmail(@Path("id") id: String, @Body body: AdminChangeEmailRequest)
+
+    @POST("/v1/admin/users/{id}/disable-totp")
+    suspend fun adminDisableTotp(@Path("id") id: String)
+
+    @POST("/v1/admin/users/{id}/verify-email")
+    suspend fun adminVerifyEmail(@Path("id") id: String)
+
+    @POST("/v1/admin/users/{id}/cancel-deletion")
+    suspend fun adminCancelDeletion(@Path("id") id: String)
 }

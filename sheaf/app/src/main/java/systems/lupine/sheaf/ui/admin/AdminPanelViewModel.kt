@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.AdminAuthStatus
+import systems.lupine.sheaf.data.model.AdminChangeEmailRequest
+import systems.lupine.sheaf.data.model.AdminResetPasswordRequest
 import systems.lupine.sheaf.data.model.AdminStats
 import systems.lupine.sheaf.data.model.AdminStepUpVerify
 import systems.lupine.sheaf.data.model.AdminUserRead
@@ -31,6 +33,7 @@ data class AdminPanelUiState(
     val maintenanceMessage: String? = null,
     val isCreatingInvite: Boolean = false,
     val createInviteError: String? = null,
+    val recoveryMessage: String? = null,
 )
 
 @HiltViewModel
@@ -180,8 +183,85 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
+    fun resetPassword(userId: String, newPassword: String?) {
+        viewModelScope.launch {
+            runCatching { api.adminResetPassword(userId, AdminResetPasswordRequest(newPassword?.ifBlank { null })) }
+                .onSuccess { _state.update { it.copy(recoveryMessage = "Password reset successfully") } }
+                .onFailure { e ->
+                    val msg = if (e is HttpException && e.code() == 403) "Insufficient permissions"
+                              else e.message ?: "Failed to reset password"
+                    _state.update { it.copy(error = msg) }
+                }
+        }
+    }
+
+    fun changeEmail(userId: String, newEmail: String) {
+        viewModelScope.launch {
+            runCatching { api.adminChangeEmail(userId, AdminChangeEmailRequest(newEmail)) }
+                .onSuccess {
+                    _state.update { s ->
+                        s.copy(
+                            recoveryMessage = "Email changed to $newEmail",
+                            users = s.users.map { if (it.id == userId) it.copy(email = newEmail) else it },
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    val msg = if (e is HttpException && e.code() == 409) "Email already in use"
+                              else e.message ?: "Failed to change email"
+                    _state.update { it.copy(error = msg) }
+                }
+        }
+    }
+
+    fun disableTotp(userId: String) {
+        viewModelScope.launch {
+            runCatching { api.adminDisableTotp(userId) }
+                .onSuccess {
+                    _state.update { s ->
+                        s.copy(
+                            recoveryMessage = "TOTP disabled",
+                            users = s.users.map { if (it.id == userId) it.copy(totpEnabled = false) else it },
+                        )
+                    }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to disable TOTP") } }
+        }
+    }
+
+    fun verifyEmail(userId: String) {
+        viewModelScope.launch {
+            runCatching { api.adminVerifyEmail(userId) }
+                .onSuccess {
+                    _state.update { s ->
+                        s.copy(
+                            recoveryMessage = "Email marked as verified",
+                            users = s.users.map { if (it.id == userId) it.copy(emailVerified = true) else it },
+                        )
+                    }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to verify email") } }
+        }
+    }
+
+    fun cancelDeletion(userId: String) {
+        viewModelScope.launch {
+            runCatching { api.adminCancelDeletion(userId) }
+                .onSuccess {
+                    _state.update { s ->
+                        s.copy(
+                            recoveryMessage = "Account deletion cancelled",
+                            users = s.users.map { if (it.id == userId) it.copy(accountStatus = "active") else it },
+                        )
+                    }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to cancel deletion") } }
+        }
+    }
+
     fun clearError() { _state.update { it.copy(error = null) } }
     fun clearMaintenanceMessage() { _state.update { it.copy(maintenanceMessage = null) } }
     fun clearStepUpError() { _state.update { it.copy(stepUpError = null) } }
     fun clearCreateInviteError() { _state.update { it.copy(createInviteError = null) } }
+    fun clearRecoveryMessage() { _state.update { it.copy(recoveryMessage = null) } }
 }

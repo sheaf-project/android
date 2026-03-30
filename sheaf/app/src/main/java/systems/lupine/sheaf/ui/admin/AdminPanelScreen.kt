@@ -43,6 +43,13 @@ fun AdminPanelScreen(
         }
     }
 
+    state.recoveryMessage?.let { msg ->
+        LaunchedEffect(msg) {
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearRecoveryMessage()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -78,6 +85,15 @@ fun AdminPanelScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                 ) {
                     Text(msg, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+
+            state.recoveryMessage?.let { msg ->
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                ) {
+                    Text(msg, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onTertiaryContainer)
                 }
             }
 
@@ -162,6 +178,11 @@ fun AdminPanelScreen(
                 UserListItem(
                     user = user,
                     onUpdate = { update -> viewModel.updateUser(user.id, update) },
+                    onResetPassword = { newPw -> viewModel.resetPassword(user.id, newPw) },
+                    onChangeEmail = { newEmail -> viewModel.changeEmail(user.id, newEmail) },
+                    onDisableTotp = { viewModel.disableTotp(user.id) },
+                    onVerifyEmail = { viewModel.verifyEmail(user.id) },
+                    onCancelDeletion = { viewModel.cancelDeletion(user.id) },
                 )
                 HorizontalDivider()
             }
@@ -285,7 +306,15 @@ private fun StepUpSection(
 }
 
 @Composable
-private fun UserListItem(user: systems.lupine.sheaf.data.model.AdminUserRead, onUpdate: (AdminUserUpdate) -> Unit) {
+private fun UserListItem(
+    user: systems.lupine.sheaf.data.model.AdminUserRead,
+    onUpdate: (AdminUserUpdate) -> Unit,
+    onResetPassword: (String?) -> Unit,
+    onChangeEmail: (String) -> Unit,
+    onDisableTotp: () -> Unit,
+    onVerifyEmail: () -> Unit,
+    onCancelDeletion: () -> Unit,
+) {
     var showDialog by remember { mutableStateOf(false) }
 
     Surface(onClick = { showDialog = true }, modifier = Modifier.fillMaxWidth()) {
@@ -306,10 +335,16 @@ private fun UserListItem(user: systems.lupine.sheaf.data.model.AdminUserRead, on
     }
 
     if (showDialog) {
-        UserEditDialog(user = user, onDismiss = { showDialog = false }, onSave = { update ->
-            onUpdate(update)
-            showDialog = false
-        })
+        UserEditDialog(
+            user = user,
+            onDismiss = { showDialog = false },
+            onSave = { update -> onUpdate(update); showDialog = false },
+            onResetPassword = { newPw -> onResetPassword(newPw); showDialog = false },
+            onChangeEmail = { newEmail -> onChangeEmail(newEmail); showDialog = false },
+            onDisableTotp = { onDisableTotp(); showDialog = false },
+            onVerifyEmail = { onVerifyEmail(); showDialog = false },
+            onCancelDeletion = { onCancelDeletion(); showDialog = false },
+        )
     }
 }
 
@@ -318,16 +353,30 @@ private fun UserEditDialog(
     user: systems.lupine.sheaf.data.model.AdminUserRead,
     onDismiss: () -> Unit,
     onSave: (AdminUserUpdate) -> Unit,
+    onResetPassword: (String?) -> Unit,
+    onChangeEmail: (String) -> Unit,
+    onDisableTotp: () -> Unit,
+    onVerifyEmail: () -> Unit,
+    onCancelDeletion: () -> Unit,
 ) {
     var tier by remember { mutableStateOf(user.tier) }
     var isAdmin by remember { mutableStateOf(user.isAdmin) }
     var memberLimitText by remember { mutableStateOf(user.memberLimit?.toString() ?: "") }
 
+    var showResetPasswordDialog by remember { mutableStateOf(false) }
+    var showChangeEmailDialog by remember { mutableStateOf(false) }
+    var confirmDisableTotp by remember { mutableStateOf(false) }
+    var confirmVerifyEmail by remember { mutableStateOf(false) }
+    var confirmCancelDeletion by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(user.email, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
                 Text("Tier", style = MaterialTheme.typography.labelMedium)
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     listOf("free", "plus", "self_hosted").forEachIndexed { index, t ->
@@ -350,6 +399,40 @@ private fun UserEditDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                HorizontalDivider()
+                Text(
+                    "Recovery Tools",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = { showResetPasswordDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Reset Password") }
+                OutlinedButton(
+                    onClick = { showChangeEmailDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Change Email") }
+                if (!user.emailVerified) {
+                    OutlinedButton(
+                        onClick = { confirmVerifyEmail = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Mark Email Verified") }
+                }
+                if (user.totpEnabled) {
+                    OutlinedButton(
+                        onClick = { confirmDisableTotp = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Disable TOTP") }
+                }
+                if (user.accountStatus.contains("delet", ignoreCase = true)) {
+                    OutlinedButton(
+                        onClick = { confirmCancelDeletion = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Cancel Account Deletion") }
+                }
             }
         },
         confirmButton = {
@@ -361,6 +444,123 @@ private fun UserEditDialog(
                     clearMemberLimit = if (memberLimitText.isBlank() && user.memberLimit != null) true else null,
                 ))
             }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+
+    if (showResetPasswordDialog) {
+        ResetPasswordDialog(
+            onConfirm = { newPw -> onResetPassword(newPw); showResetPasswordDialog = false },
+            onDismiss = { showResetPasswordDialog = false },
+        )
+    }
+
+    if (showChangeEmailDialog) {
+        ChangeEmailDialog(
+            onConfirm = { newEmail -> onChangeEmail(newEmail); showChangeEmailDialog = false },
+            onDismiss = { showChangeEmailDialog = false },
+        )
+    }
+
+    if (confirmDisableTotp) {
+        AlertDialog(
+            onDismissRequest = { confirmDisableTotp = false },
+            title = { Text("Disable TOTP?") },
+            text = { Text("This will remove two-factor authentication from the account. The user will need to re-enroll if they want it back.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { onDisableTotp(); confirmDisableTotp = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Disable") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDisableTotp = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (confirmVerifyEmail) {
+        AlertDialog(
+            onDismissRequest = { confirmVerifyEmail = false },
+            title = { Text("Verify Email?") },
+            text = { Text("Mark ${user.email} as verified without requiring the user to click a verification link.") },
+            confirmButton = {
+                TextButton(onClick = { onVerifyEmail(); confirmVerifyEmail = false }) { Text("Verify") }
+            },
+            dismissButton = { TextButton(onClick = { confirmVerifyEmail = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (confirmCancelDeletion) {
+        AlertDialog(
+            onDismissRequest = { confirmCancelDeletion = false },
+            title = { Text("Cancel Deletion?") },
+            text = { Text("Restore ${user.email} and cancel the scheduled account deletion.") },
+            confirmButton = {
+                TextButton(onClick = { onCancelDeletion(); confirmCancelDeletion = false }) { Text("Cancel Deletion") }
+            },
+            dismissButton = { TextButton(onClick = { confirmCancelDeletion = false }) { Text("Dismiss") } },
+        )
+    }
+}
+
+@Composable
+private fun ResetPasswordDialog(
+    onConfirm: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var newPassword by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reset Password") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Leave blank to generate a random password (the user will need to use \"Forgot Password\" to regain access).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("New password (optional)") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(newPassword.ifBlank { null }) }) { Text("Reset") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun ChangeEmailDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var newEmail by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Change Email") },
+        text = {
+            OutlinedTextField(
+                value = newEmail,
+                onValueChange = { newEmail = it },
+                label = { Text("New email address") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(newEmail) },
+                enabled = newEmail.contains('@'),
+            ) { Text("Change") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

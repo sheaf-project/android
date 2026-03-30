@@ -92,6 +92,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun submitTotp(code: String) {
+        if (pendingAccessToken == null) return
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             // pendingToken is already set from login() — no prefs write needed

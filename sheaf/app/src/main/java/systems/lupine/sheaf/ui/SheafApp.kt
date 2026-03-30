@@ -22,6 +22,7 @@ import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
 import systems.lupine.sheaf.ui.importsp.ImportScreen
 import systems.lupine.sheaf.ui.fields.CustomFieldsScreen
+import systems.lupine.sheaf.ui.admin.AdminPanelScreen
 import systems.lupine.sheaf.ui.settings.SettingsScreen
 import systems.lupine.sheaf.ui.settings.SystemEditScreen
 
@@ -178,6 +179,9 @@ fun SheafApp(
             }
             composable(Routes.CUSTOM_FIELDS) {
                 CustomFieldsScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.ADMIN_PANEL) {
+                AdminPanelScreen(onNavigateUp = { navController.navigateUp() })
             }
         }
     }

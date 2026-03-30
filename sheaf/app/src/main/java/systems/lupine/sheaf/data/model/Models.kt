@@ -489,6 +489,7 @@ data class AdminUserRead(
     @Json(name = "is_admin") val isAdmin: Boolean,
     @Json(name = "account_status") val accountStatus: String,
     @Json(name = "email_verified") val emailVerified: Boolean,
+    @Json(name = "totp_enabled") val totpEnabled: Boolean,
     @Json(name = "signup_ip") val signupIp: String?,
     @Json(name = "member_limit") val memberLimit: Int?,
     @Json(name = "storage_used_bytes") val storageUsedBytes: Long,
@@ -512,4 +513,14 @@ data class PendingUserRead(
     @Json(name = "email_verified") val emailVerified: Boolean,
     @Json(name = "signup_ip") val signupIp: String?,
     @Json(name = "created_at") val createdAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminResetPasswordRequest(
+    @Json(name = "new_password") val newPassword: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminChangeEmailRequest(
+    @Json(name = "new_email") val newEmail: String,
 )
