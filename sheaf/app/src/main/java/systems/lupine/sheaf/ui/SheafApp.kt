@@ -77,7 +77,10 @@ fun SheafApp(
             navController.navigate(Routes.HOME) {
                 popUpTo(Routes.LOGIN) { inclusive = true }
             }
-        } else {
+        } else if (navController.currentDestination?.route != Routes.LOGIN) {
+            // Only navigate to login if we're not already there — avoids destroying the
+            // LoginScreen (and its pending auth state) when tokens are temporarily cleared
+            // mid-flow (TOTP, email verification).
             navController.navigate(Routes.LOGIN) {
                 popUpTo(0) { inclusive = true }
             }

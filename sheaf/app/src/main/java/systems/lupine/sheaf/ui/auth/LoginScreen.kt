@@ -32,6 +32,7 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val savedBaseUrl by viewModel.baseUrl.collectAsState()
+    val authConfig by viewModel.authConfig.collectAsState()
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) onLoginSuccess()
@@ -41,6 +42,7 @@ fun LoginScreen(
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var inviteCode by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf("login") }
     val focusManager = LocalFocusManager.current
@@ -83,9 +85,10 @@ fun LoginScreen(
 
         AnimatedContent(
             targetState = when {
-                showTotp        -> "totp"
-                step == "url"   -> "url"
-                else            -> "auth"
+                showTotp                                          -> "totp"
+                uiState is AuthUiState.AwaitingEmailVerification -> "email-verify"
+                step == "url"                                    -> "url"
+                else                                             -> "auth"
             },
             label = "step",
         ) { currentStep ->
@@ -109,12 +112,15 @@ fun LoginScreen(
                     onTogglePassword = { passwordVisible = !passwordVisible },
                     mode = mode,
                     onModeChange = { mode = it; viewModel.clearError() },
+                    inviteCode = inviteCode,
+                    onInviteCodeChange = { inviteCode = it },
+                    showInviteCode = mode == "register" && authConfig?.registrationMode == "invite",
                     isLoading = isLoading,
                     error = (uiState as? AuthUiState.Error)?.message,
                     onSubmit = {
                         focusManager.clearFocus()
                         if (mode == "login") viewModel.login(email, password)
-                        else viewModel.register(email, password)
+                        else viewModel.register(email, password, inviteCode)
                     },
                 )
                 "totp" -> TotpStep(
@@ -125,6 +131,16 @@ fun LoginScreen(
                         viewModel.submitTotp(code)
                     },
                     onCancel = { viewModel.cancelTotp() },
+                )
+                "email-verify" -> EmailVerifyStep(
+                    isLoading = isLoading,
+                    error = (uiState as? AuthUiState.Error)?.message,
+                    onVerify = { token ->
+                        focusManager.clearFocus()
+                        viewModel.verifyEmail(token)
+                    },
+                    onResend = { viewModel.resendVerificationEmail() },
+                    onCancel = { viewModel.cancelEmailVerification() },
                 )
             }
         }
@@ -180,6 +196,9 @@ private fun AuthStep(
     onTogglePassword: () -> Unit,
     mode: String,
     onModeChange: (String) -> Unit,
+    inviteCode: String,
+    onInviteCodeChange: (String) -> Unit,
+    showInviteCode: Boolean,
     isLoading: Boolean,
     error: String?,
     onSubmit: () -> Unit,
@@ -210,8 +229,8 @@ private fun AuthStep(
         OutlinedTextField(
             value = password, onValueChange = onPasswordChange, label = { Text("Password") }, singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = if (showInviteCode) ImeAction.Next else ImeAction.Done),
+            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }, onDone = { onSubmit() }),
             trailingIcon = {
                 IconButton(onClick = onTogglePassword) {
                     Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
@@ -219,6 +238,17 @@ private fun AuthStep(
             },
             modifier = Modifier.fillMaxWidth(),
         )
+        if (showInviteCode) {
+            OutlinedTextField(
+                value = inviteCode,
+                onValueChange = onInviteCodeChange,
+                label = { Text("Invite Code") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Button(onClick = onSubmit, enabled = !isLoading && email.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) {
             if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
             else Text(if (mode == "login") "Sign In" else "Create Account")
@@ -299,6 +329,73 @@ private fun TotpStep(
 
         TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
             Text("Back to sign in")
+        }
+    }
+}
+
+// ── Step 4: email verification ────────────────────────────────────────────────
+
+@Composable
+private fun EmailVerifyStep(
+    isLoading: Boolean,
+    error: String?,
+    onVerify: (String) -> Unit,
+    onResend: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    var token by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            modifier = Modifier.size(56.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("✉️", style = MaterialTheme.typography.headlineMedium)
+            }
+        }
+
+        Text(
+            "Check your email",
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Text(
+            "We've sent a verification link to your email address. Paste the token from the link below.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+
+        if (error != null) ErrorBanner(error)
+
+        OutlinedTextField(
+            value = token,
+            onValueChange = { token = it },
+            label = { Text("Verification token") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { if (token.isNotBlank()) onVerify(token) }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Button(
+            onClick = { onVerify(token) },
+            enabled = !isLoading && token.isNotBlank(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+            else Text("Verify Email")
+        }
+
+        OutlinedButton(
+            onClick = onResend,
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Resend Email") }
+
+        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+            Text("Cancel")
         }
     }
 }

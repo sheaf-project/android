@@ -8,6 +8,8 @@ import systems.lupine.sheaf.data.model.AdminStats
 import systems.lupine.sheaf.data.model.AdminStepUpVerify
 import systems.lupine.sheaf.data.model.AdminUserRead
 import systems.lupine.sheaf.data.model.AdminUserUpdate
+import systems.lupine.sheaf.data.model.InviteCodeCreate
+import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.data.model.PendingUserRead
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -21,11 +23,14 @@ data class AdminPanelUiState(
     val stats: AdminStats? = null,
     val users: List<AdminUserRead> = emptyList(),
     val approvals: List<PendingUserRead> = emptyList(),
+    val invites: List<InviteCodeRead> = emptyList(),
     val error: String? = null,
     val isSteppingUp: Boolean = false,
     val stepUpError: String? = null,
     val search: String = "",
     val maintenanceMessage: String? = null,
+    val isCreatingInvite: Boolean = false,
+    val createInviteError: String? = null,
 )
 
 @HiltViewModel
@@ -79,15 +84,39 @@ class AdminPanelViewModel @Inject constructor(
                 val stats = api.getAdminStats()
                 val users = api.getAdminUsers()
                 val approvals = api.getApprovals()
-                Triple(stats, users, approvals)
+                val invites = api.listInvites()
+                Triple(stats to invites, users, approvals)
             }
-                .onSuccess { (stats, users, approvals) ->
-                    _state.update { it.copy(stats = stats, users = users, approvals = approvals) }
+                .onSuccess { (statsAndInvites, users, approvals) ->
+                    val (stats, invites) = statsAndInvites
+                    _state.update { it.copy(stats = stats, users = users, approvals = approvals, invites = invites) }
                 }
-
                 .onFailure { e ->
                     _state.update { it.copy(error = e.message ?: "Failed to load admin data") }
                 }
+        }
+    }
+
+    fun createInvite(maxUses: Int, note: String?, expiresAt: String?) {
+        viewModelScope.launch {
+            _state.update { it.copy(isCreatingInvite = true, createInviteError = null) }
+            runCatching {
+                api.createInvite(InviteCodeCreate(maxUses, note?.ifBlank { null }, expiresAt?.ifBlank { null }))
+            }
+                .onSuccess { invite ->
+                    _state.update { it.copy(isCreatingInvite = false, invites = it.invites + invite) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isCreatingInvite = false, createInviteError = e.message ?: "Failed to create invite") }
+                }
+        }
+    }
+
+    fun deleteInvite(id: String) {
+        viewModelScope.launch {
+            runCatching { api.deleteInvite(id) }
+                .onSuccess { _state.update { it.copy(invites = it.invites.filter { i -> i.id != id }) } }
+                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to delete invite") } }
         }
     }
 
@@ -154,4 +183,5 @@ class AdminPanelViewModel @Inject constructor(
     fun clearError() { _state.update { it.copy(error = null) } }
     fun clearMaintenanceMessage() { _state.update { it.copy(maintenanceMessage = null) } }
     fun clearStepUpError() { _state.update { it.copy(stepUpError = null) } }
+    fun clearCreateInviteError() { _state.update { it.copy(createInviteError = null) } }
 }

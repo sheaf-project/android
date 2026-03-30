@@ -3,6 +3,8 @@ package systems.lupine.sheaf.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.model.DeleteAccountRequest
+import systems.lupine.sheaf.data.model.DeleteConfirmationUpdate
 import systems.lupine.sheaf.data.model.SystemRead
 import systems.lupine.sheaf.data.model.TOTPDisable
 import systems.lupine.sheaf.data.model.TOTPSetupResponse
@@ -32,6 +34,16 @@ data class SettingsUiState(
     val totpIsDisabling: Boolean = false,
     val totpCopiedSecret: Boolean = false,
     val totpCopiedCodes: Boolean = false,
+    // Account deletion
+    val isDeletingAccount: Boolean = false,
+    val accountDeletionRequested: Boolean = false,
+    val deletionError: String? = null,
+    // Delete confirmation level
+    val isUpdatingDeleteConfirmation: Boolean = false,
+    val deleteConfirmationError: String? = null,
+    // Email verification
+    val isResendingVerification: Boolean = false,
+    val verificationEmailSent: Boolean = false,
 )
 
 @HiltViewModel
@@ -171,7 +183,63 @@ class SettingsViewModel @Inject constructor(
         ) }
     }
 
+    // ── Account deletion ──────────────────────────────────────────────────────
+
+    fun requestAccountDeletion(password: String, totpCode: String?) {
+        _state.update { it.copy(isDeletingAccount = true, deletionError = null) }
+        viewModelScope.launch {
+            runCatching { api.deleteAccount(DeleteAccountRequest(password, totpCode?.ifBlank { null })) }
+                .onSuccess {
+                    _state.update { it.copy(isDeletingAccount = false, accountDeletionRequested = true) }
+                }
+                .onFailure { e ->
+                    val msg = if (e is HttpException && e.code() in listOf(400, 401))
+                        "Incorrect password or authenticator code"
+                    else
+                        e.message ?: "Failed to request account deletion"
+                    _state.update { it.copy(isDeletingAccount = false, deletionError = msg) }
+                }
+        }
+    }
+
+    // ── Delete confirmation level ─────────────────────────────────────────────
+
+    fun updateDeleteConfirmation(level: String, password: String, totpCode: String?) {
+        _state.update { it.copy(isUpdatingDeleteConfirmation = true, deleteConfirmationError = null) }
+        viewModelScope.launch {
+            runCatching {
+                api.updateDeleteConfirmation(DeleteConfirmationUpdate(level, password, totpCode?.ifBlank { null }))
+            }
+                .onSuccess { system ->
+                    _state.update { it.copy(isUpdatingDeleteConfirmation = false, system = system) }
+                }
+                .onFailure { e ->
+                    val msg = if (e is HttpException && e.code() in listOf(400, 401))
+                        "Incorrect password or authenticator code"
+                    else
+                        e.message ?: "Failed to update deletion protection"
+                    _state.update { it.copy(isUpdatingDeleteConfirmation = false, deleteConfirmationError = msg) }
+                }
+        }
+    }
+
+    // ── Email verification ────────────────────────────────────────────────────
+
+    fun resendVerificationEmail() {
+        _state.update { it.copy(isResendingVerification = true) }
+        viewModelScope.launch {
+            runCatching { api.resendVerification() }
+                .onSuccess { _state.update { it.copy(isResendingVerification = false, verificationEmailSent = true) } }
+                .onFailure { e -> _state.update { it.copy(isResendingVerification = false, error = e.message ?: "Failed to resend verification email") } }
+        }
+    }
+
+    fun clearVerificationEmailSent() { _state.update { it.copy(verificationEmailSent = false) } }
+
     fun clearExport() { _state.update { it.copy(exportJson = null) } }
     fun clearError()  { _state.update { it.copy(error = null) } }
     fun clearTotpError() { _state.update { it.copy(totpError = null) } }
+    fun clearDeletionError() { _state.update { it.copy(deletionError = null) } }
+    fun clearDeleteConfirmationError() { _state.update { it.copy(deleteConfirmationError = null) } }
+    fun clearAccountDeletionRequested() { _state.update { it.copy(accountDeletionRequested = false) } }
 }

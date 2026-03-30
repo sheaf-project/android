@@ -1,6 +1,7 @@
 package systems.lupine.sheaf.di
 
 import android.content.Context
+import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
 import systems.lupine.sheaf.data.api.SheafApiService
@@ -19,8 +20,12 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import java.security.cert.X509Certificate
 import java.util.Date
 import javax.inject.Singleton
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -39,16 +44,33 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         baseUrlInterceptor: BaseUrlInterceptor,
         tokenAuthenticator: TokenAuthenticator,
-    ): OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor(baseUrlInterceptor)
-        .addInterceptor(authInterceptor)
-        .authenticator(tokenAuthenticator)
-        .addInterceptor(
-            HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+    ): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .addInterceptor(baseUrlInterceptor)
+            .addInterceptor(authInterceptor)
+            .authenticator(tokenAuthenticator)
+            .addInterceptor(
+                HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                }
+            )
+
+        if (BuildConfig.DEBUG) {
+            val trustAll = object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+                override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
             }
-        )
-        .build()
+            val sslContext = SSLContext.getInstance("TLS").apply {
+                init(null, arrayOf<TrustManager>(trustAll), null)
+            }
+            builder
+                .sslSocketFactory(sslContext.socketFactory, trustAll)
+                .hostnameVerifier { _, _ -> true }
+        }
+
+        return builder.build()
+    }
 
     @Provides
     @Singleton

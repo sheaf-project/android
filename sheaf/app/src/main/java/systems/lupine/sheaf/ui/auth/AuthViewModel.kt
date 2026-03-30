@@ -2,7 +2,9 @@ package systems.lupine.sheaf.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.model.AuthConfig
 import systems.lupine.sheaf.data.model.TOTPVerify
 import systems.lupine.sheaf.data.model.UserLogin
 import systems.lupine.sheaf.data.model.UserRegister
@@ -18,6 +20,8 @@ sealed interface AuthUiState {
     data object Loading : AuthUiState
     // Login succeeded but TOTP code is required to complete auth
     data object AwaitingTotp : AuthUiState
+    // Registration succeeded but email must be verified before proceeding
+    data object AwaitingEmailVerification : AuthUiState
     data class Error(val message: String) : AuthUiState
 }
 
@@ -25,6 +29,7 @@ sealed interface AuthUiState {
 class AuthViewModel @Inject constructor(
     private val api: SheafApiService,
     private val prefs: PreferencesRepository,
+    private val authInterceptor: AuthInterceptor,
 ) : ViewModel() {
 
     val isLoggedIn: StateFlow<Boolean> = prefs.accessToken
@@ -34,6 +39,11 @@ class AuthViewModel @Inject constructor(
     val baseUrl: StateFlow<String> = prefs.baseUrl
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    val authConfig: StateFlow<AuthConfig?> = baseUrl
+        .filter { it.isNotBlank() }
+        .flatMapLatest { flow { emit(runCatching { api.getAuthConfig() }.getOrNull()) } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -51,23 +61,27 @@ class AuthViewModel @Inject constructor(
             _uiState.value = AuthUiState.Loading
             runCatching { api.login(UserLogin(email, password)) }
                 .onSuccess { tokens ->
-                    // Check if TOTP is required by calling /auth/me with this token.
-                    // Save tokens temporarily, then check totp_enabled.
                     pendingAccessToken = tokens.accessToken
                     pendingRefreshToken = tokens.refreshToken
-                    prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
+                    // Use the in-memory override so AuthInterceptor can attach the token
+                    // for getMe() without writing to DataStore (which would flip isLoggedIn).
+                    authInterceptor.pendingToken = tokens.accessToken
 
                     val user = runCatching { api.getMe() }.getOrNull()
-                    if (user?.totpEnabled == true) {
-                        // Don't mark as fully logged in yet — wait for TOTP
-                        prefs.clearTokens()
-                        _uiState.value = AuthUiState.AwaitingTotp
-                    } else {
-                        // No TOTP — fully logged in
-                        _uiState.value = AuthUiState.Idle
+                    when {
+                        user?.totpEnabled == true -> {
+                            _uiState.value = AuthUiState.AwaitingTotp
+                        }
+                        user?.emailVerified == false && authConfig.value?.emailVerification != "none" -> {
+                            _uiState.value = AuthUiState.AwaitingEmailVerification
+                        }
+                        else -> {
+                            finishAuth()
+                        }
                     }
                 }
                 .onFailure { e ->
+                    authInterceptor.pendingToken = null
                     val message = if (e is HttpException && e.code() == 401)
                         "Invalid email or password"
                     else
@@ -78,22 +92,12 @@ class AuthViewModel @Inject constructor(
     }
 
     fun submitTotp(code: String) {
-        val access  = pendingAccessToken  ?: return
-        val refresh = pendingRefreshToken ?: return
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            // Temporarily save the token so AuthInterceptor can attach it
-            prefs.saveTokens(access, refresh)
+            // pendingToken is already set from login() — no prefs write needed
             runCatching { api.verifyTotp(TOTPVerify(code)) }
-                .onSuccess {
-                    // TOTP verified — tokens are already saved, mark as done
-                    pendingAccessToken  = null
-                    pendingRefreshToken = null
-                    _uiState.value = AuthUiState.Idle
-                }
+                .onSuccess { finishAuth() }
                 .onFailure { e ->
-                    // Clear tokens again — user must retry
-                    prefs.clearTokens()
                     val message = if (e is HttpException && e.code() == 422)
                         "Invalid code — please try again"
                     else
@@ -103,15 +107,46 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun register(email: String, password: String) {
+    fun register(email: String, password: String, inviteCode: String? = null) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            runCatching { api.register(UserRegister(email, password)) }
+            runCatching { api.register(UserRegister(email, password, inviteCode?.ifBlank { null })) }
                 .onSuccess { tokens ->
-                    prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
-                    _uiState.value = AuthUiState.Idle
+                    if (authConfig.value?.emailVerification != "none") {
+                        // Hold tokens in memory — don't persist so isLoggedIn stays false
+                        pendingAccessToken = tokens.accessToken
+                        pendingRefreshToken = tokens.refreshToken
+                        _uiState.value = AuthUiState.AwaitingEmailVerification
+                    } else {
+                        prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
+                        _uiState.value = AuthUiState.Idle
+                    }
                 }
                 .onFailure { _uiState.value = AuthUiState.Error(it.message ?: "Registration failed") }
+        }
+    }
+
+    fun verifyEmail(token: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            // verifyEmail is a public endpoint — no auth needed
+            runCatching { api.verifyEmail(token) }
+                .onSuccess { finishAuth() }
+                .onFailure { e ->
+                    val message = if (e is HttpException && e.code() == 400)
+                        "Invalid or expired token"
+                    else
+                        e.message ?: "Verification failed"
+                    _uiState.value = AuthUiState.Error(message)
+                }
+        }
+    }
+
+    fun resendVerificationEmail() {
+        viewModelScope.launch {
+            // pendingToken already set — AuthInterceptor will attach it without prefs write
+            runCatching { api.resendVerification() }
+            _uiState.value = AuthUiState.AwaitingEmailVerification
         }
     }
 
@@ -119,15 +154,32 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.logout() }
             prefs.clearTokens()
-            pendingAccessToken  = null
-            pendingRefreshToken = null
+            clearPending()
         }
     }
 
     fun cancelTotp() {
-        pendingAccessToken  = null
-        pendingRefreshToken = null
+        clearPending()
         _uiState.value = AuthUiState.Idle
+    }
+
+    fun cancelEmailVerification() {
+        clearPending()
+        _uiState.value = AuthUiState.Idle
+    }
+
+    private suspend fun finishAuth() {
+        val access = pendingAccessToken ?: return
+        val refresh = pendingRefreshToken ?: return
+        prefs.saveTokens(access, refresh)
+        clearPending()
+        _uiState.value = AuthUiState.Idle
+    }
+
+    private fun clearPending() {
+        pendingAccessToken = null
+        pendingRefreshToken = null
+        authInterceptor.pendingToken = null
     }
 
     fun clearError() { _uiState.value = AuthUiState.Idle }

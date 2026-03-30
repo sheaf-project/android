@@ -46,8 +46,14 @@ interface SheafApiService {
     @POST("/v1/auth/reset-password")
     suspend fun resetPassword(@Body body: PasswordReset)
 
+    @GET("/v1/auth/verify-email")
+    suspend fun verifyEmail(@Query("token") token: String)
+
     @POST("/v1/auth/resend-verification")
     suspend fun resendVerification()
+
+    @POST("/v1/auth/delete-account")
+    suspend fun deleteAccount(@Body body: DeleteAccountRequest)
 
     // ── API Keys ──────────────────────────────────────────────────────────────
 
@@ -81,6 +87,9 @@ interface SheafApiService {
 
     @PATCH("/v1/systems/me")
     suspend fun updateOwnSystem(@Body body: SystemUpdate): SystemRead
+
+    @PUT("/v1/systems/me/delete-confirmation")
+    suspend fun updateDeleteConfirmation(@Body body: DeleteConfirmationUpdate): SystemRead
 
     // ── Members ───────────────────────────────────────────────────────────────
 
@@ -249,6 +258,17 @@ interface SheafApiService {
         @Query("member_ids") memberIds: String?,
         @Part file: MultipartBody.Part,
     ): SheafImportResult
+
+    // ── Invite codes ─────────────────────────────────────────────────────────
+
+    @GET("/v1/admin/invites")
+    suspend fun listInvites(): List<InviteCodeRead>
+
+    @POST("/v1/admin/invites")
+    suspend fun createInvite(@Body body: InviteCodeCreate): InviteCodeRead
+
+    @DELETE("/v1/admin/invites/{invite_id}")
+    suspend fun deleteInvite(@Path("invite_id") inviteId: String)
 
     // ── Admin ─────────────────────────────────────────────────────────────────
 

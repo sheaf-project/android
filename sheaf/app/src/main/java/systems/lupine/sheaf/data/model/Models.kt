@@ -87,6 +87,19 @@ data class PasswordReset(
     @Json(name = "new_password") val newPassword: String,
 )
 
+@JsonClass(generateAdapter = true)
+data class DeleteAccountRequest(
+    val password: String,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class DeleteConfirmationUpdate(
+    val level: String,
+    val password: String,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
 // ── API Keys ──────────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)
@@ -147,6 +160,7 @@ data class SystemRead(
     @Json(name = "avatar_url") val avatarUrl: String?,
     val color: String?,
     val privacy: String,
+    @Json(name = "delete_confirmation") val deleteConfirmation: String?,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
 )
@@ -422,6 +436,26 @@ data class SheafImportResult(
     @Json(name = "tags_imported") val tagsImported: Int,
     @Json(name = "custom_fields_imported") val customFieldsImported: Int,
     val warnings: List<String>,
+)
+
+// ── Invite codes ─────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class InviteCodeRead(
+    val id: String,
+    val code: String,
+    @Json(name = "max_uses") val maxUses: Int,
+    @Json(name = "use_count") val useCount: Int,
+    val note: String?,
+    @Json(name = "expires_at") val expiresAt: String?,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class InviteCodeCreate(
+    @Json(name = "max_uses") val maxUses: Int = 0,
+    val note: String? = null,
+    @Json(name = "expires_at") val expiresAt: String? = null,
 )
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

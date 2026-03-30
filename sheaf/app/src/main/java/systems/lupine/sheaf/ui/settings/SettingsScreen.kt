@@ -61,6 +61,8 @@ fun SettingsScreen(
     var showUrlDialog by remember { mutableStateOf(false) }
     var showTotpSheet by remember { mutableStateOf(false) }
     var showDisableTotpDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.exportJson) {
         state.exportJson?.let { json ->
@@ -71,6 +73,14 @@ fun SettingsScreen(
             }
             context.startActivity(Intent.createChooser(intent, "Share export"))
             settingsViewModel.clearExport()
+        }
+    }
+
+    LaunchedEffect(state.accountDeletionRequested) {
+        if (state.accountDeletionRequested) {
+            showDeleteAccountDialog = false
+            settingsViewModel.clearAccountDeletionRequested()
+            authViewModel.logout()
         }
     }
 
@@ -128,6 +138,50 @@ fun SettingsScreen(
 
             if (state.error != null) {
                 ErrorBanner(state.error!!, modifier = Modifier.padding(horizontal = 16.dp))
+            }
+
+            if (state.accountDeletionRequested) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Text(
+                        "Account deletion requested. Your account will be permanently deleted after the grace period. Check your email for confirmation.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+
+            if (state.user?.emailVerified == false) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            if (state.verificationEmailSent) "Verification email sent — check your inbox."
+                            else "Your email address is not verified.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                        if (!state.verificationEmailSent) {
+                            TextButton(
+                                onClick = { settingsViewModel.resendVerificationEmail() },
+                                enabled = !state.isResendingVerification,
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onTertiaryContainer),
+                                contentPadding = PaddingValues(0.dp),
+                            ) {
+                                if (state.isResendingVerification) {
+                                    CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text("Resend verification email", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
             }
 
             // ── Appearance ───────────────────────────────────────────────────
@@ -228,6 +282,13 @@ fun SettingsScreen(
                     onClick = { settingsViewModel.startTotpSetup(); showTotpSheet = true },
                 )
             }
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.Shield,
+                title = "Deletion Protection",
+                subtitle = formatDeleteConfirmation(state.system?.deleteConfirmation),
+                onClick = { showDeleteConfirmationDialog = true },
+            )
 
             // ── System ───────────────────────────────────────────────────────
             SectionHeader("System")
@@ -307,6 +368,14 @@ fun SettingsScreen(
                 title = "Sign Out",
                 subtitle = null,
                 onClick = { showLogoutDialog = true },
+                tint = MaterialTheme.colorScheme.error,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.DeleteForever,
+                title = "Delete Account",
+                subtitle = "Permanently delete your account and all data",
+                onClick = { showDeleteAccountDialog = true },
                 tint = MaterialTheme.colorScheme.error,
             )
 
@@ -419,6 +488,185 @@ fun SettingsScreen(
         )
         LaunchedEffect(state.user?.totpEnabled) {
             if (state.user?.totpEnabled == false) showDisableTotpDialog = false
+        }
+    }
+
+    // ── Delete Account Dialog ─────────────────────────────────────────────────
+
+    if (showDeleteAccountDialog) {
+        val totpEnabled = state.user?.totpEnabled == true
+        var deletePassword by remember { mutableStateOf("") }
+        var deleteTotpCode by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = {
+                if (!state.isDeletingAccount) {
+                    showDeleteAccountDialog = false
+                    settingsViewModel.clearDeletionError()
+                }
+            },
+            icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete Account") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("This will permanently delete your account and all associated data. This action cannot be undone.")
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = { deletePassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (totpEnabled) {
+                        OutlinedTextField(
+                            value = deleteTotpCode,
+                            onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) deleteTotpCode = it },
+                            label = { Text("Authenticator code") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (state.deletionError != null) {
+                        Text(state.deletionError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        settingsViewModel.requestAccountDeletion(
+                            deletePassword,
+                            deleteTotpCode.takeIf { totpEnabled },
+                        )
+                    },
+                    enabled = deletePassword.isNotBlank() &&
+                        (!totpEnabled || deleteTotpCode.length == 6) &&
+                        !state.isDeletingAccount,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    if (state.isDeletingAccount) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Delete Account")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteAccountDialog = false; settingsViewModel.clearDeletionError() },
+                    enabled = !state.isDeletingAccount,
+                ) { Text("Cancel") }
+            },
+        )
+    }
+
+    // ── Delete Confirmation Level Dialog ──────────────────────────────────────
+
+    if (showDeleteConfirmationDialog) {
+        val totpEnabled = state.user?.totpEnabled == true
+        val currentLevel = state.system?.deleteConfirmation ?: "password"
+        var selectedLevel by remember(currentLevel) { mutableStateOf(currentLevel) }
+        var confirmPassword by remember { mutableStateOf("") }
+        var confirmTotpCode by remember { mutableStateOf("") }
+        val levels = listOf(
+            "none" to "None",
+            "password" to "Password",
+            "totp" to "Authenticator Code",
+            "both" to "Password + Authenticator Code",
+        )
+        AlertDialog(
+            onDismissRequest = {
+                if (!state.isUpdatingDeleteConfirmation) {
+                    showDeleteConfirmationDialog = false
+                    settingsViewModel.clearDeleteConfirmationError()
+                }
+            },
+            title = { Text("Deletion Protection") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Choose how much confirmation is required before your account can be deleted.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    levels.forEach { (value, label) ->
+                        val requiresTotp = value == "totp" || value == "both"
+                        if (requiresTotp && !totpEnabled) return@forEach
+                        Surface(
+                            onClick = { selectedLevel = value },
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = selectedLevel == value,
+                                    onClick = { selectedLevel = value },
+                                )
+                                Text(label, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                    Text("Confirm with your credentials:", style = MaterialTheme.typography.labelMedium)
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (totpEnabled) {
+                        OutlinedTextField(
+                            value = confirmTotpCode,
+                            onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) confirmTotpCode = it },
+                            label = { Text("Authenticator code") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (state.deleteConfirmationError != null) {
+                        Text(state.deleteConfirmationError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        settingsViewModel.updateDeleteConfirmation(
+                            selectedLevel,
+                            confirmPassword,
+                            confirmTotpCode.takeIf { totpEnabled },
+                        )
+                    },
+                    enabled = confirmPassword.isNotBlank() &&
+                        (!totpEnabled || confirmTotpCode.length == 6) &&
+                        !state.isUpdatingDeleteConfirmation,
+                ) {
+                    if (state.isUpdatingDeleteConfirmation) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Save")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmationDialog = false; settingsViewModel.clearDeleteConfirmationError() },
+                    enabled = !state.isUpdatingDeleteConfirmation,
+                ) { Text("Cancel") }
+            },
+        )
+        LaunchedEffect(state.isUpdatingDeleteConfirmation) {
+            if (!state.isUpdatingDeleteConfirmation && state.deleteConfirmationError == null && confirmPassword.isNotBlank()) {
+                showDeleteConfirmationDialog = false
+            }
         }
     }
 }
@@ -642,6 +890,14 @@ private fun formatTier(tier: String): String = when (tier) {
     "saas"        -> "SaaS"
     "self_hosted" -> "Self-hosted"
     else          -> tier.split('_').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+}
+
+private fun formatDeleteConfirmation(level: String?): String = when (level) {
+    "none"     -> "None"
+    "password" -> "Password required"
+    "totp"     -> "Authenticator code required"
+    "both"     -> "Password + authenticator code"
+    else       -> "—"
 }
 
 // ── System edit screen ────────────────────────────────────────────────────────

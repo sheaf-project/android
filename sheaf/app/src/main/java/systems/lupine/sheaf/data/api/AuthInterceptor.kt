@@ -12,8 +12,13 @@ import javax.inject.Singleton
 class AuthInterceptor @Inject constructor(
     private val prefs: PreferencesRepository,
 ) : Interceptor {
+
+    // In-memory token used during intermediate auth steps (TOTP, email verification)
+    // so we never have to write to DataStore until fully authenticated.
+    @Volatile var pendingToken: String? = null
+
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = runBlocking { prefs.accessToken.firstOrNull() }
+        val token = pendingToken ?: runBlocking { prefs.accessToken.firstOrNull() }
         val builder = chain.request().newBuilder()
             .addHeader("X-Sheaf-Client", "Sheaf Android/1.0.0")
         if (token != null) {

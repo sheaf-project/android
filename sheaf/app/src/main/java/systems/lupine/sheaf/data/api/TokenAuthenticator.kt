@@ -26,8 +26,11 @@ class TokenAuthenticator @Inject constructor(
     // only one thread does the refresh; the other re-checks the stored token and retries.
     @Synchronized
     override fun authenticate(route: Route?, response: Response): Request? {
-        // Don't retry if the refresh call itself 401s (avoids infinite loops)
-        if (response.request.url.encodedPath.endsWith("/auth/refresh")) return null
+        // Don't retry endpoints where 401 means "wrong password", not "expired token"
+        val path = response.request.url.encodedPath
+        if (path.endsWith("/auth/refresh") ||
+            path.endsWith("/auth/delete-account") ||
+            path.endsWith("/delete-confirmation")) return null
 
         val storedAccessToken = runBlocking { prefs.accessToken.firstOrNull() }
 

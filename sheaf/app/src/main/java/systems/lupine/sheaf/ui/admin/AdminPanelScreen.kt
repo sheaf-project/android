@@ -2,22 +2,29 @@ package systems.lupine.sheaf.ui.admin
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.AdminUserUpdate
+import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
 
@@ -158,6 +165,46 @@ fun AdminPanelScreen(
                 )
                 HorizontalDivider()
             }
+
+            // ── Invite Codes ──────────────────────────────────────────────────
+            var showCreateInviteDialog by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SectionHeader("Invite Codes", modifier = Modifier.weight(1f))
+                IconButton(onClick = { showCreateInviteDialog = true }) {
+                    Icon(Icons.Outlined.Add, contentDescription = "Create invite")
+                }
+            }
+            if (state.invites.isEmpty()) {
+                Text(
+                    "No invite codes",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            state.invites.forEach { invite ->
+                InviteCodeListItem(invite = invite, onDelete = { viewModel.deleteInvite(invite.id) })
+                HorizontalDivider()
+            }
+            if (showCreateInviteDialog) {
+                CreateInviteDialog(
+                    isCreating = state.isCreatingInvite,
+                    error = state.createInviteError,
+                    onCreate = { maxUses, note, expiresAt ->
+                        viewModel.createInvite(maxUses, note, expiresAt)
+                    },
+                    onDismiss = { showCreateInviteDialog = false; viewModel.clearCreateInviteError() },
+                )
+                LaunchedEffect(state.isCreatingInvite) {
+                    if (!state.isCreatingInvite && state.createInviteError == null) {
+                        showCreateInviteDialog = false
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
 
             // ── Maintenance ───────────────────────────────────────────────────
             SectionHeader("Maintenance", modifier = Modifier.padding(horizontal = 16.dp))
@@ -316,6 +363,106 @@ private fun UserEditDialog(
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun InviteCodeListItem(invite: InviteCodeRead, onDelete: () -> Unit) {
+    val clipboardManager = LocalClipboardManager.current
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    Surface(onClick = { clipboardManager.setText(AnnotatedString(invite.code)) }, modifier = Modifier.fillMaxWidth()) {
+        ListItem(
+            headlineContent = {
+                Text(invite.code, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+            },
+            supportingContent = {
+                val uses = if (invite.maxUses == 0) "${invite.useCount} uses (unlimited)"
+                           else "${invite.useCount} / ${invite.maxUses} uses"
+                val expiry = invite.expiresAt?.let { " · expires ${it.take(10)}" } ?: ""
+                val note = invite.note?.let { " · $it" } ?: ""
+                Text(uses + expiry + note, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            },
+            trailingContent = {
+                IconButton(onClick = { confirmDelete = true }) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                }
+            },
+        )
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete invite?") },
+            text = { Text("The code \"${invite.code}\" will be invalidated immediately.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { onDelete(); confirmDelete = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
+private fun CreateInviteDialog(
+    isCreating: Boolean,
+    error: String?,
+    onCreate: (maxUses: Int, note: String?, expiresAt: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var maxUsesText by remember { mutableStateOf("0") }
+    var note by remember { mutableStateOf("") }
+    var expiresAt by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = { if (!isCreating) onDismiss() },
+        title = { Text("Create Invite Code") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = maxUsesText,
+                    onValueChange = { if (it.all { c -> c.isDigit() }) maxUsesText = it },
+                    label = { Text("Max uses (0 = unlimited)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Note (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = expiresAt,
+                    onValueChange = { expiresAt = it },
+                    label = { Text("Expires at (optional)") },
+                    placeholder = { Text("2026-12-31T00:00:00Z") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (error != null) {
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onCreate(maxUsesText.toIntOrNull() ?: 0, note, expiresAt) },
+                enabled = !isCreating,
+            ) {
+                if (isCreating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                else Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isCreating) { Text("Cancel") }
+        },
     )
 }
 
