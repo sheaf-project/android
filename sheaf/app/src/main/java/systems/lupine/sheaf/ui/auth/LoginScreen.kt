@@ -33,6 +33,7 @@ fun LoginScreen(
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val savedBaseUrl by viewModel.baseUrl.collectAsState()
     val authConfig by viewModel.authConfig.collectAsState()
+    val cfClientId by viewModel.cfClientId.collectAsState()
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) onLoginSuccess()
@@ -47,6 +48,9 @@ fun LoginScreen(
     var mode by remember { mutableStateOf("login") }
     val focusManager = LocalFocusManager.current
     val isLoading = uiState is AuthUiState.Loading
+
+    var logoTapCount by remember { mutableIntStateOf(0) }
+    var showCfDialog by remember { mutableStateOf(false) }
 
     // When server demands TOTP, switch to that step
     val showTotp = uiState is AuthUiState.AwaitingTotp
@@ -63,12 +67,34 @@ fun LoginScreen(
         // ── Logo ──────────────────────────────────────────────────────────────
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.primary,
+            color = if (cfClientId.isNotBlank()) MaterialTheme.colorScheme.tertiary
+                    else MaterialTheme.colorScheme.primary,
+            onClick = {
+                logoTapCount++
+                if (logoTapCount >= 10) {
+                    logoTapCount = 0
+                    showCfDialog = true
+                }
+            },
             modifier = Modifier.size(80.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("S", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onPrimary)
+                Text(
+                    "S",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = if (cfClientId.isNotBlank()) MaterialTheme.colorScheme.onTertiary
+                            else MaterialTheme.colorScheme.onPrimary,
+                )
             }
+        }
+
+        if (showCfDialog) {
+            CfAccessDialog(
+                currentClientId = cfClientId,
+                onSave = { id, secret -> viewModel.saveCfTokens(id, secret); showCfDialog = false },
+                onClear = { viewModel.clearCfTokens(); showCfDialog = false },
+                onDismiss = { showCfDialog = false },
+            )
         }
 
         Spacer(Modifier.height(20.dp))
@@ -145,6 +171,66 @@ fun LoginScreen(
             }
         }
     }
+}
+
+// ── Cloudflare Access dialog ──────────────────────────────────────────────────
+
+@Composable
+private fun CfAccessDialog(
+    currentClientId: String,
+    onSave: (clientId: String, clientSecret: String) -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var clientId by remember { mutableStateOf(currentClientId) }
+    var clientSecret by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cloudflare Access") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Set service token headers for servers behind Cloudflare Access.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = clientId,
+                    onValueChange = { clientId = it },
+                    label = { Text("CF-Access-Client-Id") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = clientSecret,
+                    onValueChange = { clientSecret = it },
+                    label = { Text("CF-Access-Client-Secret") },
+                    placeholder = { if (currentClientId.isNotBlank()) Text("Leave blank to keep existing") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(clientId.trim(), clientSecret.trim()) },
+                enabled = clientId.isNotBlank() && (clientSecret.isNotBlank() || currentClientId.isNotBlank()),
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                if (currentClientId.isNotBlank()) {
+                    TextButton(
+                        onClick = onClear,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Clear") }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 // ── Step 1: server URL ────────────────────────────────────────────────────────

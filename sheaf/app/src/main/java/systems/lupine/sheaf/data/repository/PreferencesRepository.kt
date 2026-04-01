@@ -25,6 +25,8 @@ class PreferencesRepository @Inject constructor(
         val KEY_REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val KEY_THEME = stringPreferencesKey("theme")
         val KEY_FRONT_NOTIFICATION = booleanPreferencesKey("front_notification")
+        val KEY_CF_CLIENT_ID = stringPreferencesKey("cf_client_id")
+        val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -32,6 +34,8 @@ class PreferencesRepository @Inject constructor(
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[KEY_REFRESH_TOKEN] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[KEY_THEME] ?: "system" }
     val frontNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_FRONT_NOTIFICATION] ?: false }
+    val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
+    val cfClientSecret: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_SECRET] }
 
     suspend fun saveBaseUrl(url: String) {
         context.dataStore.edit { it[KEY_BASE_URL] = url.trimEnd('/') }
@@ -56,6 +60,20 @@ class PreferencesRepository @Inject constructor(
         context.dataStore.edit {
             it.remove(KEY_ACCESS_TOKEN)
             it.remove(KEY_REFRESH_TOKEN)
+        }
+    }
+
+    suspend fun saveCfTokens(clientId: String, clientSecret: String) {
+        context.dataStore.edit {
+            it[KEY_CF_CLIENT_ID] = clientId
+            it[KEY_CF_CLIENT_SECRET] = clientSecret
+        }
+    }
+
+    suspend fun clearCfTokens() {
+        context.dataStore.edit {
+            it.remove(KEY_CF_CLIENT_ID)
+            it.remove(KEY_CF_CLIENT_SECRET)
         }
     }
 }

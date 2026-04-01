@@ -40,6 +40,10 @@ class AuthViewModel @Inject constructor(
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    val cfClientId: StateFlow<String> = prefs.cfClientId
+        .map { it ?: "" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
     val authConfig: StateFlow<AuthConfig?> = baseUrl
         .filter { it.isNotBlank() }
         .flatMapLatest { flow { emit(runCatching { api.getAuthConfig() }.getOrNull()) } }
@@ -56,6 +60,14 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch { prefs.saveBaseUrl(url) }
     }
 
+    fun saveCfTokens(clientId: String, clientSecret: String) {
+        viewModelScope.launch { prefs.saveCfTokens(clientId, clientSecret) }
+    }
+
+    fun clearCfTokens() {
+        viewModelScope.launch { prefs.clearCfTokens() }
+    }
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
@@ -67,12 +79,13 @@ class AuthViewModel @Inject constructor(
                     // for getMe() without writing to DataStore (which would flip isLoggedIn).
                     authInterceptor.pendingToken = tokens.accessToken
 
+                    val config = authConfig.value ?: runCatching { api.getAuthConfig() }.getOrNull()
                     val user = runCatching { api.getMe() }.getOrNull()
                     when {
                         user?.totpEnabled == true -> {
                             _uiState.value = AuthUiState.AwaitingTotp
                         }
-                        user?.emailVerified == false && authConfig.value?.emailVerification != "none" -> {
+                        user?.emailVerified == false && config?.emailVerification != "none" -> {
                             _uiState.value = AuthUiState.AwaitingEmailVerification
                         }
                         else -> {
@@ -111,9 +124,10 @@ class AuthViewModel @Inject constructor(
     fun register(email: String, password: String, inviteCode: String? = null) {
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
+            val config = authConfig.value ?: runCatching { api.getAuthConfig() }.getOrNull()
             runCatching { api.register(UserRegister(email, password, inviteCode?.ifBlank { null })) }
                 .onSuccess { tokens ->
-                    if (authConfig.value?.emailVerification != "none") {
+                    if (config?.emailVerification != "none") {
                         // Hold tokens in memory — don't persist so isLoggedIn stays false
                         pendingAccessToken = tokens.accessToken
                         pendingRefreshToken = tokens.refreshToken
@@ -123,7 +137,15 @@ class AuthViewModel @Inject constructor(
                         _uiState.value = AuthUiState.Idle
                     }
                 }
-                .onFailure { _uiState.value = AuthUiState.Error(it.message ?: "Registration failed") }
+                .onFailure { e ->
+                    val message = when {
+                        e is HttpException && e.code() == 409 -> "Email already registered"
+                        e is HttpException && e.code() == 403 -> "Registration is not allowed"
+                        e is HttpException && e.code() == 422 -> "Invalid email or password"
+                        else -> e.message ?: "Registration failed"
+                    }
+                    _uiState.value = AuthUiState.Error(message)
+                }
         }
     }
 

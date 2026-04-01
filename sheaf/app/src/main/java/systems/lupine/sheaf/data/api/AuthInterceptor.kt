@@ -19,10 +19,16 @@ class AuthInterceptor @Inject constructor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val token = pendingToken ?: runBlocking { prefs.accessToken.firstOrNull() }
+        val cfClientId = runBlocking { prefs.cfClientId.firstOrNull() }
+        val cfClientSecret = runBlocking { prefs.cfClientSecret.firstOrNull() }
         val builder = chain.request().newBuilder()
             .addHeader("X-Sheaf-Client", "Sheaf Android/1.0.0")
         if (token != null) {
             builder.addHeader("Authorization", "Bearer $token")
+        }
+        if (cfClientId != null && cfClientSecret != null) {
+            builder.addHeader("CF-Access-Client-Id", cfClientId)
+            builder.addHeader("CF-Access-Client-Secret", cfClientSecret)
         }
         return chain.proceed(builder.build())
     }
