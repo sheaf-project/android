@@ -25,6 +25,7 @@ data class UserRegister(
 data class UserLogin(
     val email: String,
     val password: String,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -456,6 +457,59 @@ data class InviteCodeCreate(
     @Json(name = "max_uses") val maxUses: Int = 0,
     val note: String? = null,
     @Json(name = "expires_at") val expiresAt: String? = null,
+)
+
+// ── Announcements ─────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AnnouncementPublic(
+    val id: String,
+    val title: String,
+    val body: String,
+    val severity: String,
+    val dismissible: Boolean,
+    @Json(name = "starts_at") val startsAt: String?,
+    @Json(name = "expires_at") val expiresAt: String?,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class AnnouncementRead(
+    val id: String,
+    val title: String,
+    val body: String,
+    val severity: String,
+    val dismissible: Boolean,
+    val active: Boolean,
+    @Json(name = "starts_at") val startsAt: String?,
+    @Json(name = "expires_at") val expiresAt: String?,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "updated_at") val updatedAt: String,
+    @Json(name = "created_by") val createdBy: String?,
+)
+
+@JsonClass(generateAdapter = true)
+data class AnnouncementCreate(
+    val title: String,
+    val body: String,
+    val severity: String = "info",
+    val dismissible: Boolean = true,
+    val active: Boolean = true,
+    @Json(name = "starts_at") val startsAt: String? = null,
+    @Json(name = "expires_at") val expiresAt: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AnnouncementUpdate(
+    val title: String? = null,
+    val body: String? = null,
+    val severity: String? = null,
+    val dismissible: Boolean? = null,
+    val active: Boolean? = null,
+    @Json(name = "starts_at") val startsAt: String? = null,
+    @Json(name = "expires_at") val expiresAt: String? = null,
+    @Json(name = "clear_starts_at") val clearStartsAt: Boolean = false,
+    @Json(name = "clear_expires_at") val clearExpiresAt: Boolean = false,
 )
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

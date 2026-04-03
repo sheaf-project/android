@@ -259,6 +259,23 @@ interface SheafApiService {
         @Part file: MultipartBody.Part,
     ): SheafImportResult
 
+    // ── Announcements ────────────────────────────────────────────────────────
+
+    @GET("/v1/announcements")
+    suspend fun getAnnouncements(): List<AnnouncementPublic>
+
+    @GET("/v1/admin/announcements")
+    suspend fun listAllAnnouncements(): List<AnnouncementRead>
+
+    @POST("/v1/admin/announcements")
+    suspend fun createAnnouncement(@Body body: AnnouncementCreate): AnnouncementRead
+
+    @PATCH("/v1/admin/announcements/{id}")
+    suspend fun updateAnnouncement(@Path("id") id: String, @Body body: AnnouncementUpdate): AnnouncementRead
+
+    @DELETE("/v1/admin/announcements/{id}")
+    suspend fun deleteAnnouncement(@Path("id") id: String)
+
     // ── Invite codes ─────────────────────────────────────────────────────────
 
     @GET("/v1/admin/invites")

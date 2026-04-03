@@ -24,6 +24,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.AdminUserUpdate
+import systems.lupine.sheaf.data.model.AnnouncementCreate
+import systems.lupine.sheaf.data.model.AnnouncementRead
+import systems.lupine.sheaf.data.model.AnnouncementUpdate
 import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
@@ -222,6 +225,83 @@ fun AdminPanelScreen(
                 LaunchedEffect(state.isCreatingInvite) {
                     if (!state.isCreatingInvite && state.createInviteError == null) {
                         showCreateInviteDialog = false
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            // ── Announcements ─────────────────────────────────────────────────
+            var showCreateAnnouncementDialog by remember { mutableStateOf(false) }
+            var announcementToEdit by remember { mutableStateOf<AnnouncementRead?>(null) }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SectionHeader("Announcements", modifier = Modifier.weight(1f))
+                IconButton(onClick = { showCreateAnnouncementDialog = true }) {
+                    Icon(Icons.Outlined.Add, contentDescription = "Create announcement")
+                }
+            }
+            if (state.announcementError != null) {
+                Text(
+                    state.announcementError!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            if (state.announcements.isEmpty()) {
+                Text(
+                    "No announcements",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            state.announcements.forEach { announcement ->
+                AnnouncementListItem(
+                    announcement = announcement,
+                    onEdit = { announcementToEdit = announcement },
+                    onDelete = { viewModel.deleteAnnouncement(announcement.id) },
+                )
+                HorizontalDivider()
+            }
+            if (showCreateAnnouncementDialog) {
+                AnnouncementDialog(
+                    isSaving = state.isSavingAnnouncement,
+                    error = state.announcementError,
+                    onSave = { create -> viewModel.createAnnouncement(create) },
+                    onDismiss = { showCreateAnnouncementDialog = false; viewModel.clearAnnouncementError() },
+                )
+                LaunchedEffect(state.announcementSaved) {
+                    if (state.announcementSaved) {
+                        showCreateAnnouncementDialog = false
+                        viewModel.clearAnnouncementSaved()
+                    }
+                }
+            }
+            announcementToEdit?.let { editing ->
+                AnnouncementDialog(
+                    initial = editing,
+                    isSaving = state.isSavingAnnouncement,
+                    error = state.announcementError,
+                    onSave = { create ->
+                        viewModel.updateAnnouncement(editing.id, AnnouncementUpdate(
+                            title = create.title,
+                            body = create.body,
+                            severity = create.severity,
+                            dismissible = create.dismissible,
+                            active = create.active,
+                            startsAt = create.startsAt,
+                            expiresAt = create.expiresAt,
+                        ))
+                    },
+                    onDismiss = { announcementToEdit = null; viewModel.clearAnnouncementError() },
+                )
+                LaunchedEffect(state.announcementSaved) {
+                    if (state.announcementSaved) {
+                        announcementToEdit = null
+                        viewModel.clearAnnouncementSaved()
                     }
                 }
             }
@@ -662,6 +742,149 @@ private fun CreateInviteDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isCreating) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun AnnouncementListItem(
+    announcement: AnnouncementRead,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    Surface(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+        ListItem(
+            headlineContent = { Text(announcement.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(announcement.severity, style = MaterialTheme.typography.bodySmall)
+                    Text("·", style = MaterialTheme.typography.bodySmall)
+                    Text(if (announcement.active) "active" else "inactive", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            trailingContent = {
+                IconButton(onClick = { confirmDelete = true }) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                }
+            },
+        )
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete announcement?") },
+            text = { Text("\"${announcement.title}\" will be permanently deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { onDelete(); confirmDelete = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
+private fun AnnouncementDialog(
+    initial: AnnouncementRead? = null,
+    isSaving: Boolean,
+    error: String?,
+    onSave: (AnnouncementCreate) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var title by remember { mutableStateOf(initial?.title ?: "") }
+    var body by remember { mutableStateOf(initial?.body ?: "") }
+    var severity by remember { mutableStateOf(initial?.severity ?: "info") }
+    var dismissible by remember { mutableStateOf(initial?.dismissible ?: true) }
+    var active by remember { mutableStateOf(initial?.active ?: true) }
+    var startsAt by remember { mutableStateOf(initial?.startsAt ?: "") }
+    var expiresAt by remember { mutableStateOf(initial?.expiresAt ?: "") }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = { Text(if (initial == null) "Create Announcement" else "Edit Announcement") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = body,
+                    onValueChange = { body = it },
+                    label = { Text("Body") },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text("Severity", style = MaterialTheme.typography.labelMedium)
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    listOf("info", "warning", "critical").forEachIndexed { index, s ->
+                        SegmentedButton(
+                            selected = severity == s,
+                            onClick = { severity = s },
+                            shape = SegmentedButtonDefaults.itemShape(index, 3),
+                        ) { Text(s, style = MaterialTheme.typography.labelSmall) }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = dismissible, onCheckedChange = { dismissible = it })
+                    Text("Dismissible", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.width(16.dp))
+                    Checkbox(checked = active, onCheckedChange = { active = it })
+                    Text("Active", style = MaterialTheme.typography.bodyMedium)
+                }
+                OutlinedTextField(
+                    value = startsAt,
+                    onValueChange = { startsAt = it },
+                    label = { Text("Starts at (optional)") },
+                    placeholder = { Text("2026-01-01T00:00:00Z") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = expiresAt,
+                    onValueChange = { expiresAt = it },
+                    label = { Text("Expires at (optional)") },
+                    placeholder = { Text("2026-12-31T00:00:00Z") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (error != null) {
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(AnnouncementCreate(
+                        title = title,
+                        body = body,
+                        severity = severity,
+                        dismissible = dismissible,
+                        active = active,
+                        startsAt = startsAt.ifBlank { null },
+                        expiresAt = expiresAt.ifBlank { null },
+                    ))
+                },
+                enabled = !isSaving && title.isNotBlank() && body.isNotBlank(),
+            ) {
+                if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                else Text(if (initial == null) "Create" else "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") }
         },
     )
 }

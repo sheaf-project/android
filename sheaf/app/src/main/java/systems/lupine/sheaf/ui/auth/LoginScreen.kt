@@ -53,7 +53,8 @@ fun LoginScreen(
     var showCfDialog by remember { mutableStateOf(false) }
 
     // When server demands TOTP, switch to that step
-    val showTotp = uiState is AuthUiState.AwaitingTotp
+    val totpState = uiState as? AuthUiState.AwaitingTotp
+    val showTotp = totpState != null
 
     Column(
         modifier = Modifier
@@ -151,7 +152,7 @@ fun LoginScreen(
                 )
                 "totp" -> TotpStep(
                     isLoading = isLoading,
-                    error = (uiState as? AuthUiState.Error)?.message,
+                    error = totpState?.error,
                     onSubmit = { code ->
                         focusManager.clearFocus()
                         viewModel.submitTotp(code)

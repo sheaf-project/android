@@ -3,6 +3,7 @@ package systems.lupine.sheaf.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.model.AnnouncementPublic
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
@@ -21,12 +22,17 @@ data class HomeUiState(
     val currentFronts: List<FrontRead> = emptyList(),
     val frontingMembers: List<MemberRead> = emptyList(),
     val allMembers: List<MemberRead> = emptyList(),
+    val announcements: List<AnnouncementPublic> = emptyList(),
+    val dismissedAnnouncementIds: Set<String> = emptySet(),
     val isLoading: Boolean = false,
     val isSwitching: Boolean = false,
     val error: String? = null,
     val showSwitchSheet: Boolean = false,
     val switchSelection: Set<String> = emptySet(),
-)
+) {
+    val visibleAnnouncements: List<AnnouncementPublic>
+        get() = announcements.filter { it.id !in dismissedAnnouncementIds }
+}
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -47,6 +53,7 @@ class HomeViewModel @Inject constructor(
                 val system = api.getOwnSystem()
                 val fronts = api.getCurrentFronts()
                 val members = api.listMembers()
+                val announcements = runCatching { api.getAnnouncements() }.getOrDefault(emptyList())
                 val frontingIds = fronts.flatMap { it.memberIds }.toSet()
                 val frontingMembers = members.filter { it.id in frontingIds }
                 _state.update {
@@ -55,16 +62,25 @@ class HomeViewModel @Inject constructor(
                         currentFronts = fronts,
                         frontingMembers = frontingMembers,
                         allMembers = members,
+                        announcements = announcements,
                         isLoading = false,
                     )
                 }
                 if (prefs.frontNotification.first()) {
-                    notificationHelper.post(frontingMembers.map { it.displayNameOrName })
+                    try {
+                        notificationHelper.post(frontingMembers.map { it.displayNameOrName })
+                    } catch (_: SecurityException) {
+                        // POST_NOTIFICATIONS permission not granted — skip silently
+                    }
                 }
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = e.message) }
             }
         }
+    }
+
+    fun dismissAnnouncement(id: String) {
+        _state.update { it.copy(dismissedAnnouncementIds = it.dismissedAnnouncementIds + id) }
     }
 
     fun openSwitchSheet() {

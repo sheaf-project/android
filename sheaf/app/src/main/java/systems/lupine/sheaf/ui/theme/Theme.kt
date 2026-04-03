@@ -3,6 +3,9 @@ package systems.lupine.sheaf.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
@@ -25,6 +28,20 @@ val Teal80 = Color(0xFF9FE1CB)
 
 val Red40  = Color(0xFFE24B4A)
 val Red80  = Color(0xFFF09595)
+
+val Yellow10 = Color(0xFF221B00)
+val Yellow40 = Color(0xFF7B5800)
+val Yellow80 = Color(0xFFEFC032)
+val Yellow90 = Color(0xFFFFDF9E)
+
+// ── Warning colors (no MD3 built-in) ─────────────────────────────────────────
+
+@Immutable
+data class WarningColors(val container: Color, val onContainer: Color)
+
+val LocalWarningColors = staticCompositionLocalOf {
+    WarningColors(container = Yellow90, onContainer = Yellow10)
+}
 
 // ── Color schemes ─────────────────────────────────────────────────────────────
 
@@ -85,9 +102,16 @@ fun SheafTheme(
         else    -> isSystemInDarkTheme()
     }
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography  = SheafTypography,
-        content     = content,
-    )
+    val warningColors = if (darkTheme)
+        WarningColors(container = Yellow40, onContainer = Yellow80)
+    else
+        WarningColors(container = Yellow90, onContainer = Yellow10)
+
+    CompositionLocalProvider(LocalWarningColors provides warningColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography  = SheafTypography,
+            content     = content,
+        )
+    }
 }

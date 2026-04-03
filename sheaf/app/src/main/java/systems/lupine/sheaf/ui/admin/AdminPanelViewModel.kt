@@ -10,6 +10,9 @@ import systems.lupine.sheaf.data.model.AdminStats
 import systems.lupine.sheaf.data.model.AdminStepUpVerify
 import systems.lupine.sheaf.data.model.AdminUserRead
 import systems.lupine.sheaf.data.model.AdminUserUpdate
+import systems.lupine.sheaf.data.model.AnnouncementCreate
+import systems.lupine.sheaf.data.model.AnnouncementRead
+import systems.lupine.sheaf.data.model.AnnouncementUpdate
 import systems.lupine.sheaf.data.model.InviteCodeCreate
 import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.data.model.PendingUserRead
@@ -26,6 +29,7 @@ data class AdminPanelUiState(
     val users: List<AdminUserRead> = emptyList(),
     val approvals: List<PendingUserRead> = emptyList(),
     val invites: List<InviteCodeRead> = emptyList(),
+    val announcements: List<AnnouncementRead> = emptyList(),
     val error: String? = null,
     val isSteppingUp: Boolean = false,
     val stepUpError: String? = null,
@@ -34,6 +38,9 @@ data class AdminPanelUiState(
     val isCreatingInvite: Boolean = false,
     val createInviteError: String? = null,
     val recoveryMessage: String? = null,
+    val isSavingAnnouncement: Boolean = false,
+    val announcementSaved: Boolean = false,
+    val announcementError: String? = null,
 )
 
 @HiltViewModel
@@ -81,18 +88,35 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
+    private data class AdminData(
+        val stats: AdminStats,
+        val users: List<AdminUserRead>,
+        val approvals: List<PendingUserRead>,
+        val invites: List<InviteCodeRead>,
+        val announcements: List<AnnouncementRead>,
+    )
+
     private fun loadAll() {
         viewModelScope.launch {
             runCatching {
-                val stats = api.getAdminStats()
-                val users = api.getAdminUsers()
-                val approvals = api.getApprovals()
-                val invites = api.listInvites()
-                Triple(stats to invites, users, approvals)
+                AdminData(
+                    stats = api.getAdminStats(),
+                    users = api.getAdminUsers(),
+                    approvals = api.getApprovals(),
+                    invites = api.listInvites(),
+                    announcements = api.listAllAnnouncements(),
+                )
             }
-                .onSuccess { (statsAndInvites, users, approvals) ->
-                    val (stats, invites) = statsAndInvites
-                    _state.update { it.copy(stats = stats, users = users, approvals = approvals, invites = invites) }
+                .onSuccess { data ->
+                    _state.update {
+                        it.copy(
+                            stats = data.stats,
+                            users = data.users,
+                            approvals = data.approvals,
+                            invites = data.invites,
+                            announcements = data.announcements,
+                        )
+                    }
                 }
                 .onFailure { e ->
                     _state.update { it.copy(error = e.message ?: "Failed to load admin data") }
@@ -259,9 +283,55 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
+    fun createAnnouncement(create: AnnouncementCreate) {
+        viewModelScope.launch {
+            _state.update { it.copy(isSavingAnnouncement = true, announcementError = null) }
+            runCatching { api.createAnnouncement(create) }
+                .onSuccess { announcement ->
+                    _state.update { it.copy(
+                        isSavingAnnouncement = false,
+                        announcementSaved = true,
+                        announcements = it.announcements + announcement,
+                    ) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isSavingAnnouncement = false, announcementError = e.message ?: "Failed to create announcement") }
+                }
+        }
+    }
+
+    fun updateAnnouncement(id: String, update: AnnouncementUpdate) {
+        viewModelScope.launch {
+            _state.update { it.copy(isSavingAnnouncement = true, announcementError = null) }
+            runCatching { api.updateAnnouncement(id, update) }
+                .onSuccess { updated ->
+                    _state.update { s ->
+                        s.copy(
+                            isSavingAnnouncement = false,
+                            announcementSaved = true,
+                            announcements = s.announcements.map { if (it.id == id) updated else it },
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isSavingAnnouncement = false, announcementError = e.message ?: "Failed to update announcement") }
+                }
+        }
+    }
+
+    fun deleteAnnouncement(id: String) {
+        viewModelScope.launch {
+            runCatching { api.deleteAnnouncement(id) }
+                .onSuccess { _state.update { it.copy(announcements = it.announcements.filter { a -> a.id != id }) } }
+                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to delete announcement") } }
+        }
+    }
+
     fun clearError() { _state.update { it.copy(error = null) } }
     fun clearMaintenanceMessage() { _state.update { it.copy(maintenanceMessage = null) } }
     fun clearStepUpError() { _state.update { it.copy(stepUpError = null) } }
     fun clearCreateInviteError() { _state.update { it.copy(createInviteError = null) } }
     fun clearRecoveryMessage() { _state.update { it.copy(recoveryMessage = null) } }
+    fun clearAnnouncementError() { _state.update { it.copy(announcementError = null) } }
+    fun clearAnnouncementSaved() { _state.update { it.copy(announcementSaved = false) } }
 }

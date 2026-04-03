@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.SwitchAccount
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -16,9 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import systems.lupine.sheaf.data.model.AnnouncementPublic
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.theme.LocalWarningColors
 import java.time.Duration
 import java.time.Instant
 
@@ -74,17 +77,26 @@ fun HomeScreen(
                     }
                 }
                 state.frontingMembers.isEmpty() -> {
-                    EmptyState(
-                        icon = Icons.Default.People,
-                        title = "No one is fronting",
-                        subtitle = "Tap 'Switch Front' to set who's fronting now.",
-                        action = {
-                            TextButton(onClick = onNavigateToMembers) {
-                                Text("Go to Members")
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        state.visibleAnnouncements.forEach { announcement ->
+                            AnnouncementCard(
+                                announcement = announcement,
+                                onDismiss = { viewModel.dismissAnnouncement(announcement.id) },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            )
+                        }
+                        EmptyState(
+                            icon = Icons.Default.People,
+                            title = "No one is fronting",
+                            subtitle = "Tap 'Switch Front' to set who's fronting now.",
+                            action = {
+                                TextButton(onClick = onNavigateToMembers) {
+                                    Text("Go to Members")
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
                 else -> {
                     LazyColumn(
@@ -92,6 +104,12 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
+                        items(state.visibleAnnouncements, key = { "ann_${it.id}" }) { announcement ->
+                            AnnouncementCard(
+                                announcement = announcement,
+                                onDismiss = { viewModel.dismissAnnouncement(announcement.id) },
+                            )
+                        }
                         items(state.frontingMembers, key = { it.id }) { member ->
                             val front = state.currentFronts.find { member.id in it.memberIds }
                             FrontingMemberCard(
@@ -132,6 +150,54 @@ fun HomeScreen(
             onDismiss = { viewModel.closeSwitchSheet() },
             isSwitching = state.isSwitching,
         )
+    }
+}
+
+// ── Announcement card ─────────────────────────────────────────────────────────
+
+@Composable
+private fun AnnouncementCard(
+    announcement: AnnouncementPublic,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val warningColors = LocalWarningColors.current
+    val containerColor = when (announcement.severity) {
+        "critical" -> MaterialTheme.colorScheme.errorContainer
+        "warning"  -> warningColors.container
+        else       -> MaterialTheme.colorScheme.secondaryContainer
+    }
+    val contentColor = when (announcement.severity) {
+        "critical" -> MaterialTheme.colorScheme.onErrorContainer
+        "warning"  -> warningColors.onContainer
+        else       -> MaterialTheme.colorScheme.onSecondaryContainer
+    }
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    announcement.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = contentColor,
+                )
+                Text(
+                    announcement.body,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor,
+                )
+            }
+            if (announcement.dismissible) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Outlined.Close, contentDescription = "Dismiss", tint = contentColor)
+                }
+            }
+        }
     }
 }
 
