@@ -102,7 +102,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.exportAll() }
                 .onSuccess { data ->
-                    _state.update { it.copy(exportJson = data.toString()) }
+                    _state.update { it.copy(exportJson = data.string()) }
                 }
                 .onFailure { e -> _state.update { it.copy(error = e.message) } }
         }

@@ -217,7 +217,7 @@ interface SheafApiService {
     // ── Export ────────────────────────────────────────────────────────────────
 
     @GET("/v1/export")
-    suspend fun exportAll(): Map<String, Any>
+    suspend fun exportAll(): okhttp3.ResponseBody
 
     // ── Simply Plural import ──────────────────────────────────────────────────
 

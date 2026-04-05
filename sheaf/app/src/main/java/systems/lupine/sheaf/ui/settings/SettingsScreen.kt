@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -64,15 +66,24 @@ fun SettingsScreen(
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
 
+    var pendingExportJson by remember { mutableStateOf<String?>(null) }
+    val saveFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            pendingExportJson?.let { json ->
+                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+            }
+        }
+        pendingExportJson = null
+        settingsViewModel.clearExport()
+    }
+
     LaunchedEffect(state.exportJson) {
         state.exportJson?.let { json ->
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/json"
-                putExtra(Intent.EXTRA_TEXT, json)
-                putExtra(Intent.EXTRA_SUBJECT, "Sheaf data export")
-            }
-            context.startActivity(Intent.createChooser(intent, "Share export"))
-            settingsViewModel.clearExport()
+            pendingExportJson = json
+            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
+            saveFileLauncher.launch("sheaf-export-$timestamp.json")
         }
     }
 
