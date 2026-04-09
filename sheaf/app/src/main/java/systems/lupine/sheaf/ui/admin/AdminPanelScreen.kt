@@ -30,6 +30,7 @@ import systems.lupine.sheaf.data.model.AnnouncementUpdate
 import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
+import systems.lupine.sheaf.ui.components.SheafTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +56,7 @@ fun AdminPanelScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = { Text("Admin Panel") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {

@@ -30,7 +30,7 @@ fun GroupsScreen(
     val state by viewModel.state.collectAsState()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Groups") }) },
+        topBar = { SheafTopAppBar(title = { Text("Groups") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { onGroupClick("new") }) {
                 Icon(Icons.Default.Add, contentDescription = "Add group")
@@ -119,7 +119,7 @@ fun GroupDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = { Text(if (viewModel.isNewGroup) "New Group" else form.name.ifBlank { "Group" }) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {

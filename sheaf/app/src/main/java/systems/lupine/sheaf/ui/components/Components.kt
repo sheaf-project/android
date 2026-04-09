@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import systems.lupine.sheaf.data.model.MemberRead
+import systems.lupine.sheaf.ui.theme.PurpleGrey10
+import systems.lupine.sheaf.ui.theme.PurpleGrey80
 import coil.compose.AsyncImage
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
@@ -365,4 +367,33 @@ private fun HueBar(
             )
         }
     }
+}
+
+// ── Top app bar ───────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SheafTopAppBar(
+    title: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+    expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+) {
+    TopAppBar(
+        title = title,
+        modifier = modifier,
+        navigationIcon = navigationIcon,
+        actions = actions,
+        expandedHeight = expandedHeight,
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = PurpleGrey10,
+            scrolledContainerColor = PurpleGrey10,
+            titleContentColor = PurpleGrey80,
+            actionIconContentColor = PurpleGrey80,
+            navigationIconContentColor = PurpleGrey80,
+        ),
+    )
 }

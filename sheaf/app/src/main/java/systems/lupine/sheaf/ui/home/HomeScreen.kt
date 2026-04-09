@@ -36,7 +36,7 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = {
                     Text(
                         "Welcome, ${state.system?.name ?: ""}",

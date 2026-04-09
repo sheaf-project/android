@@ -94,7 +94,7 @@ fun HistoryScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Front History") }) },
+        topBar = { SheafTopAppBar(title = { Text("Front History") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddSheet = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Add front entry")

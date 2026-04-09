@@ -18,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.SessionRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
+import systems.lupine.sheaf.ui.components.SheafTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,7 +33,7 @@ fun SessionsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = { Text("Active Sessions") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {

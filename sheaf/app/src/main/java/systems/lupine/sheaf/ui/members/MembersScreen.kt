@@ -32,7 +32,7 @@ fun MembersScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Members") })
+            SheafTopAppBar(title = { Text("Members") })
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { onMemberClick("new") }) {
@@ -154,7 +154,7 @@ fun MemberDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = {
                     Text(if (viewModel.isNewMember) "New Member" else form.name.ifBlank { "Member" })
                 },

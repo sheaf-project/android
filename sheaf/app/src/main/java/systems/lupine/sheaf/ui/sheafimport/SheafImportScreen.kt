@@ -19,6 +19,7 @@ import systems.lupine.sheaf.data.model.SheafImportResult
 import systems.lupine.sheaf.data.model.SheafPreviewSummary
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
+import systems.lupine.sheaf.ui.components.SheafTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +35,7 @@ fun SheafImportScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = { Text("Import from Sheaf Export") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {

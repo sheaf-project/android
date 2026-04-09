@@ -55,7 +55,7 @@ fun CustomFieldsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = { Text("Custom Fields") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {

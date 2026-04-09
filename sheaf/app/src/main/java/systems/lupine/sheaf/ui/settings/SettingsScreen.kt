@@ -96,7 +96,7 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Settings") }) },
+        topBar = { SheafTopAppBar(title = { Text("Settings") }) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -928,7 +928,7 @@ fun SystemEditScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            SheafTopAppBar(
                 title = { Text("Edit System") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {
