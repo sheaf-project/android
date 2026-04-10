@@ -32,6 +32,7 @@ fun SessionsScreen(
     var renameTarget by remember { mutableStateOf<SessionRead?>(null) }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("Active Sessions") },

@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import systems.lupine.sheaf.data.model.AnnouncementPublic
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.MemberRead
@@ -34,16 +37,20 @@ fun HomeScreen(
     val state by viewModel.state.collectAsState()
     var memberToRemove by remember { mutableStateOf<MemberRead?>(null) }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.load()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
-            SheafTopAppBar(
-                title = {
-                    Text(
-                        "Welcome, ${state.system?.name ?: ""}",
-                        maxLines = 2,
-                    )
-                },
-                expandedHeight = 88.dp,
+            SheafCenterAlignedTopAppBar(
+                title = { Text(state.system?.name?.let { "Welcome, $it" } ?: "Welcome") },
             )
         },
         floatingActionButton = {
@@ -206,7 +213,10 @@ private fun AnnouncementCard(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FrontingMemberCard(member: MemberRead, front: FrontRead?, onLongClick: () -> Unit) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = onLongClick)) {
+    Card(
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = onLongClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,

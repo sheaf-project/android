@@ -40,7 +40,7 @@ class HistoryViewModel @Inject constructor(
     fun loadInitial() {
         currentOffset = 0
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            _state.update { it.copy(isLoading = it.fronts.isEmpty(), error = null) }
             runCatching {
                 val fronts = api.listFronts(limit = PAGE_SIZE, offset = 0)
                 val memberMap = api.listMembers().associateBy { it.id }
@@ -77,6 +77,18 @@ class HistoryViewModel @Inject constructor(
                 if (endedAt != null) api.updateFront(front.id, FrontUpdate(endedAt = endedAt))
             }.onSuccess {
                 loadInitial()
+            }.onFailure { e ->
+                _state.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun updateFrontEntry(id: String, memberIds: List<String>, startedAt: String, endedAt: String?) {
+        viewModelScope.launch {
+            runCatching {
+                api.updateFront(id, FrontUpdate(memberIds = memberIds, startedAt = startedAt, endedAt = endedAt))
+            }.onSuccess { updated ->
+                _state.update { it.copy(fronts = it.fronts.map { f -> if (f.id == id) updated else f }) }
             }.onFailure { e ->
                 _state.update { it.copy(error = e.message) }
             }

@@ -19,6 +19,7 @@ import systems.lupine.sheaf.ui.groups.GroupsScreen
 import systems.lupine.sheaf.ui.history.HistoryScreen
 import systems.lupine.sheaf.ui.home.HomeScreen
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
+import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
 import systems.lupine.sheaf.ui.importsp.ImportScreen
 import systems.lupine.sheaf.ui.sheafimport.SheafImportScreen
@@ -36,6 +37,7 @@ object Routes {
     const val HOME          = "home"
     const val MEMBERS       = "members"
     const val MEMBER_DETAIL = "members/{memberId}"
+    const val MEMBER_EDIT   = "members/{memberId}/edit"
     const val GROUPS        = "groups"
     const val GROUP_DETAIL  = "groups/{groupId}"
     const val HISTORY       = "history"
@@ -149,6 +151,17 @@ fun SheafApp(
             }
             composable(Routes.MEMBER_DETAIL) { backStack ->
                 val memberId = backStack.arguments?.getString("memberId") ?: "new"
+                if (memberId == "new") {
+                    MemberDetailScreen(memberId = "new", onNavigateUp = { navController.navigateUp() })
+                } else {
+                    MemberProfileScreen(
+                        onNavigateUp = { navController.navigateUp() },
+                        onEdit = { navController.navigate("members/$memberId/edit") },
+                    )
+                }
+            }
+            composable(Routes.MEMBER_EDIT) { backStack ->
+                val memberId = backStack.arguments?.getString("memberId") ?: return@composable
                 MemberDetailScreen(memberId = memberId, onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.GROUPS) {

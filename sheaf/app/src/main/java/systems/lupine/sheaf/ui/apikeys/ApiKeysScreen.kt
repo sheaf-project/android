@@ -33,6 +33,7 @@ fun ApiKeysScreen(
     var revokeId by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("API Keys") },

@@ -30,10 +30,10 @@ class GroupsViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            _state.update { it.copy(isLoading = it.groups.isEmpty(), error = null) }
             runCatching { api.listGroups() }
                 .onSuccess { groups -> _state.update { it.copy(groups = groups, isLoading = false) } }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e -> _state.update { s -> s.copy(isLoading = false, error = if (s.groups.isEmpty()) e.message else s.error) } }
         }
     }
 }

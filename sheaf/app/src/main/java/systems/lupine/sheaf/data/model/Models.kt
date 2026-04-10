@@ -247,6 +247,7 @@ data class FrontCreate(
 data class FrontUpdate(
     @Json(name = "ended_at") val endedAt: String? = null,
     @Json(name = "member_ids") val memberIds: List<String>? = null,
+    @Json(name = "started_at") val startedAt: String? = null,
 )
 
 // ── Groups ────────────────────────────────────────────────────────────────────

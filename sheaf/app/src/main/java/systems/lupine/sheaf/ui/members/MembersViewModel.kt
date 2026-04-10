@@ -1,13 +1,20 @@
 package systems.lupine.sheaf.ui.members
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.squareup.moshi.Moshi
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.Instant
 import javax.inject.Inject
 
@@ -32,13 +39,13 @@ class MembersViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            _state.update { it.copy(isLoading = it.members.isEmpty(), error = null) }
             runCatching {
                 val members = api.listMembers()
                 val fronts = api.getCurrentFronts()
                 _state.update { it.copy(members = members, currentFronts = fronts, isLoading = false) }
             }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, error = e.message) }
+                _state.update { s -> s.copy(isLoading = false, error = if (s.members.isEmpty()) e.message else s.error) }
             }
         }
     }
@@ -97,6 +104,7 @@ data class MemberFormState(
     val color: String = "#7F77DD",
     val birthday: String = "",
     val privacy: String = "private",
+    val avatarUrl: String? = null,
 )
 
 data class MemberDetailUiState(
@@ -104,6 +112,7 @@ data class MemberDetailUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isDeleting: Boolean = false,
+    val isUploadingAvatar: Boolean = false,
     val error: String? = null,
     val saved: Boolean = false,
     val deleted: Boolean = false,
@@ -112,6 +121,8 @@ data class MemberDetailUiState(
 @HiltViewModel
 class MemberDetailViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val moshi: Moshi,
+    @ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -144,6 +155,7 @@ class MemberDetailViewModel @Inject constructor(
                         color       = m.color ?: "#7F77DD",
                         birthday    = m.birthday ?: "",
                         privacy     = m.privacy,
+                        avatarUrl   = m.avatarUrl,
                     )
                 }
                 .onFailure { e ->
@@ -168,20 +180,26 @@ class MemberDetailViewModel @Inject constructor(
                         displayName = f.displayName.takeIf { it.isNotBlank() },
                         pronouns    = f.pronouns.takeIf { it.isNotBlank() },
                         description = f.description.takeIf { it.isNotBlank() },
+                        avatarUrl   = f.avatarUrl,
                         color       = f.color.takeIf { it.isNotBlank() },
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
                     ))
                 } else {
-                    api.updateMember(memberId!!, MemberUpdate(
+                    val update = MemberUpdate(
                         name        = f.name.trim(),
                         displayName = f.displayName.takeIf { it.isNotBlank() },
                         pronouns    = f.pronouns.takeIf { it.isNotBlank() },
                         description = f.description.takeIf { it.isNotBlank() },
+                        avatarUrl   = f.avatarUrl,
                         color       = f.color.takeIf { it.isNotBlank() },
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
-                    ))
+                    )
+                    val body = moshi.adapter(MemberUpdate::class.java).serializeNulls()
+                        .toJson(update)
+                        .toRequestBody("application/json".toMediaTypeOrNull()!!)
+                    api.patchMemberRaw(memberId!!, body)
                 }
             }
                 .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
@@ -199,5 +217,100 @@ class MemberDetailViewModel @Inject constructor(
         }
     }
 
+    fun uploadAndSetAvatar(uri: Uri) {
+        viewModelScope.launch {
+            _state.update { it.copy(isUploadingAvatar = true, error = null) }
+            runCatching {
+                val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+                val bytes = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+                val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+                val ext = mimeType.substringAfter("/").let { if (it == "jpeg") "jpg" else it }
+                val part = MultipartBody.Part.createFormData("file", "avatar.$ext", requestBody)
+                api.uploadFile(part)
+            }
+                .onSuccess { response ->
+                    _form.update { it.copy(avatarUrl = response.url) }
+                    _state.update { it.copy(isUploadingAvatar = false) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.message}") }
+                }
+        }
+    }
+
+    fun removeAvatar() {
+        _form.update { it.copy(avatarUrl = null) }
+    }
+
     fun clearError() { _state.update { it.copy(error = null) } }
+}
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+data class MemberProfileUiState(
+    val member: MemberRead? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val deleted: Boolean = false,
+)
+
+@HiltViewModel
+class MemberProfileViewModel @Inject constructor(
+    private val api: SheafApiService,
+    savedStateHandle: SavedStateHandle,
+) : ViewModel() {
+
+    private val memberId: String = checkNotNull(savedStateHandle["memberId"])
+
+    private val _state = MutableStateFlow(MemberProfileUiState(isLoading = true))
+    val state: StateFlow<MemberProfileUiState> = _state.asStateFlow()
+
+    init { load() }
+
+    fun load() {
+        viewModelScope.launch {
+            // Keep existing data visible on refresh; only show spinner on first load
+            if (_state.value.member == null) {
+                _state.update { it.copy(isLoading = true, error = null) }
+            }
+            runCatching { api.getMember(memberId) }
+                .onSuccess { m -> _state.update { it.copy(member = m, isLoading = false) } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
+        }
+    }
+
+    fun addToFront() {
+        viewModelScope.launch {
+            runCatching {
+                val fronts = api.getCurrentFronts()
+                val active = fronts.firstOrNull()
+                if (active != null) {
+                    api.updateFront(active.id, FrontUpdate(memberIds = active.memberIds + memberId))
+                } else {
+                    api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
+                }
+            }.onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
+    fun switchFrontToOnly() {
+        viewModelScope.launch {
+            runCatching {
+                api.getCurrentFronts().forEach { front ->
+                    api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
+                }
+                api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
+            }.onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
+
+    fun delete() {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            runCatching { api.deleteMember(memberId) }
+                .onSuccess { _state.update { it.copy(deleted = true) } }
+                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+        }
+    }
 }

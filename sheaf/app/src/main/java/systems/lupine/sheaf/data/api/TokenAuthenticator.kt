@@ -1,6 +1,7 @@
 package systems.lupine.sheaf.data.api
 
 import com.squareup.moshi.Moshi
+import dagger.Lazy
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
@@ -20,6 +21,7 @@ import javax.inject.Singleton
 class TokenAuthenticator @Inject constructor(
     private val prefs: PreferencesRepository,
     private val moshi: Moshi,
+    private val lazyClient: Lazy<OkHttpClient>,
 ) : Authenticator {
 
     // Synchronized to prevent concurrent refresh races: if two 401s arrive at once,
@@ -44,7 +46,7 @@ class TokenAuthenticator @Inject constructor(
         }
 
         val refreshToken = runBlocking { prefs.refreshToken.firstOrNull() } ?: return null
-        val baseUrl = runBlocking { prefs.baseUrl.firstOrNull() } ?: return null
+        val baseUrl = runBlocking { prefs.baseUrl.firstOrNull() }?.trimEnd('/') ?: return null
 
         val body = moshi.adapter(TokenRefresh::class.java)
             .toJson(TokenRefresh(refreshToken))
@@ -55,12 +57,22 @@ class TokenAuthenticator @Inject constructor(
             .post(body)
             .build()
 
+        // Reuse the configured client (preserves SSL trust-all in debug, timeouts, etc.)
+        // but strip the authenticator to prevent recursion if the refresh endpoint itself 401s.
+        val refreshClient = lazyClient.get().newBuilder()
+            .authenticator(Authenticator.NONE)
+            .build()
+
         val refreshResponse = runCatching {
-            OkHttpClient().newCall(refreshRequest).execute()
+            refreshClient.newCall(refreshRequest).execute()
         }.getOrNull() ?: return null
 
         if (!refreshResponse.isSuccessful) {
-            runBlocking { prefs.clearTokens() }
+            // Only a 401 means the refresh token is genuinely invalid/expired.
+            // Any other failure (5xx, 503, etc.) is transient — don't destroy the session.
+            if (refreshResponse.code == 401) {
+                runBlocking { prefs.clearTokens() }
+            }
             return null
         }
 
@@ -68,10 +80,7 @@ class TokenAuthenticator @Inject constructor(
             refreshResponse.body?.string()?.let {
                 moshi.adapter(TokenResponse::class.java).fromJson(it)
             }
-        }.getOrNull() ?: run {
-            runBlocking { prefs.clearTokens() }
-            return null
-        }
+        }.getOrNull() ?: return null
 
         runBlocking { prefs.saveTokens(tokens.accessToken, tokens.refreshToken) }
 

@@ -96,6 +96,7 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = { SheafTopAppBar(title = { Text("Settings") }) },
     ) { padding ->
         Column(
@@ -927,6 +928,7 @@ fun SystemEditScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("Edit System") },

@@ -54,6 +54,7 @@ fun CustomFieldsScreen(
     var deletingField   by remember { mutableStateOf<CustomFieldRead?>(null) }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("Custom Fields") },

@@ -55,6 +55,7 @@ fun AdminPanelScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("Admin Panel") },

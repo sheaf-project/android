@@ -2,6 +2,7 @@ package systems.lupine.sheaf.data.api
 
 import systems.lupine.sheaf.data.model.*
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.*
 
 interface SheafApiService {
@@ -104,6 +105,9 @@ interface SheafApiService {
 
     @PATCH("/v1/members/{id}")
     suspend fun updateMember(@Path("id") id: String, @Body body: MemberUpdate): MemberRead
+
+    @PATCH("/v1/members/{id}")
+    suspend fun patchMemberRaw(@Path("id") id: String, @Body body: RequestBody): MemberRead
 
     @DELETE("/v1/members/{id}")
     suspend fun deleteMember(@Path("id") id: String)

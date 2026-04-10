@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+
 package systems.lupine.sheaf.ui.components
 
 import androidx.compose.foundation.Canvas
@@ -15,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,22 +93,34 @@ fun MemberListItem(
     onLongClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
-    ListItem(
-        headlineContent = {
-            Text(
-                member.displayNameOrName,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        supportingContent = member.pronouns?.let { pronouns ->
-            { Text(pronouns, style = MaterialTheme.typography.bodySmall) }
-        },
-        leadingContent = { MemberAvatar(member, size = 44.dp) },
-        trailingContent = trailing,
-        modifier = modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
-    )
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier,
+    ) {
+        ListItem(
+            headlineContent = {
+                Text(
+                    member.displayNameOrName,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            supportingContent = member.pronouns?.let { pronouns ->
+                { Text(pronouns, style = MaterialTheme.typography.bodySmall) }
+            },
+            leadingContent = { MemberAvatar(member, size = 44.dp) },
+            trailingContent = trailing,
+            colors = ListItemDefaults.colors(
+                containerColor = Color.Transparent,
+                headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                trailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        )
+    }
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
@@ -369,9 +384,29 @@ private fun HueBar(
     }
 }
 
+// ── Card list container ───────────────────────────────────────────────────────
+
+@Composable
+fun CardList(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        content = { Column(content = content) },
+    )
+}
+
 // ── Top app bar ───────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val sheafAppBarColors
+    @Composable get() = TopAppBarDefaults.topAppBarColors(
+        containerColor = Color.Transparent,
+        scrolledContainerColor = Color.Transparent,
+    )
+
 @Composable
 fun SheafTopAppBar(
     title: @Composable () -> Unit,
@@ -387,13 +422,48 @@ fun SheafTopAppBar(
         navigationIcon = navigationIcon,
         actions = actions,
         expandedHeight = expandedHeight,
+        windowInsets = WindowInsets(0),
         scrollBehavior = scrollBehavior,
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = PurpleGrey10,
-            scrolledContainerColor = PurpleGrey10,
-            titleContentColor = PurpleGrey80,
-            actionIconContentColor = PurpleGrey80,
-            navigationIconContentColor = PurpleGrey80,
-        ),
+        colors = sheafAppBarColors,
+    )
+}
+
+@Composable
+fun SheafCenterAlignedTopAppBar(
+    title: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+) {
+    CenterAlignedTopAppBar(
+        title = title,
+        modifier = modifier,
+        navigationIcon = navigationIcon,
+        actions = actions,
+        windowInsets = WindowInsets(0),
+        scrollBehavior = scrollBehavior,
+        colors = sheafAppBarColors,
+    )
+}
+
+@Composable
+fun SheafLargeFlexibleTopAppBar(
+    title: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: @Composable (() -> Unit)? = null,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+) {
+    LargeFlexibleTopAppBar(
+        title = title,
+        subtitle = subtitle,
+        modifier = modifier,
+        navigationIcon = navigationIcon,
+        actions = actions,
+        windowInsets = WindowInsets(0),
+        scrollBehavior = scrollBehavior,
+        colors = sheafAppBarColors,
     )
 }

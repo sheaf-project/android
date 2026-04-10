@@ -14,23 +14,44 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import systems.lupine.sheaf.ui.components.*
 
 // ── Groups list ───────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun GroupsScreen(
     onGroupClick: (String) -> Unit,
     viewModel: GroupsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.load()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
-        topBar = { SheafTopAppBar(title = { Text("Groups") }) },
+        contentWindowInsets = WindowInsets(0),
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            SheafLargeFlexibleTopAppBar(
+                title = { Text("Groups") },
+                scrollBehavior = scrollBehavior,
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { onGroupClick("new") }) {
                 Icon(Icons.Default.Add, contentDescription = "Add group")
@@ -58,11 +79,11 @@ fun GroupsScreen(
                 contentPadding = PaddingValues(
                     start = 16.dp, end = 16.dp,
                     top = padding.calculateTopPadding() + 8.dp,
-                    bottom = padding.calculateBottomPadding() + 8.dp,
+                    bottom = padding.calculateBottomPadding() + 80.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(state.groups) { group ->
+                items(state.groups, key = { it.id }) { group ->
                     GroupCard(group = group, onClick = { onGroupClick(group.id) })
                 }
             }
@@ -73,29 +94,39 @@ fun GroupsScreen(
 @Composable
 private fun GroupCard(group: systems.lupine.sheaf.data.model.GroupRead, onClick: () -> Unit) {
     val accent = parseColor(group.color ?: "#534AB7") ?: MaterialTheme.colorScheme.primary
-    ElevatedCard(
+    Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
                     .size(40.dp)
                     .clip(MaterialTheme.shapes.medium)
-                    .background(accent.copy(alpha = 0.15f)),
+                    .background(accent.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(Icons.Default.Folder, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
             }
-            Column(
-                modifier = Modifier.weight(1f).padding(start = 14.dp),
-            ) {
-                Text(group.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(
+                    group.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 if (!group.description.isNullOrBlank()) {
-                    Text(group.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        group.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -118,6 +149,7 @@ fun GroupDetailScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text(if (viewModel.isNewGroup) "New Group" else form.name.ifBlank { "Group" }) },
@@ -189,13 +221,16 @@ fun GroupDetailScreen(
             if (!viewModel.isNewGroup) {
                 SectionHeader("Members (${state.members.size})")
                 if (state.members.isEmpty()) {
-                    Text("No members in this group.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "No members in this group.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 } else {
-                    state.members.forEach { member ->
-                        ListItem(
-                            headlineContent = { Text(member.displayNameOrName) },
-                            leadingContent = { MemberAvatar(member, size = 36.dp) },
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.members.forEach { member ->
+                            MemberListItem(member = member, onClick = {})
+                        }
                     }
                 }
                 OutlinedButton(

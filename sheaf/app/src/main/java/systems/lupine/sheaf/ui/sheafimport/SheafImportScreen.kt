@@ -34,6 +34,7 @@ fun SheafImportScreen(
     ) { uri -> uri?.let { viewModel.pickFile(it) } }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("Import from Sheaf Export") },

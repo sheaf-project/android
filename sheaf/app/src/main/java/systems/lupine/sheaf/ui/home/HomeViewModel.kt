@@ -48,7 +48,8 @@ class HomeViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            // Only show full spinner on first load; subsequent calls refresh silently
+            _state.update { it.copy(isLoading = it.allMembers.isEmpty(), error = null) }
             runCatching {
                 val system = api.getOwnSystem()
                 val fronts = api.getCurrentFronts()
@@ -74,7 +75,7 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, error = e.message) }
+                _state.update { s -> s.copy(isLoading = false, error = if (s.allMembers.isEmpty()) e.message else s.error) }
             }
         }
     }
