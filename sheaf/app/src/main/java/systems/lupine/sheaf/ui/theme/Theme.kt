@@ -1,12 +1,14 @@
 package systems.lupine.sheaf.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 
@@ -111,6 +113,7 @@ fun SheafTheme(
         MaterialTheme(
             colorScheme = colorScheme,
             typography  = SheafTypography,
+            shapes      = Shapes(extraSmall = RoundedCornerShape(12.dp)),
             content     = content,
         )
     }
