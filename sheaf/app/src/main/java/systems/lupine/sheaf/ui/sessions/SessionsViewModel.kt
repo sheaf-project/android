@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.SessionRead
 import systems.lupine.sheaf.data.model.SessionUpdate
+import systems.lupine.sheaf.data.model.TokenRefresh
+import systems.lupine.sheaf.data.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -21,6 +23,7 @@ data class SessionsUiState(
 @HiltViewModel
 class SessionsViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val prefs: PreferencesRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SessionsUiState())
@@ -65,7 +68,12 @@ class SessionsViewModel @Inject constructor(
     fun revokeOtherSessions() {
         viewModelScope.launch {
             _state.update { it.copy(isRevoking = true, error = null) }
-            runCatching { api.revokeOtherSessions() }
+            val refreshToken = prefs.refreshToken.firstOrNull()
+            if (refreshToken == null) {
+                _state.update { it.copy(isRevoking = false, error = "Not signed in") }
+                return@launch
+            }
+            runCatching { api.revokeOtherSessions(TokenRefresh(refreshToken)) }
                 .onSuccess { load() }
                 .onFailure { e -> _state.update { it.copy(isRevoking = false, error = e.message ?: "Failed to revoke sessions") } }
         }

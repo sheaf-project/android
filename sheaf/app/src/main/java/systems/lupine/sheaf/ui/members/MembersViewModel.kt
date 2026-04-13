@@ -68,7 +68,26 @@ class MembersViewModel @Inject constructor(
         }
     }
 
-    fun switchFrontToOnly(memberId: String) {
+    fun removeFromFront(memberId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            runCatching {
+                _state.value.currentFronts.filter { memberId in it.memberIds }.forEach { front ->
+                    if (front.memberIds.size == 1) {
+                        api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
+                    } else {
+                        api.updateFront(front.id, FrontUpdate(memberIds = front.memberIds - memberId))
+                    }
+                }
+            }.onFailure { e ->
+                _state.update { it.copy(error = e.message) }
+                return@launch
+            }
+            _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
+        }
+    }
+
+    fun switchSoleFronter(memberId: String) {
         viewModelScope.launch {
             _state.update { it.copy(error = null) }
             runCatching {
@@ -250,6 +269,7 @@ class MemberDetailViewModel @Inject constructor(
 
 data class MemberProfileUiState(
     val member: MemberRead? = null,
+    val currentFronts: List<FrontRead> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val deleted: Boolean = false,
@@ -274,34 +294,58 @@ class MemberProfileViewModel @Inject constructor(
             if (_state.value.member == null) {
                 _state.update { it.copy(isLoading = true, error = null) }
             }
-            runCatching { api.getMember(memberId) }
-                .onSuccess { m -> _state.update { it.copy(member = m, isLoading = false) } }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
+            runCatching {
+                val member = api.getMember(memberId)
+                val fronts = api.getCurrentFronts()
+                _state.update { it.copy(member = member, currentFronts = fronts, isLoading = false) }
+            }.onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
 
     fun addToFront() {
         viewModelScope.launch {
             runCatching {
-                val fronts = api.getCurrentFronts()
-                val active = fronts.firstOrNull()
+                val active = _state.value.currentFronts.firstOrNull()
                 if (active != null) {
                     api.updateFront(active.id, FrontUpdate(memberIds = active.memberIds + memberId))
                 } else {
                     api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
                 }
-            }.onFailure { e -> _state.update { it.copy(error = e.message) } }
+            }.onFailure { e -> _state.update { it.copy(error = e.message) }
+                return@launch
+            }
+            _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
         }
     }
 
-    fun switchFrontToOnly() {
+    fun removeFromFront() {
         viewModelScope.launch {
             runCatching {
-                api.getCurrentFronts().forEach { front ->
+                _state.value.currentFronts.filter { memberId in it.memberIds }.forEach { front ->
+                    if (front.memberIds.size == 1) {
+                        api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
+                    } else {
+                        api.updateFront(front.id, FrontUpdate(memberIds = front.memberIds - memberId))
+                    }
+                }
+            }.onFailure { e -> _state.update { it.copy(error = e.message) }
+                return@launch
+            }
+            _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
+        }
+    }
+
+    fun switchSoleFronter() {
+        viewModelScope.launch {
+            runCatching {
+                _state.value.currentFronts.forEach { front ->
                     api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
                 }
                 api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
-            }.onFailure { e -> _state.update { it.copy(error = e.message) } }
+            }.onFailure { e -> _state.update { it.copy(error = e.message) }
+                return@launch
+            }
+            _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
         }
     }
 

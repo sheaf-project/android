@@ -219,11 +219,18 @@ fun MembersScreen(
                             expanded = true,
                             onDismissRequest = { contextMenuMember = null },
                         ) {
+                            val isFronting = state.currentFronts.any { member.id in it.memberIds }
                             DropdownMenuItem(
-                                text = { Text("Add to front") },
-                                leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
+                                text = { Text(if (isFronting) "Remove from front" else "Add to front") },
+                                leadingIcon = {
+                                    Icon(
+                                        if (isFronting) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
+                                        contentDescription = null,
+                                    )
+                                },
                                 onClick = {
-                                    viewModel.addToFront(member.id)
+                                    if (isFronting) viewModel.removeFromFront(member.id)
+                                    else viewModel.addToFront(member.id)
                                     contextMenuMember = null
                                 },
                             )
@@ -231,7 +238,7 @@ fun MembersScreen(
                                 text = { Text("Set ${member.displayNameOrName} as sole fronter") },
                                 leadingIcon = { Icon(Icons.Default.SwitchAccount, contentDescription = null) },
                                 onClick = {
-                                    viewModel.switchFrontToOnly(member.id)
+                                    viewModel.switchSoleFronter(member.id)
                                     contextMenuMember = null
                                 },
                             )
@@ -641,17 +648,22 @@ fun MemberProfileScreen(
                     }
 
                     // Fronting actions
+                    val isFronting = state.currentFronts.any { member.id in it.memberIds }
                     FilledTonalButton(
-                        onClick = { viewModel.addToFront() },
+                        onClick = { if (isFronting) viewModel.removeFromFront() else viewModel.addToFront() },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(
+                            if (isFronting) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
                         Spacer(Modifier.width(8.dp))
-                        Text("Add to Front")
+                        Text(if (isFronting) "Remove from Front" else "Add to Front")
                     }
 
                     OutlinedButton(
-                        onClick = { viewModel.switchFrontToOnly() },
+                        onClick = { viewModel.switchSoleFronter() },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Icon(Icons.Default.SwitchAccount, contentDescription = null, modifier = Modifier.size(18.dp))

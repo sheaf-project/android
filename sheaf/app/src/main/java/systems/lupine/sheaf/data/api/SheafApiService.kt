@@ -79,7 +79,7 @@ interface SheafApiService {
     suspend fun revokeSession(@Path("id") id: String)
 
     @POST("/v1/auth/sessions/revoke-others")
-    suspend fun revokeOtherSessions()
+    suspend fun revokeOtherSessions(@Body body: TokenRefresh)
 
     // ── System ────────────────────────────────────────────────────────────────
 
