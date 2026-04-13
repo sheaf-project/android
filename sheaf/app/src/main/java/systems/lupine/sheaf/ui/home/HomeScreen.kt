@@ -57,7 +57,7 @@ fun HomeScreen(
             ExtendedFloatingActionButton(
                 onClick = { viewModel.openSwitchSheet() },
                 icon = { Icon(Icons.Outlined.SwitchAccount, contentDescription = null) },
-                text = { Text("Switch Front") },
+                text = { Text("Switch") },
             )
         },
     ) { padding ->
