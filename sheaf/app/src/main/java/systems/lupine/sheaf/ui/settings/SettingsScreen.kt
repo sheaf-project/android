@@ -1163,7 +1163,7 @@ fun SystemEditScreen(
             )
 
             OutlinedTextField(
-                value = form.avatarUrl,
+                value = if (form.avatarUrl.contains("/v1/files/")) "" else form.avatarUrl,
                 onValueChange = { viewModel.updateForm { copy(avatarUrl = it) } },
                 label = { Text("Avatar URL") },
                 placeholder = { Text("https://…") },

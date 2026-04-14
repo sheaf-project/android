@@ -417,6 +417,15 @@ fun MemberDetailScreen(
                 }
             }
 
+            OutlinedTextField(
+                value = if (form.avatarUrl?.contains("/v1/files/") == true) "" else form.avatarUrl ?: "",
+                onValueChange = { viewModel.updateForm { copy(avatarUrl = it.ifBlank { null }) } },
+                label = { Text("Avatar URL") },
+                placeholder = { Text("https://…") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             if (state.error != null) ErrorBanner(state.error!!)
 
             OutlinedTextField(
