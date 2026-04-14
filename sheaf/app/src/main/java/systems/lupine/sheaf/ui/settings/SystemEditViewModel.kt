@@ -1,12 +1,18 @@
 package systems.lupine.sheaf.ui.settings
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.SystemUpdate
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 data class SystemEditForm(
@@ -21,6 +27,7 @@ data class SystemEditForm(
 data class SystemEditUiState(
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
+    val isUploadingAvatar: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null,
 )
@@ -28,6 +35,7 @@ data class SystemEditUiState(
 @HiltViewModel
 class SystemEditViewModel @Inject constructor(
     private val api: SheafApiService,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SystemEditUiState())
@@ -78,5 +86,31 @@ class SystemEditViewModel @Inject constructor(
                 .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
                 .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.message) } }
         }
+    }
+
+    fun uploadAndSetAvatar(uri: Uri) {
+        viewModelScope.launch {
+            _state.update { it.copy(isUploadingAvatar = true, error = null) }
+            runCatching {
+                val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+                val bytes = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+                val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+                val ext = mimeType.substringAfter("/").let { if (it == "jpeg") "jpg" else it }
+                val part = MultipartBody.Part.createFormData("file", "avatar.$ext", requestBody)
+                api.uploadFile(part)
+            }
+                .onSuccess { response ->
+                    _form.update { it.copy(avatarUrl = response.url) }
+                    _state.update { it.copy(isUploadingAvatar = false) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.message}") }
+                }
+        }
+    }
+
+    fun removeAvatar() {
+        _form.update { it.copy(avatarUrl = "") }
     }
 }

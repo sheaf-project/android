@@ -1,5 +1,7 @@
 package systems.lupine.sheaf.ui
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -133,6 +135,10 @@ fun SheafApp(
             navController = navController,
             startDestination = Routes.LOGIN,
             modifier = Modifier.padding(innerPadding),
+            enterTransition = { fadeIn() },
+            exitTransition = { fadeOut() },
+            popEnterTransition = { fadeIn() },
+            popExitTransition = { fadeOut() },
         ) {
             composable(Routes.LOGIN) {
                 LoginScreen(onLoginSuccess = {

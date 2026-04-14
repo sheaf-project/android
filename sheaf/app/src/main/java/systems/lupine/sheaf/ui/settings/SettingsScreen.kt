@@ -10,18 +10,22 @@ import android.os.Build
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.*
@@ -121,18 +125,27 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(52.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    (state.system?.name ?: state.user!!.email)
-                                        .firstOrNull()?.uppercaseChar()?.toString() ?: "S",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                )
+                        if (state.system?.avatarUrl != null) {
+                            AsyncImage(
+                                model = state.system!!.avatarUrl,
+                                contentDescription = state.system!!.name,
+                                modifier = Modifier.size(52.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(52.dp),
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        (state.system?.name ?: state.user!!.email)
+                                            .firstOrNull()?.uppercaseChar()?.toString() ?: "S",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    )
+                                }
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
@@ -1006,6 +1019,10 @@ fun SystemEditScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
+    var showAvatarMenu by remember { mutableStateOf(false) }
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri -> uri?.let { viewModel.uploadAndSetAvatar(it) } }
 
     LaunchedEffect(state.saved) {
         if (state.saved) onNavigateUp()
@@ -1040,6 +1057,84 @@ fun SystemEditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (state.error != null) ErrorBanner(state.error!!)
+
+            // Avatar picker
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box {
+                    if (form.avatarUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = form.avatarUrl,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp).clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(44.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .clickable { showAvatarMenu = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit avatar",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showAvatarMenu,
+                        onDismissRequest = { showAvatarMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Choose photo") },
+                            leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
+                            onClick = {
+                                showAvatarMenu = false
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                        )
+                        if (form.avatarUrl.isNotBlank()) {
+                            DropdownMenuItem(
+                                text = { Text("Remove avatar", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                },
+                                onClick = {
+                                    showAvatarMenu = false
+                                    viewModel.removeAvatar()
+                                },
+                            )
+                        }
+                    }
+                }
+
+                if (state.isUploadingAvatar) {
+                    CircularProgressIndicator(modifier = Modifier.size(88.dp), strokeWidth = 3.dp)
+                }
+            }
 
             OutlinedTextField(
                 value = form.name,
