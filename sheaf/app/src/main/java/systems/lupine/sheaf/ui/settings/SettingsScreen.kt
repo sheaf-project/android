@@ -21,7 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -146,6 +148,15 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            if (state.system != null) {
+                SystemStatsRow(
+                    frontingCount = state.frontingCount,
+                    memberCount = state.memberCount,
+                    groupCount = state.groupCount,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
 
             if (state.error != null) {
@@ -910,6 +921,79 @@ private fun formatDeleteConfirmation(level: String?): String = when (level) {
     "totp"     -> "Authenticator code required"
     "both"     -> "Password + authenticator code"
     else       -> "—"
+}
+
+// ── System stats row ──────────────────────────────────────────────────────────
+
+@Composable
+private fun SystemStatsRow(
+    frontingCount: Int,
+    memberCount: Int,
+    groupCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        StatChip(
+            icon = Icons.Outlined.SwitchAccount,
+            count = frontingCount,
+            label = if (frontingCount == 1) "fronter" else "fronters",
+            modifier = Modifier.weight(1f),
+        )
+        StatChip(
+            icon = Icons.Filled.People,
+            count = memberCount,
+            label = if (memberCount == 1) "member" else "members",
+            modifier = Modifier.weight(1f),
+        )
+        StatChip(
+            icon = Icons.Outlined.Group,
+            count = groupCount,
+            label = if (groupCount == 1) "group" else "groups",
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun StatChip(
+    icon: ImageVector,
+    count: Int,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 }
 
 // ── System edit screen ────────────────────────────────────────────────────────

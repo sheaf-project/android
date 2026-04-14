@@ -23,6 +23,9 @@ enum class TotpStep { LOADING, SECRET, VERIFY, RECOVERY_CODES, DONE }
 data class SettingsUiState(
     val user: UserRead? = null,
     val system: SystemRead? = null,
+    val memberCount: Int = 0,
+    val groupCount: Int = 0,
+    val frontingCount: Int = 0,
     val isLoading: Boolean = false,
     val error: String? = null,
     val exportJson: String? = null,
@@ -79,7 +82,14 @@ class SettingsViewModel @Inject constructor(
                 _state.update { it.copy(user = user, system = system, isLoading = false) }
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = e.message) }
+                return@launch
             }
+            val memberCount = runCatching { api.listMembers().size }.getOrDefault(0)
+            val groupCount = runCatching { api.listGroups().size }.getOrDefault(0)
+            val frontingCount = runCatching {
+                api.getCurrentFronts().flatMap { it.memberIds }.toSet().size
+            }.getOrDefault(0)
+            _state.update { it.copy(memberCount = memberCount, groupCount = groupCount, frontingCount = frontingCount) }
         }
     }
 
