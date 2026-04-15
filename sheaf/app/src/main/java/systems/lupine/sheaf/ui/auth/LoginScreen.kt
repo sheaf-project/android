@@ -265,7 +265,7 @@ private fun ServerUrlStep(
             value = urlDraft,
             onValueChange = onUrlChange,
             label = { Text("Server URL") },
-            placeholder = { Text("https://api.sheaf.app") },
+            placeholder = { Text("https://app.sheaf.sh") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { if (urlDraft.isNotBlank()) onContinue() }),

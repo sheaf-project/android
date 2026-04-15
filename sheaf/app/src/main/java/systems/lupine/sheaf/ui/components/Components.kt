@@ -40,6 +40,39 @@ import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.theme.PurpleGrey10
 import systems.lupine.sheaf.ui.theme.PurpleGrey80
 import coil.compose.AsyncImage
+import java.time.Duration
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
+// ── Deletion time remaining ───────────────────────────────────────────────────
+
+/**
+ * Returns a human-readable string for how much time remains until account deletion,
+ * e.g. "3 days, 4 hours", "2 hours, 30 minutes", "less than a minute".
+ * Returns null if either argument is missing or the timestamp cannot be parsed.
+ */
+fun formatDeletionTimeRemaining(deletionRequestedAt: String?, graceDays: Int?): String? {
+    if (deletionRequestedAt == null || graceDays == null) return null
+    return try {
+        val requestedAt = Instant.parse(deletionRequestedAt)
+        val deletesAt = requestedAt.plus(graceDays.toLong(), ChronoUnit.DAYS)
+        val remaining = Duration.between(Instant.now(), deletesAt)
+        if (remaining.isNegative || remaining.isZero) return "less than a minute"
+        val days = remaining.toDays()
+        val hours = remaining.toHours() % 24
+        val minutes = remaining.toMinutes() % 60
+        when {
+            days >= 1 && hours > 0 -> "$days ${if (days == 1L) "day" else "days"}, $hours ${if (hours == 1L) "hour" else "hours"}"
+            days >= 1              -> "$days ${if (days == 1L) "day" else "days"}"
+            hours >= 1 && minutes > 0 -> "$hours ${if (hours == 1L) "hour" else "hours"}, $minutes ${if (minutes == 1L) "minute" else "minutes"}"
+            hours >= 1             -> "$hours ${if (hours == 1L) "hour" else "hours"}"
+            minutes >= 1           -> "$minutes ${if (minutes == 1L) "minute" else "minutes"}"
+            else                   -> "less than a minute"
+        }
+    } catch (_: Exception) {
+        null
+    }
+}
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 

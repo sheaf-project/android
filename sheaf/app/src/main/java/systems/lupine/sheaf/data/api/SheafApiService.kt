@@ -56,6 +56,9 @@ interface SheafApiService {
     @POST("/v1/auth/delete-account")
     suspend fun deleteAccount(@Body body: DeleteAccountRequest)
 
+    @POST("/v1/auth/cancel-deletion")
+    suspend fun cancelAccountDeletion()
+
     // ── API Keys ──────────────────────────────────────────────────────────────
 
     @GET("/v1/auth/keys")

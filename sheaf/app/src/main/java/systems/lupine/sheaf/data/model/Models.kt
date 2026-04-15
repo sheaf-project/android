@@ -12,6 +12,7 @@ data class AuthConfig(
     @Json(name = "email_verification") val emailVerification: String,
     @Json(name = "email_enabled") val emailEnabled: Boolean,
     @Json(name = "base_url") val baseUrl: String?,
+    @Json(name = "account_deletion_grace_days") val accountDeletionGraceDays: Int? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -75,6 +76,7 @@ data class UserRead(
     @Json(name = "email_verified") val emailVerified: Boolean,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "last_login_at") val lastLoginAt: String?,
+    @Json(name = "deletion_requested_at") val deletionRequestedAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

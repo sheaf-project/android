@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.SwitchAccount
 import androidx.compose.material3.*
@@ -23,6 +24,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import systems.lupine.sheaf.data.model.AnnouncementPublic
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.MemberRead
+import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.components.*
 import systems.lupine.sheaf.ui.theme.LocalWarningColors
 import java.time.Duration
@@ -33,8 +35,11 @@ import java.time.Instant
 fun HomeScreen(
     onNavigateToMembers: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val authConfig by authViewModel.authConfig.collectAsState()
+    val isPendingDeletion = state.user?.accountStatus == "pending_deletion"
     var memberToRemove by remember { mutableStateOf<MemberRead?>(null) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -61,11 +66,19 @@ fun HomeScreen(
             )
         },
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state.isLoading && state.frontingMembers.isNotEmpty(),
-            onRefresh = { viewModel.load() },
-            modifier = Modifier.fillMaxSize().padding(padding),
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (isPendingDeletion) {
+                PendingDeletionBanner(
+                    deletionRequestedAt = state.user?.deletionRequestedAt,
+                    graceDays = authConfig?.accountDeletionGraceDays,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            PullToRefreshBox(
+                isRefreshing = state.isLoading && state.frontingMembers.isNotEmpty(),
+                onRefresh = { viewModel.load() },
+                modifier = Modifier.weight(1f),
+            ) {
             when {
                 state.isLoading && state.frontingMembers.isEmpty() -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -129,7 +142,8 @@ fun HomeScreen(
                     }
                 }
             }
-        }
+            } // PullToRefreshBox
+        } // Column
     }
 
     if (memberToRemove != null) {
@@ -317,6 +331,43 @@ private fun SwitchFrontSheet(
                 }
             }
             Spacer(Modifier.navigationBarsPadding())
+        }
+    }
+}
+
+// ── Pending deletion banner ───────────────────────────────────────────────────
+
+@Composable
+private fun PendingDeletionBanner(
+    deletionRequestedAt: String?,
+    graceDays: Int?,
+    modifier: Modifier = Modifier,
+) {
+    val timeRemaining = formatDeletionTimeRemaining(deletionRequestedAt, graceDays)
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                buildString {
+                    append("Account pending deletion.")
+                    if (timeRemaining != null) append(" $timeRemaining remaining.")
+                    append(" Go to Settings to cancel account deletion.")
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
         }
     }
 }

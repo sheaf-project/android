@@ -41,6 +41,8 @@ data class SettingsUiState(
     val isDeletingAccount: Boolean = false,
     val accountDeletionRequested: Boolean = false,
     val deletionError: String? = null,
+    val isCancellingDeletion: Boolean = false,
+    val cancelDeletionError: String? = null,
     // Delete confirmation level
     val isUpdatingDeleteConfirmation: Boolean = false,
     val deleteConfirmationError: String? = null,
@@ -208,6 +210,22 @@ class SettingsViewModel @Inject constructor(
                     else
                         e.message ?: "Failed to request account deletion"
                     _state.update { it.copy(isDeletingAccount = false, deletionError = msg) }
+                }
+        }
+    }
+
+    fun cancelAccountDeletion() {
+        _state.update { it.copy(isCancellingDeletion = true, cancelDeletionError = null) }
+        viewModelScope.launch {
+            runCatching { api.cancelAccountDeletion() }
+                .onSuccess { load() }
+                .onFailure { e ->
+                    val msg = when {
+                        e is HttpException && e.code() == 409 -> "No pending deletion to cancel"
+                        e is HttpException && e.code() == 429 -> "Too many requests — please wait a moment and try again"
+                        else -> e.message ?: "Failed to cancel account deletion"
+                    }
+                    _state.update { it.copy(isCancellingDeletion = false, cancelDeletionError = msg) }
                 }
         }
     }

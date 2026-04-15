@@ -13,6 +13,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -62,6 +63,7 @@ fun SettingsScreen(
     val savedBaseUrl by settingsViewModel.baseUrl.collectAsState()
     val themeMode by settingsViewModel.themeMode.collectAsState()
     val frontNotificationEnabled by settingsViewModel.frontNotificationEnabled.collectAsState()
+    val authConfig by authViewModel.authConfig.collectAsState()
     val context = LocalContext.current
 
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
@@ -176,17 +178,53 @@ fun SettingsScreen(
                 ErrorBanner(state.error!!, modifier = Modifier.padding(horizontal = 16.dp))
             }
 
-            if (state.accountDeletionRequested) {
+            if (state.user?.accountStatus == "pending_deletion" || state.accountDeletionRequested) {
+                val timeRemaining = formatDeletionTimeRemaining(
+                    state.user?.deletionRequestedAt,
+                    authConfig?.accountDeletionGraceDays,
+                )
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 ) {
-                    Text(
-                        "Account deletion requested. Your account will be permanently deleted after the grace period. Check your email for confirmation.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    Column(
                         modifier = Modifier.padding(16.dp),
-                    )
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            buildString {
+                                append("Account deletion requested.")
+                                if (timeRemaining != null) append(" $timeRemaining remaining.")
+                                append(" Your account will be permanently deleted after the grace period.")
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        state.cancelDeletionError?.let { error ->
+                            Text(
+                                error,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { settingsViewModel.cancelAccountDeletion() },
+                            enabled = !state.isCancellingDeletion,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            if (state.isCancellingDeletion) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Text("Cancel Deletion")
+                            }
+                        }
+                    }
                 }
             }
 

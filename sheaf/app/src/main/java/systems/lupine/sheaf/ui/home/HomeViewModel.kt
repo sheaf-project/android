@@ -9,6 +9,7 @@ import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.data.model.SystemRead
+import systems.lupine.sheaf.data.model.UserRead
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.notification.FrontNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +19,7 @@ import java.time.Instant
 import javax.inject.Inject
 
 data class HomeUiState(
+    val user: UserRead? = null,
     val system: SystemRead? = null,
     val currentFronts: List<FrontRead> = emptyList(),
     val frontingMembers: List<MemberRead> = emptyList(),
@@ -51,6 +53,7 @@ class HomeViewModel @Inject constructor(
             // Only show full spinner on first load; subsequent calls refresh silently
             _state.update { it.copy(isLoading = it.allMembers.isEmpty(), error = null) }
             runCatching {
+                val user = runCatching { api.getMe() }.getOrNull()
                 val system = api.getOwnSystem()
                 val fronts = api.getCurrentFronts()
                 val members = api.listMembers()
@@ -59,6 +62,7 @@ class HomeViewModel @Inject constructor(
                 val frontingMembers = members.filter { it.id in frontingIds }
                 _state.update {
                     it.copy(
+                        user = user,
                         system = system,
                         currentFronts = fronts,
                         frontingMembers = frontingMembers,
