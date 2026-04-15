@@ -483,7 +483,7 @@ fun SettingsScreen(
                     value = urlDraft,
                     onValueChange = { urlDraft = it },
                     label = { Text("Base URL") },
-                    placeholder = { Text("https://api.sheaf.app") },
+                    placeholder = { Text("https://app.sheaf.sh") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
