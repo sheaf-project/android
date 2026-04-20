@@ -13,10 +13,10 @@ interface PendingOperationsDao {
     fun switchCountFlow(): Flow<Int>
 
     @Insert
-    suspend fun insertSwitch(switch: PendingFrontSwitch)
+    suspend fun insertSwitch(entry: PendingFrontSwitch)
 
     @Delete
-    suspend fun deleteSwitch(switch: PendingFrontSwitch)
+    suspend fun deleteSwitch(entry: PendingFrontSwitch)
 
     @Query("DELETE FROM pending_front_switches")
     suspend fun deleteAllSwitches()
