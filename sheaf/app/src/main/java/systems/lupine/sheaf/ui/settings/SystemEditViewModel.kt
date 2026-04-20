@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.SystemUpdate
+import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -61,7 +62,7 @@ class SystemEditViewModel @Inject constructor(
                     )
                     _state.update { it.copy(isLoading = false) }
                 }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -84,7 +85,7 @@ class SystemEditViewModel @Inject constructor(
                 ))
             }
                 .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -105,7 +106,7 @@ class SystemEditViewModel @Inject constructor(
                     _state.update { it.copy(isUploadingAvatar = false) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.message}") }
+                    _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.toUserMessage()}") }
                 }
         }
     }

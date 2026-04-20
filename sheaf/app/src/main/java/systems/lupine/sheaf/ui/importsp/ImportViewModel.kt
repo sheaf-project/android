@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.SPImportResult
 import systems.lupine.sheaf.data.model.SPPreviewSummary
+import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -62,7 +63,7 @@ class ImportViewModel @Inject constructor(
                 _state.update { it.copy(fileName = name) }
                 preview(bytes, name)
             }.onFailure { e ->
-                _state.update { it.copy(isPreviewing = false, error = "Could not read file: ${e.message}") }
+                _state.update { it.copy(isPreviewing = false, error = "Could not read the file") }
             }
         }
     }
@@ -85,7 +86,7 @@ class ImportViewModel @Inject constructor(
                     )
                 }
             }
-            .onFailure { e -> _state.update { it.copy(isPreviewing = false, error = e.message) } }
+            .onFailure { e -> _state.update { it.copy(isPreviewing = false, error = e.toUserMessage("Preview failed — check the file and try again")) } }
     }
 
     fun updateOptions(update: ImportOptions.() -> ImportOptions) {
@@ -126,7 +127,7 @@ class ImportViewModel @Inject constructor(
                 )
             }
                 .onSuccess { result -> _state.update { it.copy(isImporting = false, result = result) } }
-                .onFailure { e -> _state.update { it.copy(isImporting = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isImporting = false, error = e.toUserMessage("Import failed — please try again")) } }
         }
     }
 

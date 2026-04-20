@@ -7,6 +7,7 @@ import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.model.MemberRead
+import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -57,7 +58,7 @@ class HistoryViewModel @Inject constructor(
                     )
                 }
             }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, error = e.message) }
+                _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
             }
         }
     }
@@ -66,7 +67,7 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.deleteFront(id) }
                 .onSuccess { _state.update { it.copy(fronts = it.fronts.filterNot { f -> f.id == id }, deleteError = null) } }
-                .onFailure { e -> _state.update { it.copy(deleteError = e.message) } }
+                .onFailure { e -> _state.update { it.copy(deleteError = e.toUserMessage()) } }
         }
     }
 
@@ -78,7 +79,7 @@ class HistoryViewModel @Inject constructor(
             }.onSuccess {
                 loadInitial()
             }.onFailure { e ->
-                _state.update { it.copy(error = e.message) }
+                _state.update { it.copy(error = e.toUserMessage()) }
             }
         }
     }
@@ -90,7 +91,7 @@ class HistoryViewModel @Inject constructor(
             }.onSuccess { updated ->
                 _state.update { it.copy(fronts = it.fronts.map { f -> if (f.id == id) updated else f }) }
             }.onFailure { e ->
-                _state.update { it.copy(error = e.message) }
+                _state.update { it.copy(error = e.toUserMessage()) }
             }
         }
     }
@@ -112,7 +113,7 @@ class HistoryViewModel @Inject constructor(
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(isLoadingMore = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isLoadingMore = false, error = e.toUserMessage()) } }
         }
     }
 }

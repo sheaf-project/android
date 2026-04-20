@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
 data class ApiKeysUiState(
@@ -48,7 +49,7 @@ class ApiKeysViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             runCatching { api.listApiKeys() }
                 .onSuccess { keys -> _state.update { it.copy(isLoading = false, keys = keys) } }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Failed to load API keys") } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage("Failed to load API keys")) } }
         }
     }
 
@@ -59,7 +60,7 @@ class ApiKeysViewModel @Inject constructor(
                 .onSuccess { created -> _state.update { it.copy(isCreating = false, createdKey = created) } }
                 .onFailure { e ->
                     val msg = if (e is HttpException && e.code() == 422) "Invalid key configuration"
-                              else e.message ?: "Failed to create API key"
+                              else e.toUserMessage("Failed to create API key")
                     _state.update { it.copy(isCreating = false, error = msg) }
                 }
         }
@@ -69,7 +70,7 @@ class ApiKeysViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.revokeApiKey(id) }
                 .onSuccess { _state.update { it.copy(keys = it.keys.filter { k -> k.id != id }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to revoke key") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to revoke key")) } }
         }
     }
 

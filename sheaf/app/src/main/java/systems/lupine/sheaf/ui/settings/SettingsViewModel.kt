@@ -3,8 +3,10 @@ package systems.lupine.sheaf.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.model.ClientSettingsBody
 import systems.lupine.sheaf.data.model.DeleteAccountRequest
 import systems.lupine.sheaf.data.model.DeleteConfirmationUpdate
+import systems.lupine.sheaf.data.model.FileRead
 import systems.lupine.sheaf.data.model.SystemRead
 import systems.lupine.sheaf.data.model.TOTPDisable
 import systems.lupine.sheaf.data.model.TOTPSetupResponse
@@ -16,6 +18,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
 enum class TotpStep { LOADING, SECRET, VERIFY, RECOVERY_CODES, DONE }
@@ -49,7 +52,14 @@ data class SettingsUiState(
     // Email verification
     val isResendingVerification: Boolean = false,
     val verificationEmailSent: Boolean = false,
+    // Orphaned files
+    val isCheckingFiles: Boolean = false,
+    val orphanedFiles: List<FileRead>? = null,
+    val isDeletingOrphans: Boolean = false,
+    val fileError: String? = null,
 )
+
+private const val CLIENT_ID = "android"
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -82,8 +92,13 @@ class SettingsViewModel @Inject constructor(
                 user to system
             }.onSuccess { (user, system) ->
                 _state.update { it.copy(user = user, system = system, isLoading = false) }
+                runCatching { api.getClientSettings(CLIENT_ID) }
+                    .onSuccess { resp ->
+                        val theme = resp.settings["theme"] as? String
+                        if (theme != null) prefs.saveTheme(theme)
+                    }
             }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, error = e.message) }
+                _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
                 return@launch
             }
             val memberCount = runCatching { api.listMembers().size }.getOrDefault(0)
@@ -100,7 +115,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun saveTheme(mode: String) {
-        viewModelScope.launch { prefs.saveTheme(mode) }
+        viewModelScope.launch {
+            prefs.saveTheme(mode)
+            runCatching { api.saveClientSettings(CLIENT_ID, ClientSettingsBody(mapOf("theme" to mode))) }
+        }
     }
 
     fun toggleFrontNotification(enabled: Boolean) {
@@ -116,7 +134,7 @@ class SettingsViewModel @Inject constructor(
                 .onSuccess { data ->
                     _state.update { it.copy(exportJson = data.string()) }
                 }
-                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
         }
     }
 
@@ -130,7 +148,7 @@ class SettingsViewModel @Inject constructor(
                     _state.update { it.copy(totpSetupResponse = resp, totpStep = TotpStep.SECRET) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(totpError = e.message, totpStep = TotpStep.SECRET) }
+                    _state.update { it.copy(totpError = e.toUserMessage(), totpStep = TotpStep.SECRET) }
                 }
         }
     }
@@ -178,7 +196,7 @@ class SettingsViewModel @Inject constructor(
                     val msg = if (e is HttpException && e.code() == 400)
                         "Incorrect password or authenticator code"
                     else
-                        e.message ?: "Failed to disable 2FA"
+                        e.toUserMessage("Failed to disable 2FA")
                     _state.update { it.copy(totpIsDisabling = false, totpError = msg) }
                 }
         }
@@ -208,7 +226,7 @@ class SettingsViewModel @Inject constructor(
                     val msg = if (e is HttpException && e.code() in listOf(400, 401))
                         "Incorrect password or authenticator code"
                     else
-                        e.message ?: "Failed to request account deletion"
+                        e.toUserMessage("Failed to request account deletion")
                     _state.update { it.copy(isDeletingAccount = false, deletionError = msg) }
                 }
         }
@@ -223,7 +241,7 @@ class SettingsViewModel @Inject constructor(
                     val msg = when {
                         e is HttpException && e.code() == 409 -> "No pending deletion to cancel"
                         e is HttpException && e.code() == 429 -> "Too many requests — please wait a moment and try again"
-                        else -> e.message ?: "Failed to cancel account deletion"
+                        else -> e.toUserMessage("Failed to cancel account deletion")
                     }
                     _state.update { it.copy(isCancellingDeletion = false, cancelDeletionError = msg) }
                 }
@@ -245,7 +263,7 @@ class SettingsViewModel @Inject constructor(
                     val msg = if (e is HttpException && e.code() in listOf(400, 401))
                         "Incorrect password or authenticator code"
                     else
-                        e.message ?: "Failed to update deletion protection"
+                        e.toUserMessage("Failed to update deletion confirmation")
                     _state.update { it.copy(isUpdatingDeleteConfirmation = false, deleteConfirmationError = msg) }
                 }
         }
@@ -258,7 +276,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.resendVerification() }
                 .onSuccess { _state.update { it.copy(isResendingVerification = false, verificationEmailSent = true) } }
-                .onFailure { e -> _state.update { it.copy(isResendingVerification = false, error = e.message ?: "Failed to resend verification email") } }
+                .onFailure { e -> _state.update { it.copy(isResendingVerification = false, error = e.toUserMessage("Failed to resend verification email")) } }
         }
     }
 
@@ -270,4 +288,44 @@ class SettingsViewModel @Inject constructor(
     fun clearDeletionError() { _state.update { it.copy(deletionError = null) } }
     fun clearDeleteConfirmationError() { _state.update { it.copy(deleteConfirmationError = null) } }
     fun clearAccountDeletionRequested() { _state.update { it.copy(accountDeletionRequested = false) } }
+
+    // ── Orphaned files ────────────────────────────────────────────────────────
+
+    fun checkOrphanedFiles() {
+        _state.update { it.copy(isCheckingFiles = true, fileError = null, orphanedFiles = null) }
+        viewModelScope.launch {
+            runCatching {
+                val files = api.listFiles()
+                val members = api.listMembers()
+                val system = api.getOwnSystem()
+                val usedUrls = buildSet {
+                    system.avatarUrl?.let { add(it) }
+                    members.forEach { m -> m.avatarUrl?.let { add(it) } }
+                }
+                files.filter { it.url !in usedUrls }
+            }.onSuccess { orphans ->
+                _state.update { it.copy(isCheckingFiles = false, orphanedFiles = orphans) }
+            }.onFailure { e ->
+                _state.update { it.copy(isCheckingFiles = false, fileError = e.toUserMessage()) }
+            }
+        }
+    }
+
+    fun deleteOrphanedFiles() {
+        val orphans = _state.value.orphanedFiles ?: return
+        if (orphans.isEmpty()) return
+        _state.update { it.copy(isDeletingOrphans = true, fileError = null) }
+        viewModelScope.launch {
+            runCatching {
+                orphans.forEach { api.deleteFile(it.id) }
+            }.onSuccess {
+                _state.update { it.copy(isDeletingOrphans = false, orphanedFiles = emptyList()) }
+            }.onFailure { e ->
+                _state.update { it.copy(isDeletingOrphans = false, fileError = e.toUserMessage()) }
+            }
+        }
+    }
+
+    fun clearOrphanedFiles() { _state.update { it.copy(orphanedFiles = null) } }
+    fun clearFileError() { _state.update { it.copy(fileError = null) } }
 }

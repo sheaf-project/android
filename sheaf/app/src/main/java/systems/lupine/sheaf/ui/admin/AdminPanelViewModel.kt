@@ -20,6 +20,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
 data class AdminPanelUiState(
@@ -62,7 +63,7 @@ class AdminPanelViewModel @Inject constructor(
                     if (status.verified) loadAll()
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isLoading = false, error = e.message ?: "Failed to check admin status") }
+                    _state.update { it.copy(isLoading = false, error = e.toUserMessage("Failed to check admin status")) }
                 }
         }
     }
@@ -82,7 +83,7 @@ class AdminPanelViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     val msg = if (e is HttpException && e.code() == 401) "Invalid credentials"
-                              else e.message ?: "Step-up authentication failed"
+                              else e.toUserMessage("Step-up authentication failed")
                     _state.update { it.copy(isSteppingUp = false, stepUpError = msg) }
                 }
         }
@@ -119,7 +120,7 @@ class AdminPanelViewModel @Inject constructor(
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(error = e.message ?: "Failed to load admin data") }
+                    _state.update { it.copy(error = e.toUserMessage("Failed to load admin data")) }
                 }
         }
     }
@@ -134,7 +135,7 @@ class AdminPanelViewModel @Inject constructor(
                     _state.update { it.copy(isCreatingInvite = false, invites = it.invites + invite) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isCreatingInvite = false, createInviteError = e.message ?: "Failed to create invite") }
+                    _state.update { it.copy(isCreatingInvite = false, createInviteError = e.toUserMessage("Failed to create invite")) }
                 }
         }
     }
@@ -143,7 +144,7 @@ class AdminPanelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.deleteInvite(id) }
                 .onSuccess { _state.update { it.copy(invites = it.invites.filter { i -> i.id != id }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to delete invite") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to delete invite")) } }
         }
     }
 
@@ -163,7 +164,7 @@ class AdminPanelViewModel @Inject constructor(
                         s.copy(users = s.users.map { if (it.id == id) updated else it })
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to update user") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to update user")) } }
         }
     }
 
@@ -171,7 +172,7 @@ class AdminPanelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.approveUser(id) }
                 .onSuccess { _state.update { it.copy(approvals = it.approvals.filter { u -> u.id != id }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to approve user") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to approve user")) } }
         }
     }
 
@@ -179,7 +180,7 @@ class AdminPanelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.rejectUser(id) }
                 .onSuccess { _state.update { it.copy(approvals = it.approvals.filter { u -> u.id != id }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to reject user") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to reject user")) } }
         }
     }
 
@@ -187,7 +188,7 @@ class AdminPanelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.runRetention() }
                 .onSuccess { _state.update { it.copy(maintenanceMessage = "Retention job started") } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
         }
     }
 
@@ -195,7 +196,7 @@ class AdminPanelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.runCleanup() }
                 .onSuccess { _state.update { it.copy(maintenanceMessage = "Cleanup job started") } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
         }
     }
 
@@ -203,7 +204,7 @@ class AdminPanelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.getStorageStats() }
                 .onSuccess { _state.update { it.copy(maintenanceMessage = "Storage stats refreshed") } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
         }
     }
 
@@ -213,7 +214,7 @@ class AdminPanelViewModel @Inject constructor(
                 .onSuccess { _state.update { it.copy(recoveryMessage = "Password reset successfully") } }
                 .onFailure { e ->
                     val msg = if (e is HttpException && e.code() == 403) "Insufficient permissions"
-                              else e.message ?: "Failed to reset password"
+                              else e.toUserMessage("Failed to reset password")
                     _state.update { it.copy(error = msg) }
                 }
         }
@@ -232,7 +233,7 @@ class AdminPanelViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     val msg = if (e is HttpException && e.code() == 409) "Email already in use"
-                              else e.message ?: "Failed to change email"
+                              else e.toUserMessage("Failed to change email")
                     _state.update { it.copy(error = msg) }
                 }
         }
@@ -249,7 +250,7 @@ class AdminPanelViewModel @Inject constructor(
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to disable TOTP") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to disable TOTP")) } }
         }
     }
 
@@ -264,7 +265,7 @@ class AdminPanelViewModel @Inject constructor(
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to verify email") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to verify email")) } }
         }
     }
 
@@ -279,7 +280,7 @@ class AdminPanelViewModel @Inject constructor(
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to cancel deletion") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to cancel deletion")) } }
         }
     }
 
@@ -295,7 +296,7 @@ class AdminPanelViewModel @Inject constructor(
                     ) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isSavingAnnouncement = false, announcementError = e.message ?: "Failed to create announcement") }
+                    _state.update { it.copy(isSavingAnnouncement = false, announcementError = e.toUserMessage("Failed to create announcement")) }
                 }
         }
     }
@@ -314,7 +315,7 @@ class AdminPanelViewModel @Inject constructor(
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isSavingAnnouncement = false, announcementError = e.message ?: "Failed to update announcement") }
+                    _state.update { it.copy(isSavingAnnouncement = false, announcementError = e.toUserMessage("Failed to update announcement")) }
                 }
         }
     }
@@ -323,7 +324,7 @@ class AdminPanelViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.deleteAnnouncement(id) }
                 .onSuccess { _state.update { it.copy(announcements = it.announcements.filter { a -> a.id != id }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to delete announcement") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to delete announcement")) } }
         }
     }
 

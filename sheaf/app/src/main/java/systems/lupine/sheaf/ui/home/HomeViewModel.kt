@@ -12,6 +12,7 @@ import systems.lupine.sheaf.data.model.SystemRead
 import systems.lupine.sheaf.data.model.UserRead
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.notification.FrontNotificationHelper
+import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -79,7 +80,7 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             }.onFailure { e ->
-                _state.update { s -> s.copy(isLoading = false, error = if (s.allMembers.isEmpty()) e.message else s.error) }
+                _state.update { s -> s.copy(isLoading = false, error = if (s.allMembers.isEmpty()) e.toUserMessage() else s.error) }
             }
         }
     }
@@ -121,7 +122,7 @@ class HomeViewModel @Inject constructor(
                 _state.update { it.copy(isSwitching = false, showSwitchSheet = false) }
                 load()
             }.onFailure { e ->
-                _state.update { it.copy(isSwitching = false, error = e.message) }
+                _state.update { it.copy(isSwitching = false, error = e.toUserMessage()) }
             }
         }
     }
@@ -139,7 +140,7 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             }.onFailure { e ->
-                _state.update { it.copy(error = e.message) }
+                _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }
             load()

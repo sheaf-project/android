@@ -73,6 +73,7 @@ fun SettingsScreen(
     var showDisableTotpDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
+    var showDeleteOrphansDialog by remember { mutableStateOf(false) }
 
     var pendingExportJson by remember { mutableStateOf<String?>(null) }
     val saveFileLauncher = rememberLauncherForActivityResult(
@@ -92,6 +93,14 @@ fun SettingsScreen(
             pendingExportJson = json
             val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
             saveFileLauncher.launch("sheaf-export-$timestamp.json")
+        }
+    }
+
+    LaunchedEffect(state.orphanedFiles) {
+        if (state.orphanedFiles != null && state.orphanedFiles!!.isNotEmpty()) {
+            showDeleteOrphansDialog = true
+        } else if (state.orphanedFiles?.isEmpty() == true) {
+            showDeleteOrphansDialog = false
         }
     }
 
@@ -403,6 +412,21 @@ fun SettingsScreen(
                 onClick = onNavigateToSheafImport,
             )
 
+            // ── Storage ──────────────────────────────────────────────────────
+            SectionHeader("Storage")
+            SettingItem(
+                icon = if (state.isCheckingFiles) Icons.Outlined.HourglassEmpty else Icons.Outlined.DeleteSweep,
+                title = if (state.isCheckingFiles) "Checking…" else "Clean Up Orphaned Files",
+                subtitle = when {
+                    state.orphanedFiles?.isEmpty() == true -> "No orphaned files found"
+                    else -> "Find and delete uploaded files no longer in use"
+                },
+                onClick = { if (!state.isCheckingFiles) settingsViewModel.checkOrphanedFiles() },
+            )
+            if (state.fileError != null) {
+                ErrorBanner(state.fileError!!, modifier = Modifier.padding(horizontal = 16.dp))
+            }
+
             // ── Server ───────────────────────────────────────────────────────
             SectionHeader("Server")
             SettingItem(
@@ -455,6 +479,48 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // ── Delete Orphaned Files Dialog ──────────────────────────────────────────
+
+    if (showDeleteOrphansDialog) {
+        val orphans = state.orphanedFiles ?: emptyList()
+        AlertDialog(
+            onDismissRequest = {
+                if (!state.isDeletingOrphans) {
+                    showDeleteOrphansDialog = false
+                    settingsViewModel.clearOrphanedFiles()
+                }
+            },
+            icon = { Icon(Icons.Outlined.DeleteSweep, contentDescription = null) },
+            title = { Text("Delete Orphaned Files") },
+            text = {
+                Text(
+                    "This will permanently delete ${orphans.size} file(s) " +
+                    "(${formatBytes(orphans.sumOf { it.sizeBytes })}) that are no longer used by any member or system. " +
+                    "This cannot be undone."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { settingsViewModel.deleteOrphanedFiles(); showDeleteOrphansDialog = false },
+                    enabled = !state.isDeletingOrphans,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    if (state.isDeletingOrphans) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Delete")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteOrphansDialog = false; settingsViewModel.clearOrphanedFiles() },
+                    enabled = !state.isDeletingOrphans,
+                ) { Text("Cancel") }
+            },
+        )
     }
 
     // ── TOTP Setup Sheet ──────────────────────────────────────────────────────
@@ -657,7 +723,7 @@ fun SettingsScreen(
                     settingsViewModel.clearDeleteConfirmationError()
                 }
             },
-            title = { Text("Deletion Protection") },
+            title = { Text("Deletion Confirmation") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
@@ -964,6 +1030,13 @@ private fun formatTier(tier: String): String = when (tier) {
     "saas"        -> "SaaS"
     "self_hosted" -> "Self-hosted"
     else          -> tier.split('_').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes < 1_024 -> "$bytes B"
+    bytes < 1_048_576 -> "${"%.1f".format(bytes / 1_024.0)} KB"
+    bytes < 1_073_741_824 -> "${"%.1f".format(bytes / 1_048_576.0)} MB"
+    else -> "${"%.1f".format(bytes / 1_073_741_824.0)} GB"
 }
 
 private fun formatDeleteConfirmation(level: String?): String = when (level) {

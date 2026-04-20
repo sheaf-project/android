@@ -6,6 +6,7 @@ import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.CustomFieldCreate
 import systems.lupine.sheaf.data.model.CustomFieldRead
 import systems.lupine.sheaf.data.model.CustomFieldUpdate
+import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -33,7 +34,7 @@ class CustomFieldsViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             runCatching { api.listFields() }
                 .onSuccess { fields -> _state.update { it.copy(fields = fields, isLoading = false) } }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -50,7 +51,7 @@ class CustomFieldsViewModel @Inject constructor(
             }.onSuccess { field ->
                 _state.update { it.copy(fields = it.fields + field, isSaving = false) }
             }.onFailure { e ->
-                _state.update { it.copy(isSaving = false, error = e.message) }
+                _state.update { it.copy(isSaving = false, error = e.toUserMessage()) }
             }
         }
     }
@@ -67,7 +68,7 @@ class CustomFieldsViewModel @Inject constructor(
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -75,7 +76,7 @@ class CustomFieldsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.deleteField(id) }
                 .onSuccess { _state.update { it.copy(fields = it.fields.filterNot { f -> f.id == id }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
         }
     }
 

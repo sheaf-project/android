@@ -13,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
 sealed interface AuthUiState {
@@ -91,7 +92,7 @@ class AuthViewModel @Inject constructor(
                     val message = if (e is HttpException && e.code() == 401)
                         "Invalid email or password"
                     else
-                        e.message ?: "Login failed"
+                        e.toUserMessage("Login failed")
                     _uiState.value = AuthUiState.Error(message)
                 }
         }
@@ -109,7 +110,7 @@ class AuthViewModel @Inject constructor(
                     val message = when {
                         e is HttpException && (e.code() == 401 || e.code() == 422) ->
                             "Invalid code — please try again"
-                        else -> e.message ?: "TOTP verification failed"
+                        else -> e.toUserMessage("TOTP verification failed")
                     }
                     _uiState.value = AuthUiState.AwaitingTotp(error = message)
                 }
@@ -153,7 +154,7 @@ class AuthViewModel @Inject constructor(
                         e is HttpException && e.code() == 409 -> "Email already registered"
                         e is HttpException && e.code() == 403 -> "Registration is not allowed"
                         e is HttpException && e.code() == 422 -> "Invalid email or password"
-                        else -> e.message ?: "Registration failed"
+                        else -> e.toUserMessage("Registration failed")
                     }
                     _uiState.value = AuthUiState.Error(message)
                 }
@@ -170,7 +171,7 @@ class AuthViewModel @Inject constructor(
                     val message = if (e is HttpException && e.code() == 400)
                         "Invalid or expired token"
                     else
-                        e.message ?: "Verification failed"
+                        e.toUserMessage("Verification failed")
                     _uiState.value = AuthUiState.Error(message)
                 }
         }

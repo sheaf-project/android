@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
 data class SessionsUiState(
@@ -36,7 +37,7 @@ class SessionsViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             runCatching { api.listSessions() }
                 .onSuccess { sessions -> _state.update { it.copy(isLoading = false, sessions = sessions) } }
-                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message ?: "Failed to load sessions") } }
+                .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage("Failed to load sessions")) } }
         }
     }
 
@@ -48,7 +49,7 @@ class SessionsViewModel @Inject constructor(
                         s.copy(sessions = s.sessions.map { if (it.id == id) it.copy(nickname = nickname) else it })
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(error = e.message ?: "Failed to rename session") } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to rename session")) } }
         }
     }
 
@@ -59,7 +60,7 @@ class SessionsViewModel @Inject constructor(
                 .onSuccess { _state.update { it.copy(isRevoking = false, sessions = it.sessions.filter { s -> s.id != id }) } }
                 .onFailure { e ->
                     val msg = if (e is HttpException && e.code() == 400) "Cannot revoke the current session"
-                              else e.message ?: "Failed to revoke session"
+                              else e.toUserMessage("Failed to revoke session")
                     _state.update { it.copy(isRevoking = false, error = msg) }
                 }
         }
@@ -75,7 +76,7 @@ class SessionsViewModel @Inject constructor(
             }
             runCatching { api.revokeOtherSessions(TokenRefresh(refreshToken)) }
                 .onSuccess { load() }
-                .onFailure { e -> _state.update { it.copy(isRevoking = false, error = e.message ?: "Failed to revoke sessions") } }
+                .onFailure { e -> _state.update { it.copy(isRevoking = false, error = e.toUserMessage("Failed to revoke sessions")) } }
         }
     }
 

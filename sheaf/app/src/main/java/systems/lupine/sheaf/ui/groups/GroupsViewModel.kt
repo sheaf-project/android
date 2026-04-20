@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.*
+import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -33,7 +34,7 @@ class GroupsViewModel @Inject constructor(
             _state.update { it.copy(isLoading = it.groups.isEmpty(), error = null) }
             runCatching { api.listGroups() }
                 .onSuccess { groups -> _state.update { it.copy(groups = groups, isLoading = false) } }
-                .onFailure { e -> _state.update { s -> s.copy(isLoading = false, error = if (s.groups.isEmpty()) e.message else s.error) } }
+                .onFailure { e -> _state.update { s -> s.copy(isLoading = false, error = if (s.groups.isEmpty()) e.toUserMessage() else s.error) } }
         }
     }
 }
@@ -103,7 +104,7 @@ class GroupDetailViewModel @Inject constructor(
                     color       = group.color ?: "#534AB7",
                 )
             }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, error = e.message) }
+                _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
             }
         }
     }
@@ -138,7 +139,7 @@ class GroupDetailViewModel @Inject constructor(
                 }
             }
                 .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -148,7 +149,7 @@ class GroupDetailViewModel @Inject constructor(
             _state.update { it.copy(isDeleting = true) }
             runCatching { api.deleteGroup(groupId) }
                 .onSuccess { _state.update { it.copy(isDeleting = false, deleted = true) } }
-                .onFailure { e -> _state.update { it.copy(isDeleting = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isDeleting = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -174,7 +175,7 @@ class GroupDetailViewModel @Inject constructor(
             }.onSuccess { members ->
                 _state.update { it.copy(members = members, showMemberSheet = false) }
             }.onFailure { e ->
-                _state.update { it.copy(error = e.message) }
+                _state.update { it.copy(error = e.toUserMessage()) }
             }
         }
     }

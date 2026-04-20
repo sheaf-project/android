@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import systems.lupine.sheaf.util.toUserMessage
 import com.squareup.moshi.Moshi
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -45,7 +46,7 @@ class MembersViewModel @Inject constructor(
                 val fronts = api.getCurrentFronts()
                 _state.update { it.copy(members = members, currentFronts = fronts, isLoading = false) }
             }.onFailure { e ->
-                _state.update { s -> s.copy(isLoading = false, error = if (s.members.isEmpty()) e.message else s.error) }
+                _state.update { s -> s.copy(isLoading = false, error = if (s.members.isEmpty()) e.toUserMessage() else s.error) }
             }
         }
     }
@@ -61,7 +62,7 @@ class MembersViewModel @Inject constructor(
                     api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
                 }
             }.onFailure { e ->
-                _state.update { it.copy(error = e.message) }
+                _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }
             _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
@@ -80,7 +81,7 @@ class MembersViewModel @Inject constructor(
                     }
                 }
             }.onFailure { e ->
-                _state.update { it.copy(error = e.message) }
+                _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }
             _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
@@ -96,7 +97,7 @@ class MembersViewModel @Inject constructor(
                 }
                 api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
             }.onFailure { e ->
-                _state.update { it.copy(error = e.message) }
+                _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }
             _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
@@ -108,7 +109,7 @@ class MembersViewModel @Inject constructor(
             _state.update { it.copy(error = null) }
             runCatching { api.deleteMember(memberId) }
                 .onSuccess { _state.update { it.copy(members = it.members.filter { m -> m.id != memberId }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
         }
     }
 }
@@ -178,7 +179,7 @@ class MemberDetailViewModel @Inject constructor(
                     )
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isLoading = false, error = e.message) }
+                    _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
                 }
         }
     }
@@ -222,7 +223,7 @@ class MemberDetailViewModel @Inject constructor(
                 }
             }
                 .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -232,7 +233,7 @@ class MemberDetailViewModel @Inject constructor(
             _state.update { it.copy(isDeleting = true, error = null) }
             runCatching { api.deleteMember(memberId) }
                 .onSuccess { _state.update { it.copy(isDeleting = false, deleted = true) } }
-                .onFailure { e -> _state.update { it.copy(isDeleting = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(isDeleting = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -253,7 +254,7 @@ class MemberDetailViewModel @Inject constructor(
                     _state.update { it.copy(isUploadingAvatar = false) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.message}") }
+                    _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.toUserMessage()}") }
                 }
         }
     }
@@ -298,7 +299,7 @@ class MemberProfileViewModel @Inject constructor(
                 val member = api.getMember(memberId)
                 val fronts = api.getCurrentFronts()
                 _state.update { it.copy(member = member, currentFronts = fronts, isLoading = false) }
-            }.onFailure { e -> _state.update { it.copy(isLoading = false, error = e.message) } }
+            }.onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage()) } }
         }
     }
 
@@ -311,7 +312,7 @@ class MemberProfileViewModel @Inject constructor(
                 } else {
                     api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
                 }
-            }.onFailure { e -> _state.update { it.copy(error = e.message) }
+            }.onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }
             _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
@@ -328,7 +329,7 @@ class MemberProfileViewModel @Inject constructor(
                         api.updateFront(front.id, FrontUpdate(memberIds = front.memberIds - memberId))
                     }
                 }
-            }.onFailure { e -> _state.update { it.copy(error = e.message) }
+            }.onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }
             _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
@@ -342,7 +343,7 @@ class MemberProfileViewModel @Inject constructor(
                     api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
                 }
                 api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
-            }.onFailure { e -> _state.update { it.copy(error = e.message) }
+            }.onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }
             _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
@@ -354,7 +355,7 @@ class MemberProfileViewModel @Inject constructor(
             _state.update { it.copy(error = null) }
             runCatching { api.deleteMember(memberId) }
                 .onSuccess { _state.update { it.copy(deleted = true) } }
-                .onFailure { e -> _state.update { it.copy(error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
         }
     }
 }
