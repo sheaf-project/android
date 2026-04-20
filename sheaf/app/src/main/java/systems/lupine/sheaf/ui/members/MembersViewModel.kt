@@ -6,7 +6,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.*
+import systems.lupine.sheaf.data.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -31,6 +33,8 @@ data class MembersUiState(
 @HiltViewModel
 class MembersViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val cache: LocalCache,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MembersUiState(isLoading = true))
@@ -41,12 +45,28 @@ class MembersViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = it.members.isEmpty(), error = null) }
-            runCatching {
-                val members = api.listMembers()
-                val fronts = api.getCurrentFronts()
-                _state.update { it.copy(members = members, currentFronts = fronts, isLoading = false) }
-            }.onFailure { e ->
-                _state.update { s -> s.copy(isLoading = false, error = if (s.members.isEmpty()) e.toUserMessage() else s.error) }
+            val online = networkMonitor.isOnline.first()
+            if (online) {
+                runCatching {
+                    val members = api.listMembers()
+                    val fronts = api.getCurrentFronts()
+                    cache.saveMembers(members)
+                    _state.update { it.copy(members = members, currentFronts = fronts, isLoading = false) }
+                }.onFailure { e ->
+                    val cached = cache.getMembers()
+                    if (cached != null) {
+                        _state.update { it.copy(members = cached, isLoading = false) }
+                    } else {
+                        _state.update { s -> s.copy(isLoading = false, error = if (s.members.isEmpty()) e.toUserMessage() else s.error) }
+                    }
+                }
+            } else {
+                val cached = cache.getMembers()
+                if (cached != null) {
+                    _state.update { it.copy(members = cached, isLoading = false) }
+                } else {
+                    _state.update { it.copy(isLoading = false) }
+                }
             }
         }
     }

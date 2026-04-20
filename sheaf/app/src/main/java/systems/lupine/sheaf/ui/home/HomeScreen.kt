@@ -74,6 +74,11 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
+            OfflineSyncChip(
+                isOnline = state.isOnline,
+                pendingOpCount = state.pendingOpCount,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
             PullToRefreshBox(
                 isRefreshing = state.isLoading && state.frontingMembers.isNotEmpty(),
                 onRefresh = { viewModel.load() },
@@ -171,6 +176,38 @@ fun HomeScreen(
             onDismiss = { viewModel.closeSwitchSheet() },
             isSwitching = state.isSwitching,
         )
+    }
+}
+
+// ── Offline / sync status chip ────────────────────────────────────────────────
+
+@Composable
+private fun OfflineSyncChip(
+    isOnline: Boolean,
+    pendingOpCount: Int,
+    modifier: Modifier = Modifier,
+) {
+    val warningColors = LocalWarningColors.current
+    when {
+        !isOnline -> SuggestionChip(
+            onClick = {},
+            label = { Text("Offline — changes will sync when back online") },
+            colors = SuggestionChipDefaults.suggestionChipColors(
+                containerColor = warningColors.container,
+                labelColor = warningColors.onContainer,
+            ),
+            modifier = modifier,
+        )
+        pendingOpCount > 0 -> SuggestionChip(
+            onClick = {},
+            label = { Text("Syncing $pendingOpCount pending change${if (pendingOpCount == 1) "" else "s"}…") },
+            colors = SuggestionChipDefaults.suggestionChipColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
+            modifier = modifier,
+        )
+        else -> {}
     }
 }
 

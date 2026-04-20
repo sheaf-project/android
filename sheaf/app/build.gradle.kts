@@ -70,6 +70,15 @@ dependencies {
     implementation(libs.moshi.adapters)
     ksp(libs.moshi.kotlin.codegen)
 
+    // Room
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+    // WorkManager + Hilt integration
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
+
     // Storage
     implementation(libs.datastore.preferences)
 
