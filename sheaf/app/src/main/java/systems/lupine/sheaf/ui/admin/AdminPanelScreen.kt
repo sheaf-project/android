@@ -15,8 +15,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import android.content.ClipData
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -650,10 +652,11 @@ private fun ChangeEmailDialog(
 
 @Composable
 private fun InviteCodeListItem(invite: InviteCodeRead, onDelete: () -> Unit) {
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
     var confirmDelete by remember { mutableStateOf(false) }
 
-    Surface(onClick = { clipboardManager.setText(AnnotatedString(invite.code)) }, modifier = Modifier.fillMaxWidth()) {
+    Surface(onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("", invite.code))) } }, modifier = Modifier.fillMaxWidth()) {
         ListItem(
             headlineContent = {
                 Text(invite.code, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)

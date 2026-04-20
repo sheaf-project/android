@@ -10,6 +10,7 @@ import systems.lupine.sheaf.data.model.UserLogin
 import systems.lupine.sheaf.data.model.UserRegister
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -45,6 +46,7 @@ class AuthViewModel @Inject constructor(
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val authConfig: StateFlow<AuthConfig?> = baseUrl
         .filter { it.isNotBlank() }
         .flatMapLatest { flow { emit(runCatching { api.getAuthConfig() }.getOrNull()) } }

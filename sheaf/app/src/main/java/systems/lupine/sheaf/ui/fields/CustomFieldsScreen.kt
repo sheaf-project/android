@@ -258,7 +258,7 @@ private fun AddFieldSheet(
                     label = { Text("Field type") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                         .fillMaxWidth(),
                 )
                 ExposedDropdownMenu(

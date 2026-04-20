@@ -2,7 +2,6 @@ package systems.lupine.sheaf.ui.settings
 
 import android.Manifest
 import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -26,6 +25,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.text.style.TextAlign
@@ -36,9 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
+import android.content.ClipData
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -385,7 +388,7 @@ fun SettingsScreen(
             // ── Data ─────────────────────────────────────────────────────────
             SectionHeader("Data")
             SettingItem(
-                icon = Icons.Outlined.List,
+                icon = Icons.AutoMirrored.Outlined.List,
                 title = "Custom Fields",
                 subtitle = null,
                 onClick = onNavigateToCustomFields,
@@ -462,7 +465,7 @@ fun SettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             }
             SettingItem(
-                icon = Icons.Outlined.Logout,
+                icon = Icons.AutoMirrored.Outlined.Logout,
                 title = "Sign Out",
                 subtitle = null,
                 onClick = { showLogoutDialog = true },
@@ -822,7 +825,8 @@ private fun TotpSetupSheet(
     onAdvanceToDone: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
     var code by remember { mutableStateOf("") }
     var copiedSecret by remember { mutableStateOf(false) }
     var copiedCodes by remember { mutableStateOf(false) }
@@ -857,7 +861,7 @@ private fun TotpSetupSheet(
                     if (state.totpSetupResponse != null) {
                         Surface(
                             onClick = {
-                                clipboardManager.setText(AnnotatedString(state.totpSetupResponse.secret))
+                                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("", state.totpSetupResponse.secret))) }
                                 copiedSecret = true
                             },
                             color = MaterialTheme.colorScheme.surfaceVariant,
@@ -954,7 +958,7 @@ private fun TotpSetupSheet(
                         }
                         OutlinedButton(
                             onClick = {
-                                clipboardManager.setText(AnnotatedString(codes.joinToString("\n")))
+                                scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("", codes.joinToString("\n")))) }
                                 copiedCodes = true
                             },
                             modifier = Modifier.fillMaxWidth(),

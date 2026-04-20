@@ -12,19 +12,15 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.autofill.AutofillNode
-import androidx.compose.ui.autofill.AutofillType
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalAutofill
-import androidx.compose.ui.platform.LocalAutofillTree
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.CircleShape
@@ -279,7 +275,6 @@ private fun ServerUrlStep(
 
 // ── Step 2: login / register ──────────────────────────────────────────────────
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun AuthStep(
     serverUrl: String,
@@ -300,16 +295,6 @@ private fun AuthStep(
     onSubmit: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
-    val autofill = LocalAutofill.current
-    val autofillTree = LocalAutofillTree.current
-    val emailNode = remember {
-        AutofillNode(autofillTypes = listOf(AutofillType.EmailAddress), onFill = onEmailChange)
-    }
-    val passwordNode = remember {
-        AutofillNode(autofillTypes = listOf(AutofillType.Password), onFill = onPasswordChange)
-    }
-    autofillTree += emailNode
-    autofillTree += passwordNode
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SuggestionChip(
             onClick = onChangeServer,
@@ -332,13 +317,7 @@ private fun AuthStep(
             keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
             modifier = Modifier
                 .fillMaxWidth()
-                .onGloballyPositioned { emailNode.boundingBox = it.boundsInWindow() }
-                .onFocusChanged { fs ->
-                    autofill?.run {
-                        if (fs.isFocused) requestAutofillForNode(emailNode)
-                        else cancelAutofillForNode(emailNode)
-                    }
-                },
+                .semantics { contentType = ContentType.EmailAddress },
         )
         OutlinedTextField(
             value = password, onValueChange = onPasswordChange, label = { Text("Password") }, singleLine = true,
@@ -352,13 +331,7 @@ private fun AuthStep(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .onGloballyPositioned { passwordNode.boundingBox = it.boundsInWindow() }
-                .onFocusChanged { fs ->
-                    autofill?.run {
-                        if (fs.isFocused) requestAutofillForNode(passwordNode)
-                        else cancelAutofillForNode(passwordNode)
-                    }
-                },
+                .semantics { contentType = ContentType.Password },
         )
         if (showInviteCode) {
             OutlinedTextField(

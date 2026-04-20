@@ -12,8 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import android.content.ClipData
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -129,7 +131,8 @@ fun ApiKeysScreen(
     // ── Created key dialog (show raw key once) ────────────────────────────────
 
     state.createdKey?.let { created ->
-        val clipboardManager = LocalClipboardManager.current
+        val clipboard = LocalClipboard.current
+        val scope = rememberCoroutineScope()
         AlertDialog(
             onDismissRequest = { viewModel.clearCreatedKey() },
             title = { Text("Key Created") },
@@ -151,7 +154,7 @@ fun ApiKeysScreen(
                                 modifier = Modifier.weight(1f),
                                 maxLines = 3,
                             )
-                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(created.key)) }) {
+                            IconButton(onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("", created.key))) } }) {
                                 Icon(Icons.Outlined.ContentCopy, contentDescription = "Copy")
                             }
                         }
