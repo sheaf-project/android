@@ -105,7 +105,7 @@ fun MemberAvatar(
             Text(
                 text = member.initials,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
+                color = if (color.luminance() > 0.35f) Color.Black else Color.White,
             )
         }
     }
