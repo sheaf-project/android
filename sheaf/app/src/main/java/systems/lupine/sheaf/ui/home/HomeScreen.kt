@@ -90,7 +90,7 @@ fun HomeScreen(
                         CircularProgressIndicator()
                     }
                 }
-                state.error != null -> {
+                state.error != null && state.isOnline -> {
                     Column(
                         Modifier.fillMaxSize().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
