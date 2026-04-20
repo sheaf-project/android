@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.*
+import systems.lupine.sheaf.data.network.NetworkMonitor
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -22,6 +24,8 @@ data class GroupsUiState(
 @HiltViewModel
 class GroupsViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val cache: LocalCache,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(GroupsUiState(isLoading = true))
@@ -32,9 +36,29 @@ class GroupsViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = it.groups.isEmpty(), error = null) }
-            runCatching { api.listGroups() }
-                .onSuccess { groups -> _state.update { it.copy(groups = groups, isLoading = false) } }
-                .onFailure { e -> _state.update { s -> s.copy(isLoading = false, error = if (s.groups.isEmpty()) e.toUserMessage() else s.error) } }
+            val online = networkMonitor.isOnline.first()
+            if (online) {
+                runCatching { api.listGroups() }
+                    .onSuccess { groups ->
+                        cache.saveGroups(groups)
+                        _state.update { it.copy(groups = groups, isLoading = false) }
+                    }
+                    .onFailure { e ->
+                        val cached = cache.getGroups()
+                        if (cached != null) {
+                            _state.update { it.copy(groups = cached, isLoading = false) }
+                        } else {
+                            _state.update { s -> s.copy(isLoading = false, error = if (s.groups.isEmpty()) e.toUserMessage() else s.error) }
+                        }
+                    }
+            } else {
+                val cached = cache.getGroups()
+                if (cached != null) {
+                    _state.update { it.copy(groups = cached, isLoading = false) }
+                } else {
+                    _state.update { it.copy(isLoading = false) }
+                }
+            }
         }
     }
 }

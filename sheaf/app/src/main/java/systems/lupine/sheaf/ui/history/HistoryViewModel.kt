@@ -3,10 +3,12 @@ package systems.lupine.sheaf.ui.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.model.MemberRead
+import systems.lupine.sheaf.data.network.NetworkMonitor
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -29,6 +31,8 @@ private const val PAGE_SIZE = 30
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val cache: LocalCache,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HistoryUiState(isLoading = true))
@@ -42,24 +46,47 @@ class HistoryViewModel @Inject constructor(
         currentOffset = 0
         viewModelScope.launch {
             _state.update { it.copy(isLoading = it.fronts.isEmpty(), error = null) }
-            runCatching {
-                val fronts = api.listFronts(limit = PAGE_SIZE, offset = 0)
-                val memberMap = api.listMembers().associateBy { it.id }
-                fronts to memberMap
-            }.onSuccess { (fronts, memberMap) ->
-                currentOffset = fronts.size
-                _state.update {
-                    it.copy(
-                        fronts = fronts,
-                        members = memberMap,
-                        allMembers = memberMap.values.sortedBy { m -> m.displayNameOrName },
-                        isLoading = false,
-                        hasMore = fronts.size == PAGE_SIZE,
-                    )
+            val online = networkMonitor.isOnline.first()
+            if (online) {
+                runCatching {
+                    val fronts = api.listFronts(limit = PAGE_SIZE, offset = 0)
+                    val memberMap = api.listMembers().associateBy { it.id }
+                    fronts to memberMap
+                }.onSuccess { (fronts, memberMap) ->
+                    currentOffset = fronts.size
+                    cache.saveHistory(fronts)
+                    _state.update {
+                        it.copy(
+                            fronts = fronts,
+                            members = memberMap,
+                            allMembers = memberMap.values.sortedBy { m -> m.displayNameOrName },
+                            isLoading = false,
+                            hasMore = fronts.size == PAGE_SIZE,
+                        )
+                    }
+                }.onFailure { e ->
+                    loadFromCache(error = if (_state.value.fronts.isEmpty()) e.toUserMessage() else null)
                 }
-            }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
+            } else {
+                loadFromCache()
             }
+        }
+    }
+
+    private suspend fun loadFromCache(error: String? = null) {
+        val cachedFronts = cache.getHistory() ?: emptyList()
+        val cachedMembers = cache.getMembers() ?: emptyList()
+        val memberMap = cachedMembers.associateBy { it.id }
+        currentOffset = cachedFronts.size
+        _state.update {
+            it.copy(
+                fronts = cachedFronts,
+                members = memberMap,
+                allMembers = cachedMembers.sortedBy { m -> m.displayNameOrName },
+                isLoading = false,
+                hasMore = false,
+                error = error,
+            )
         }
     }
 
