@@ -29,7 +29,7 @@ Built with **Kotlin + Jetpack Compose**, targeting Android 8.0+ (API 26).
 ### 1. Clone / open
 
 ```bash
-git clone https://github.com/your-org/sheaf-android
+git clone https://github.com/sheaf-project/android
 ```
 
 Then in Android Studio: **File → Open** and select the `sheaf-android/` folder. Let Gradle sync.
@@ -119,4 +119,4 @@ PRs welcome. Run `./gradlew lint` before submitting.
 
 ## Licence
 
-MIT
+AGPL-3.0
