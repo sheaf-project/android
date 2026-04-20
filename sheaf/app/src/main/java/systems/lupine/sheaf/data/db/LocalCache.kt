@@ -35,6 +35,8 @@ class LocalCache @Inject constructor(
     suspend fun getMembers(): List<MemberRead>? =
         dao.get(KEY_MEMBERS)?.let { runCatching { memberListAdapter.fromJson(it.json) }.getOrNull() }
 
+    suspend fun getMember(id: String): MemberRead? = getMembers()?.find { it.id == id }
+
     suspend fun saveSystem(system: SystemRead) =
         dao.put(CacheEntry(KEY_SYSTEM, systemAdapter.toJson(system)))
 

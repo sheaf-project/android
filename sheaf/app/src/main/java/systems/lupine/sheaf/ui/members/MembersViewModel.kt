@@ -299,6 +299,8 @@ data class MemberProfileUiState(
 @HiltViewModel
 class MemberProfileViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val cache: LocalCache,
+    private val networkMonitor: NetworkMonitor,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -311,15 +313,33 @@ class MemberProfileViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            // Keep existing data visible on refresh; only show spinner on first load
             if (_state.value.member == null) {
                 _state.update { it.copy(isLoading = true, error = null) }
             }
-            runCatching {
-                val member = api.getMember(memberId)
-                val fronts = api.getCurrentFronts()
-                _state.update { it.copy(member = member, currentFronts = fronts, isLoading = false) }
-            }.onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage()) } }
+            val online = networkMonitor.isOnline.first()
+            if (online) {
+                runCatching {
+                    val member = api.getMember(memberId)
+                    val fronts = api.getCurrentFronts()
+                    _state.update { it.copy(member = member, currentFronts = fronts, isLoading = false) }
+                }.onFailure { e ->
+                    val cached = cache.getMember(memberId)
+                    val fronts = cache.getFronts() ?: emptyList()
+                    if (cached != null) {
+                        _state.update { it.copy(member = cached, currentFronts = fronts, isLoading = false) }
+                    } else {
+                        _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
+                    }
+                }
+            } else {
+                val cached = cache.getMember(memberId)
+                val fronts = cache.getFronts() ?: emptyList()
+                if (cached != null) {
+                    _state.update { it.copy(member = cached, currentFronts = fronts, isLoading = false) }
+                } else {
+                    _state.update { it.copy(isLoading = false) }
+                }
+            }
         }
     }
 
