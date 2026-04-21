@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,6 +116,17 @@ fun MemberAvatar(
 fun parseColor(hex: String): Color? = runCatching {
     Color(android.graphics.Color.parseColor(hex))
 }.getOrNull()
+
+// Adjusts a color's HSV brightness so it stays legible on the current theme background:
+// darkened to ≤0.55 in light theme, brightened to ≥0.75 in dark theme.
+@Composable
+fun Color.toThemeAdapted(): Color {
+    val dark = isSystemInDarkTheme()
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(this.toArgb(), hsv)
+    hsv[2] = if (dark) hsv[2].coerceAtLeast(0.75f) else hsv[2].coerceAtMost(0.55f)
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
 
 // ── Member card ───────────────────────────────────────────────────────────────
 

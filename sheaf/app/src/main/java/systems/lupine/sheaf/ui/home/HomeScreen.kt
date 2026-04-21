@@ -15,7 +15,10 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -55,7 +58,20 @@ fun HomeScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafCenterAlignedTopAppBar(
-                title = { Text(state.system?.name?.let { "Welcome, $it" } ?: "Welcome") },
+                title = {
+                    val systemColor = state.system?.color?.let { parseColor(it)?.toThemeAdapted() }
+                    Text(
+                        text = buildAnnotatedString {
+                            append("Welcome")
+                            state.system?.name?.let { name ->
+                                append(", ")
+                                withStyle(SpanStyle(color = systemColor ?: LocalContentColor.current)) {
+                                    append(name)
+                                }
+                            }
+                        },
+                    )
+                },
             )
         },
         floatingActionButton = {
