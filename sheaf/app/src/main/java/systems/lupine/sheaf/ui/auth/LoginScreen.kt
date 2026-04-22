@@ -23,8 +23,11 @@ import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import systems.lupine.sheaf.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
 
@@ -83,14 +86,11 @@ fun LoginScreen(
             },
             modifier = Modifier.size(80.dp),
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    "S",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = if (cfClientId.isNotBlank()) MaterialTheme.colorScheme.onTertiary
-                            else MaterialTheme.colorScheme.onPrimary,
-                )
-            }
+            Image(
+                painter = painterResource(R.drawable.ic_login_logo),
+                contentDescription = "Sheaf logo",
+                modifier = Modifier.fillMaxSize(),
+            )
         }
 
         if (showCfDialog) {
