@@ -13,6 +13,7 @@ data class AuthConfig(
     @Json(name = "email_enabled") val emailEnabled: Boolean,
     @Json(name = "base_url") val baseUrl: String?,
     @Json(name = "account_deletion_grace_days") val accountDeletionGraceDays: Int? = null,
+    @Json(name = "file_cdn_base") val fileCdnBase: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

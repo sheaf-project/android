@@ -50,7 +50,14 @@ class AuthViewModel @Inject constructor(
     val authConfig: StateFlow<AuthConfig?> = baseUrl
         .filter { it.isNotBlank() }
         .flatMapLatest { flow { emit(runCatching { api.getAuthConfig() }.getOrNull()) } }
+        .onEach { config -> if (config != null) prefs.saveFileCdnBase(config.fileCdnBase) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    init {
+        // Keep authConfig subscribed so `file_cdn_base` is persisted even when
+        // no UI is observing it — the image interceptor reads it from prefs.
+        viewModelScope.launch { authConfig.collect { } }
+    }
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()

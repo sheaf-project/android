@@ -14,12 +14,17 @@ class BaseUrlInterceptor @Inject constructor(
     private val prefs: PreferencesRepository,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
+        val original = chain.request()
+        // Only swap hosts for Retrofit's placeholder URL. Requests that already
+        // carry a real host (e.g. Coil image loads to the CDN) must pass through
+        // untouched, otherwise we'd rewrite the CDN host back to the API host.
+        if (original.url.host != "localhost") return chain.proceed(original)
+
         val baseUrl = runBlocking { prefs.baseUrl.firstOrNull() }
             ?.trimEnd('/')
             ?.toHttpUrlOrNull()
-            ?: return chain.proceed(chain.request())
+            ?: return chain.proceed(original)
 
-        val original = chain.request()
         val newUrl = original.url.newBuilder()
             .scheme(baseUrl.scheme)
             .host(baseUrl.host)

@@ -27,9 +27,11 @@ class PreferencesRepository @Inject constructor(
         val KEY_FRONT_NOTIFICATION = booleanPreferencesKey("front_notification")
         val KEY_CF_CLIENT_ID = stringPreferencesKey("cf_client_id")
         val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
+        val KEY_FILE_CDN_BASE = stringPreferencesKey("file_cdn_base")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
+    val fileCdnBase: Flow<String?> = context.dataStore.data.map { it[KEY_FILE_CDN_BASE] }
     val accessToken: Flow<String?> = context.dataStore.data.map { it[KEY_ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[KEY_REFRESH_TOKEN] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[KEY_THEME] ?: "system" }
@@ -39,6 +41,13 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveBaseUrl(url: String) {
         context.dataStore.edit { it[KEY_BASE_URL] = url.trimEnd('/') }
+    }
+
+    suspend fun saveFileCdnBase(url: String?) {
+        context.dataStore.edit {
+            if (url.isNullOrBlank()) it.remove(KEY_FILE_CDN_BASE)
+            else it[KEY_FILE_CDN_BASE] = url.trimEnd('/')
+        }
     }
 
     suspend fun saveTokens(access: String, refresh: String) {
