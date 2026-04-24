@@ -1,6 +1,6 @@
 # Sheaf Android
 
-Native Android client for [Sheaf](https://github.com/your-org/sheaf) — open-source plural system tracking.
+Native Android client for [Sheaf](https://github.com/sheaf-project/sheaf) — open-source plural system tracking.
 
 Built with **Kotlin + Jetpack Compose**, targeting Android 8.0+ (API 26).
 
