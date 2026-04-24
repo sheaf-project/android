@@ -62,6 +62,7 @@ fun LoginScreen(
     // When server demands TOTP, switch to that step
     val totpState = uiState as? AuthUiState.AwaitingTotp
     val showTotp = totpState != null
+    val isSolvingCaptcha = uiState is AuthUiState.SolvingCaptcha
 
     Column(
         modifier = Modifier
@@ -146,7 +147,8 @@ fun LoginScreen(
                     inviteCode = inviteCode,
                     onInviteCodeChange = { inviteCode = it },
                     showInviteCode = mode == "register" && authConfig?.registrationMode == "invite",
-                    isLoading = isLoading,
+                    isLoading = isLoading || isSolvingCaptcha,
+                    isSolvingCaptcha = isSolvingCaptcha,
                     error = (uiState as? AuthUiState.Error)?.message,
                     onSubmit = {
                         focusManager.clearFocus()
@@ -291,6 +293,7 @@ private fun AuthStep(
     onInviteCodeChange: (String) -> Unit,
     showInviteCode: Boolean,
     isLoading: Boolean,
+    isSolvingCaptcha: Boolean,
     error: String?,
     onSubmit: () -> Unit,
 ) {
@@ -345,8 +348,15 @@ private fun AuthStep(
             )
         }
         Button(onClick = onSubmit, enabled = !isLoading && email.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) {
-            if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-            else Text(if (mode == "login") "Sign In" else "Create Account")
+            if (isLoading) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    if (isSolvingCaptcha) Text("Verifying…")
+                }
+            } else Text(if (mode == "login") "Sign In" else "Create Account")
         }
     }
 }

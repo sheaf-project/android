@@ -2,6 +2,7 @@ package systems.lupine.sheaf.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import systems.lupine.sheaf.data.api.AltchaSolver
 import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.AuthConfig
@@ -20,6 +21,9 @@ import javax.inject.Inject
 sealed interface AuthUiState {
     data object Idle : AuthUiState
     data object Loading : AuthUiState
+    // Solving a proof-of-work captcha. Distinct from Loading so the UI can
+    // surface what's happening during the multi-second PBKDF2 solve.
+    data object SolvingCaptcha : AuthUiState
     // Login succeeded but TOTP code is required to complete auth
     data class AwaitingTotp(val error: String? = null) : AuthUiState
     // Registration succeeded but email must be verified before proceeding
@@ -32,6 +36,7 @@ class AuthViewModel @Inject constructor(
     private val api: SheafApiService,
     private val prefs: PreferencesRepository,
     private val authInterceptor: AuthInterceptor,
+    private val altchaSolver: AltchaSolver,
 ) : ViewModel() {
 
     val isLoggedIn: StateFlow<Boolean> = prefs.accessToken
@@ -68,6 +73,10 @@ class AuthViewModel @Inject constructor(
     // Holds credentials while waiting for the user to supply a TOTP code
     private var pendingEmail: String? = null
     private var pendingPassword: String? = null
+    // Altcha payloads are valid for the server-side TTL (600s) and aren't
+    // single-use, so we reuse the login-time solution when the user then
+    // submits their TOTP code instead of solving the PoW a second time.
+    private var pendingCaptcha: String? = null
 
     fun saveBaseUrl(url: String) {
         viewModelScope.launch { prefs.saveBaseUrl(url) }
@@ -83,8 +92,16 @@ class AuthViewModel @Inject constructor(
 
     fun login(email: String, password: String) {
         viewModelScope.launch {
+            val captcha = if (authConfig.value?.captchaOnLogin == true) {
+                _uiState.value = AuthUiState.SolvingCaptcha
+                solveCaptcha() ?: run {
+                    _uiState.value = AuthUiState.Error("Couldn't complete captcha — please try again")
+                    return@launch
+                }
+            } else null
+            pendingCaptcha = captcha
             _uiState.value = AuthUiState.Loading
-            runCatching { api.login(UserLogin(email, password)) }
+            runCatching { api.login(UserLogin(email, password, captcha = captcha)) }
                 .onSuccess { tokens -> handleLoginSuccess(tokens) }
                 .onFailure { e ->
                     authInterceptor.pendingToken = null
@@ -98,6 +115,7 @@ class AuthViewModel @Inject constructor(
                             return@launch
                         }
                     }
+                    pendingCaptcha = null
                     val message = if (e is HttpException && e.code() == 401)
                         "Invalid email or password"
                     else
@@ -112,7 +130,7 @@ class AuthViewModel @Inject constructor(
         val password = pendingPassword ?: return
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            runCatching { api.login(UserLogin(email, password, totpCode = code)) }
+            runCatching { api.login(UserLogin(email, password, totpCode = code, captcha = pendingCaptcha)) }
                 .onSuccess { tokens -> handleLoginSuccess(tokens) }
                 .onFailure { e ->
                     authInterceptor.pendingToken = null
@@ -144,9 +162,18 @@ class AuthViewModel @Inject constructor(
 
     fun register(email: String, password: String, inviteCode: String? = null) {
         viewModelScope.launch {
-            _uiState.value = AuthUiState.Loading
             val config = authConfig.value ?: runCatching { api.getAuthConfig() }.getOrNull()
-            runCatching { api.register(UserRegister(email, password, inviteCode?.ifBlank { null })) }
+            val captcha = if (config?.captchaProvider == "altcha") {
+                _uiState.value = AuthUiState.SolvingCaptcha
+                solveCaptcha() ?: run {
+                    _uiState.value = AuthUiState.Error("Couldn't complete captcha — please try again")
+                    return@launch
+                }
+            } else null
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                api.register(UserRegister(email, password, inviteCode?.ifBlank { null }, captcha = captcha))
+            }
                 .onSuccess { tokens ->
                     if (config?.emailVerification != "none") {
                         // Hold tokens in memory — don't persist so isLoggedIn stays false
@@ -169,6 +196,11 @@ class AuthViewModel @Inject constructor(
                 }
         }
     }
+
+    private suspend fun solveCaptcha(): String? = runCatching {
+        val challenge = api.getCaptchaChallenge()
+        altchaSolver.solve(challenge)
+    }.getOrNull()
 
     fun verifyEmail(token: String) {
         viewModelScope.launch {
@@ -225,6 +257,7 @@ class AuthViewModel @Inject constructor(
         pendingRefreshToken = null
         pendingEmail = null
         pendingPassword = null
+        pendingCaptcha = null
         authInterceptor.pendingToken = null
     }
 

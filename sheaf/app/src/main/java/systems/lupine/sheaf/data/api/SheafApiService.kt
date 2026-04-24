@@ -12,6 +12,9 @@ interface SheafApiService {
     @GET("/v1/auth/config")
     suspend fun getAuthConfig(): AuthConfig
 
+    @GET("/v1/auth/captcha/challenge")
+    suspend fun getCaptchaChallenge(): CaptchaChallenge
+
     // ── Auth ──────────────────────────────────────────────────────────────────
 
     @POST("/v1/auth/register")

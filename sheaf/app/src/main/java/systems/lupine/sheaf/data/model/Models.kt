@@ -14,6 +14,8 @@ data class AuthConfig(
     @Json(name = "base_url") val baseUrl: String?,
     @Json(name = "account_deletion_grace_days") val accountDeletionGraceDays: Int? = null,
     @Json(name = "file_cdn_base") val fileCdnBase: String? = null,
+    @Json(name = "captcha_provider") val captchaProvider: String? = null,
+    @Json(name = "captcha_on_login") val captchaOnLogin: Boolean = false,
 )
 
 @JsonClass(generateAdapter = true)
@@ -21,6 +23,7 @@ data class UserRegister(
     val email: String,
     val password: String,
     @Json(name = "invite_code") val inviteCode: String? = null,
+    val captcha: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -28,6 +31,45 @@ data class UserLogin(
     val email: String,
     val password: String,
     @Json(name = "totp_code") val totpCode: String? = null,
+    val captcha: String? = null,
+)
+
+// ── Altcha v2 captcha ────────────────────────────────────────────────────────
+// Echoed back inside the submitted solution payload, so every parameter the
+// server sends must round-trip unchanged — otherwise the HMAC signature check
+// fails. Optional fields stay nullable so Moshi omits them when absent.
+
+@JsonClass(generateAdapter = true)
+data class CaptchaChallenge(
+    val parameters: CaptchaChallengeParameters,
+    val signature: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class CaptchaChallengeParameters(
+    val algorithm: String,
+    val cost: Int,
+    @Json(name = "keyLength") val keyLength: Int,
+    @Json(name = "keyPrefix") val keyPrefix: String,
+    val nonce: String,
+    val salt: String,
+    @Json(name = "keySignature") val keySignature: String? = null,
+    @Json(name = "memoryCost") val memoryCost: Int? = null,
+    val parallelism: Int? = null,
+    @Json(name = "expiresAt") val expiresAt: Long? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class CaptchaSolution(
+    val counter: Int,
+    @Json(name = "derivedKey") val derivedKey: String,
+    val time: Long? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class CaptchaPayload(
+    val challenge: CaptchaChallenge,
+    val solution: CaptchaSolution,
 )
 
 @JsonClass(generateAdapter = true)
