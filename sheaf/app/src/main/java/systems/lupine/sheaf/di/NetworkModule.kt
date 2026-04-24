@@ -6,6 +6,7 @@ import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.api.TokenAuthenticator
+import systems.lupine.sheaf.data.api.UserAgentInterceptor
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -93,11 +94,17 @@ object NetworkModule {
         @ApplicationContext context: Context,
         okHttpClient: OkHttpClient,
         relativeUrlInterceptor: RelativeUrlInterceptor,
-    ): ImageLoader = ImageLoader.Builder(context)
-        .okHttpClient(okHttpClient)
-        .components {
-            add(relativeUrlInterceptor)
-        }
-        .crossfade(true)
-        .build()
+        userAgentInterceptor: UserAgentInterceptor,
+    ): ImageLoader {
+        val imageClient = okHttpClient.newBuilder()
+            .addInterceptor(userAgentInterceptor)
+            .build()
+        return ImageLoader.Builder(context)
+            .okHttpClient(imageClient)
+            .components {
+                add(relativeUrlInterceptor)
+            }
+            .crossfade(true)
+            .build()
+    }
 }
