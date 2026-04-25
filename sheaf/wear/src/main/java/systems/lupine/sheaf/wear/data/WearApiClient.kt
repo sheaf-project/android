@@ -5,6 +5,8 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -23,6 +25,11 @@ class WearApiClient(private val auth: WearAuthManager) {
         .add(KotlinJsonAdapterFactory())
         .build()
 
+    // Refresh tokens are one-shot server-side: a second /refresh with the same
+    // jti trips reuse detection and kills the session. Serialize refreshes so
+    // concurrent 401s collapse into a single rotation.
+    private val refreshMutex = Mutex()
+
     private fun url(path: String) = "${auth.baseUrl.trimEnd('/')}$path"
 
     // Executes the built request, auto-retries once after a 401 by refreshing the token.
@@ -37,28 +44,38 @@ class WearApiClient(private val auth: WearAuthManager) {
     }
 
     private suspend fun tryRefreshToken() {
-        val refresh = auth.refreshToken ?: run {
+        val refreshAtEntry = auth.refreshToken ?: run {
             auth.clearCredentials()
             throw WearApiException(401)
         }
-        try {
-            val body = """{"refresh_token":"$refresh"}"""
-            val request = Request.Builder()
-                .url(url("/v1/auth/refresh"))
-                .post(body.toRequestBody("application/json".toMediaType()))
-                .build()
-            val response = withContext(Dispatchers.IO) { http.newCall(request).execute() }
-            if (!response.isSuccessful) {
+        refreshMutex.withLock {
+            // If another coroutine rotated while we waited for the lock, our
+            // 401 is stale — skip the refresh and let the caller retry with
+            // the access token that's already been stored.
+            val current = auth.refreshToken ?: run {
                 auth.clearCredentials()
                 throw WearApiException(401)
             }
-            val pair = moshi.adapter(TokenPair::class.java).fromJson(response.body!!.string())!!
-            auth.saveCredentials(auth.baseUrl, pair.accessToken, pair.refreshToken)
-        } catch (e: WearApiException) {
-            throw e
-        } catch (_: Exception) {
-            auth.clearCredentials()
-            throw WearApiException(401)
+            if (current != refreshAtEntry) return
+            try {
+                val body = """{"refresh_token":"$current"}"""
+                val request = Request.Builder()
+                    .url(url("/v1/auth/refresh"))
+                    .post(body.toRequestBody("application/json".toMediaType()))
+                    .build()
+                val response = withContext(Dispatchers.IO) { http.newCall(request).execute() }
+                if (!response.isSuccessful) {
+                    auth.clearCredentials()
+                    throw WearApiException(401)
+                }
+                val pair = moshi.adapter(TokenPair::class.java).fromJson(response.body!!.string())!!
+                auth.saveCredentials(auth.baseUrl, pair.accessToken, pair.refreshToken)
+            } catch (e: WearApiException) {
+                throw e
+            } catch (_: Exception) {
+                auth.clearCredentials()
+                throw WearApiException(401)
+            }
         }
     }
 
