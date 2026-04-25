@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -51,9 +52,19 @@ class PreferencesRepository @Inject constructor(
     }
 
     suspend fun saveTokens(access: String, refresh: String) {
-        context.dataStore.edit {
+        val updated = context.dataStore.edit {
             it[KEY_ACCESS_TOKEN] = access
             it[KEY_REFRESH_TOKEN] = refresh
+        }
+        // Backend treats refresh tokens as one-shot (jti consumed on /refresh).
+        // Push the new pair to the wear app immediately so it doesn't hold a
+        // stale token that would trip reuse detection and kill the session.
+        // Best-effort: fire-and-forget, no-op if the watch isn't paired.
+        val baseUrl = updated[KEY_BASE_URL]
+        if (baseUrl != null) {
+            runCatching {
+                PhoneDataLayerService.pushCredentials(context, baseUrl, access, refresh)
+            }
         }
     }
 
