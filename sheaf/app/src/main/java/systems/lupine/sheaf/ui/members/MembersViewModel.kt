@@ -177,6 +177,43 @@ class MembersViewModel @Inject constructor(
     fun clearDeleteCompleted() { _state.update { it.copy(deleteCompleted = false) } }
 }
 
+// ── Bio revision diff helpers ─────────────────────────────────────────────────
+
+enum class BioDiffOp { Equal, Added, Removed }
+
+data class BioDiffLine(val op: BioDiffOp, val text: String)
+
+/**
+ * Line-level LCS diff between two text bodies. Mirrors the red/green line
+ * diff the web client renders for bio revisions.
+ */
+fun diffBioLines(oldBody: String, newBody: String): List<BioDiffLine> {
+    val old = oldBody.split('\n')
+    val new = newBody.split('\n')
+    val n = old.size
+    val m = new.size
+    val lcs = Array(n + 1) { IntArray(m + 1) }
+    for (i in n - 1 downTo 0) {
+        for (j in m - 1 downTo 0) {
+            lcs[i][j] = if (old[i] == new[j]) lcs[i + 1][j + 1] + 1
+            else maxOf(lcs[i + 1][j], lcs[i][j + 1])
+        }
+    }
+    val out = ArrayList<BioDiffLine>(n + m)
+    var i = 0
+    var j = 0
+    while (i < n && j < m) {
+        when {
+            old[i] == new[j] -> { out += BioDiffLine(BioDiffOp.Equal, old[i]); i++; j++ }
+            lcs[i + 1][j] >= lcs[i][j + 1] -> { out += BioDiffLine(BioDiffOp.Removed, old[i]); i++ }
+            else -> { out += BioDiffLine(BioDiffOp.Added, new[j]); j++ }
+        }
+    }
+    while (i < n) { out += BioDiffLine(BioDiffOp.Removed, old[i]); i++ }
+    while (j < m) { out += BioDiffLine(BioDiffOp.Added, new[j]); j++ }
+    return out
+}
+
 // ── Detail / create / edit ────────────────────────────────────────────────────
 
 data class MemberFormState(
@@ -375,6 +412,10 @@ data class MemberProfileUiState(
     val isDeleting: Boolean = false,
     val deleteError: String? = null,
     val deleteQueued: Boolean = false,
+    val revisions: List<ContentRevisionRead> = emptyList(),
+    val showRevisions: Boolean = false,
+    val isLoadingRevisions: Boolean = false,
+    val isRestoring: Boolean = false,
 )
 
 @HiltViewModel
@@ -510,4 +551,38 @@ class MemberProfileViewModel @Inject constructor(
     }
 
     fun clearDeleteError() { _state.update { it.copy(deleteError = null) } }
+
+    fun toggleRevisions() {
+        val showing = _state.value.showRevisions
+        if (showing) {
+            _state.update { it.copy(showRevisions = false) }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(showRevisions = true, isLoadingRevisions = true) }
+            runCatching { api.listMemberBioRevisions(memberId) }
+                .onSuccess { revs -> _state.update { it.copy(revisions = revs, isLoadingRevisions = false) } }
+                .onFailure { e -> _state.update { it.copy(isLoadingRevisions = false, error = e.toUserMessage()) } }
+        }
+    }
+
+    fun restoreRevision(revisionId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isRestoring = true) }
+            runCatching { api.restoreMemberBioRevision(memberId, RestoreRevisionRequest(revisionId)) }
+                .onSuccess { restored ->
+                    _state.update {
+                        it.copy(
+                            isRestoring = false,
+                            showRevisions = false,
+                            member = restored,
+                        )
+                    }
+                    // Re-fetch revisions list so the captured "before" snapshot appears.
+                    runCatching { api.listMemberBioRevisions(memberId) }
+                        .onSuccess { revs -> _state.update { it.copy(revisions = revs) } }
+                }
+                .onFailure { e -> _state.update { it.copy(isRestoring = false, error = e.toUserMessage()) } }
+        }
+    }
 }

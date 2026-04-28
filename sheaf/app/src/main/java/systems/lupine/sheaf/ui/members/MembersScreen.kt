@@ -34,14 +34,18 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import systems.lupine.sheaf.data.model.ContentRevisionRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 
 // ── Members list ──────────────────────────────────────────────────────────────
 
@@ -551,6 +555,9 @@ fun MemberProfileScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.toggleRevisions() }) {
+                        Icon(Icons.Default.History, contentDescription = "Bio history")
+                    }
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                     }
@@ -723,7 +730,203 @@ fun MemberProfileScreen(
             if (state.deleted) showDeleteDialog = false
         }
     }
+
+    if (state.showRevisions) {
+        var openRevision by remember { mutableStateOf<ContentRevisionRead?>(null) }
+        ModalBottomSheet(onDismissRequest = { viewModel.toggleRevisions() }) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Bio history (${state.revisions.size})",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(20.dp, 12.dp),
+                )
+                HorizontalDivider()
+                when {
+                    state.isLoadingRevisions -> Box(
+                        Modifier.fillMaxWidth().padding(40.dp),
+                        contentAlignment = Alignment.Center,
+                    ) { CircularProgressIndicator() }
+
+                    state.revisions.isEmpty() -> Text(
+                        "No prior versions of this bio.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(20.dp),
+                    )
+
+                    else -> LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+                        items(state.revisions, key = { it.id }) { rev ->
+                            BioRevisionRow(
+                                revision = rev,
+                                onClick = { openRevision = rev },
+                            )
+                            HorizontalDivider()
+                        }
+                    }
+                }
+                Spacer(Modifier.navigationBarsPadding())
+            }
+        }
+
+        val target = openRevision
+        if (target != null) {
+            BioRevisionDialog(
+                revision = target,
+                currentBody = member?.description.orEmpty(),
+                isRestoring = state.isRestoring,
+                onRestore = {
+                    viewModel.restoreRevision(target.id)
+                    openRevision = null
+                },
+                onDismiss = { openRevision = null },
+            )
+        }
+    }
 }
+
+@Composable
+private fun BioRevisionRow(
+    revision: ContentRevisionRead,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            formatRevisionDate(revision.createdAt),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            revision.body.ifBlank { "(empty bio)" },
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            color = if (revision.body.isBlank())
+                MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.onSurface,
+        )
+        if (revision.editorMemberNames.isNotEmpty()) {
+            Text(
+                "Edited by ${revision.editorMemberNames.joinToString(", ")}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun BioRevisionDialog(
+    revision: ContentRevisionRead,
+    currentBody: String,
+    isRestoring: Boolean,
+    onRestore: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var diffMode by remember { mutableStateOf(false) }
+    val diff = remember(revision.id, currentBody) {
+        if (revision.body == currentBody) emptyList()
+        else diffBioLines(currentBody, revision.body)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(formatRevisionDate(revision.createdAt)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                PrimaryTabRow(
+                    selectedTabIndex = if (diffMode) 1 else 0,
+                    containerColor = Color.Transparent,
+                ) {
+                    Tab(
+                        selected = !diffMode,
+                        onClick = { diffMode = false },
+                        text = { Text("Preview") },
+                    )
+                    Tab(
+                        selected = diffMode,
+                        onClick = { diffMode = true },
+                        text = { Text("Diff") },
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    if (!diffMode) {
+                        Text(
+                            revision.body.ifBlank { "(empty bio)" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (revision.body.isBlank())
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface,
+                        )
+                    } else if (diff.isEmpty() || diff.none { it.op != BioDiffOp.Equal }) {
+                        Text(
+                            "No differences from the current bio.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        BioDiffView(diff)
+                    }
+                }
+                if (revision.editorMemberNames.isNotEmpty()) {
+                    Text(
+                        "Edited by ${revision.editorMemberNames.joinToString(", ")}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onRestore, enabled = !isRestoring) {
+                Text(if (isRestoring) "Restoring…" else "Restore this version")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
+    )
+}
+
+@Composable
+private fun BioDiffView(lines: List<BioDiffLine>) {
+    val addedBg = Color(0xFF1B5E20).copy(alpha = 0.25f)
+    val removedBg = Color(0xFFB71C1C).copy(alpha = 0.25f)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        lines.forEach { line ->
+            val (bg, prefix) = when (line.op) {
+                BioDiffOp.Added -> addedBg to "+ "
+                BioDiffOp.Removed -> removedBg to "- "
+                BioDiffOp.Equal -> Color.Transparent to "  "
+            }
+            Text(
+                "$prefix${line.text}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(bg)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+    }
+}
+
+private val revisionDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm")
+
+private fun formatRevisionDate(iso: String): String = runCatching {
+    OffsetDateTime.parse(iso).toLocalDateTime().format(revisionDateFormatter)
+}.getOrDefault(iso)
 
 private fun formatBirthday(value: String): String? {
     val full = Regex("(\\d{4})-(\\d{2})-(\\d{2})").matchEntire(value)

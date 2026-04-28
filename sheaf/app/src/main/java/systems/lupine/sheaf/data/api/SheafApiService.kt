@@ -136,6 +136,15 @@ interface SheafApiService {
         @Body body: MemberDeleteConfirm = MemberDeleteConfirm(),
     ): Response<MemberDeletePending>
 
+    @GET("/v1/members/{id}/revisions")
+    suspend fun listMemberBioRevisions(@Path("id") id: String): List<ContentRevisionRead>
+
+    @POST("/v1/members/{id}/restore-revision")
+    suspend fun restoreMemberBioRevision(
+        @Path("id") id: String,
+        @Body body: RestoreRevisionRequest,
+    ): MemberRead
+
     // ── Fronts ────────────────────────────────────────────────────────────────
 
     @GET("/v1/fronts")
