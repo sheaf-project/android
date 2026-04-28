@@ -29,6 +29,7 @@ import systems.lupine.sheaf.ui.components.*
 @Composable
 fun GroupsScreen(
     onGroupClick: (String) -> Unit,
+    onNavigateToSettings: () -> Unit,
     viewModel: GroupsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -50,6 +51,11 @@ fun GroupsScreen(
             SheafLargeFlexibleTopAppBar(
                 title = { Text("Groups") },
                 scrollBehavior = scrollBehavior,
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
             )
         },
         floatingActionButton = {
@@ -261,12 +267,23 @@ fun GroupDetailScreen(
     }
 
     if (state.showMemberSheet) {
+        var query by remember { mutableStateOf("") }
+        val filtered = remember(query, state.allMembers) {
+            if (query.isBlank()) state.allMembers
+            else state.allMembers.filter { it.displayNameOrName.contains(query.trim(), ignoreCase = true) }
+        }
+
         ModalBottomSheet(onDismissRequest = { viewModel.closeMemberSheet() }) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Edit Group Members", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(20.dp, 12.dp))
+                MemberSearchField(
+                    query = query,
+                    onQueryChange = { query = it },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
                 HorizontalDivider()
                 LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
-                    items(state.allMembers, key = { it.id }) { member ->
+                    items(filtered, key = { it.id }) { member ->
                         val isSelected = member.id in state.memberSelection
                         ListItem(
                             headlineContent = { Text(member.displayNameOrName) },
@@ -274,6 +291,16 @@ fun GroupDetailScreen(
                             trailingContent = { Checkbox(checked = isSelected, onCheckedChange = { viewModel.toggleMember(member.id) }) },
                             modifier = Modifier.padding(horizontal = 4.dp),
                         )
+                    }
+                    if (filtered.isEmpty()) {
+                        item {
+                            Text(
+                                "No matches",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(20.dp),
+                            )
+                        }
                     }
                 }
                 HorizontalDivider()

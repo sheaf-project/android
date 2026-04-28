@@ -106,6 +106,8 @@ fun SystemSafetyScreen(
                 onTags = { viewModel.updateDraft { copy(appliesToTags = it) } },
                 onFields = { viewModel.updateDraft { copy(appliesToFields = it) } },
                 onFronts = { viewModel.updateDraft { copy(appliesToFronts = it) } },
+                onJournals = { viewModel.updateDraft { copy(appliesToJournals = it) } },
+                onImages = { viewModel.updateDraft { copy(appliesToImages = it) } },
             )
 
             if (state.saveError != null) {
@@ -334,6 +336,8 @@ private fun CategoryToggles(
     onTags: (Boolean) -> Unit,
     onFields: (Boolean) -> Unit,
     onFronts: (Boolean) -> Unit,
+    onJournals: (Boolean) -> Unit,
+    onImages: (Boolean) -> Unit,
 ) {
     val items = listOf(
         Triple("Members", draft.appliesToMembers, onMembers),
@@ -341,6 +345,8 @@ private fun CategoryToggles(
         Triple("Tags", draft.appliesToTags, onTags),
         Triple("Custom fields", draft.appliesToFields, onFields),
         Triple("Fronts", draft.appliesToFronts, onFronts),
+        Triple("Journal entries", draft.appliesToJournals, onJournals),
+        Triple("Images", draft.appliesToImages, onImages),
     )
     Column {
         items.forEachIndexed { index, (label, value, onChange) ->

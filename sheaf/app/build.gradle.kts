@@ -85,6 +85,9 @@ dependencies {
     // Images
     implementation(libs.coil.compose)
 
+    // Markdown rendering (Markwon under the hood — supports images via Coil)
+    implementation(libs.compose.markdown)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 

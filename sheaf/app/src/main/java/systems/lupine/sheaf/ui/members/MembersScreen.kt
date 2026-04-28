@@ -48,6 +48,7 @@ import systems.lupine.sheaf.ui.components.*
 @Composable
 fun MembersScreen(
     onMemberClick: (String) -> Unit,
+    onNavigateToSettings: () -> Unit,
     viewModel: MembersViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -123,6 +124,10 @@ fun MembersScreen(
                 if (textFieldState.text.isNotEmpty()) {
                     IconButton(onClick = { textFieldState.edit { replace(0, length, "") } }) {
                         Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                    }
+                } else if (searchBarState.currentValue == SearchBarValue.Collapsed) {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             },

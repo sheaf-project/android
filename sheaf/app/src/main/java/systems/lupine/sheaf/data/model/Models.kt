@@ -232,6 +232,8 @@ data class SystemSafetySettings(
     @Json(name = "applies_to_tags") val appliesToTags: Boolean,
     @Json(name = "applies_to_fields") val appliesToFields: Boolean,
     @Json(name = "applies_to_fronts") val appliesToFronts: Boolean,
+    @Json(name = "applies_to_journals") val appliesToJournals: Boolean,
+    @Json(name = "applies_to_images") val appliesToImages: Boolean,
 )
 
 @JsonClass(generateAdapter = true)
@@ -243,6 +245,8 @@ data class SystemSafetyUpdate(
     @Json(name = "applies_to_tags") val appliesToTags: Boolean? = null,
     @Json(name = "applies_to_fields") val appliesToFields: Boolean? = null,
     @Json(name = "applies_to_fronts") val appliesToFronts: Boolean? = null,
+    @Json(name = "applies_to_journals") val appliesToJournals: Boolean? = null,
+    @Json(name = "applies_to_images") val appliesToImages: Boolean? = null,
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
 )
@@ -698,4 +702,90 @@ data class AdminResetPasswordRequest(
 @JsonClass(generateAdapter = true)
 data class AdminChangeEmailRequest(
     @Json(name = "new_email") val newEmail: String,
+)
+
+// ── Journals ──────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class JournalEntryRead(
+    val id: String,
+    @Json(name = "system_id") val systemId: String,
+    @Json(name = "member_id") val memberId: String?,
+    val title: String?,
+    val body: String,
+    val visibility: String,
+    @Json(name = "author_user_id") val authorUserId: String?,
+    @Json(name = "author_member_ids") val authorMemberIds: List<String> = emptyList(),
+    @Json(name = "author_member_names") val authorMemberNames: List<String> = emptyList(),
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "updated_at") val updatedAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class JournalEntryReadWithCount(
+    val id: String,
+    @Json(name = "system_id") val systemId: String,
+    @Json(name = "member_id") val memberId: String?,
+    val title: String?,
+    val body: String,
+    val visibility: String,
+    @Json(name = "author_user_id") val authorUserId: String?,
+    @Json(name = "author_member_ids") val authorMemberIds: List<String> = emptyList(),
+    @Json(name = "author_member_names") val authorMemberNames: List<String> = emptyList(),
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "updated_at") val updatedAt: String,
+    @Json(name = "revision_count") val revisionCount: Int = 0,
+)
+
+@JsonClass(generateAdapter = true)
+data class JournalEntryCreate(
+    val body: String,
+    val title: String? = null,
+    @Json(name = "member_id") val memberId: String? = null,
+    val visibility: String = "system",
+    @Json(name = "author_member_ids") val authorMemberIds: List<String>? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class JournalEntryUpdate(
+    val title: String? = null,
+    val body: String? = null,
+    val visibility: String? = null,
+    @Json(name = "author_member_ids") val authorMemberIds: List<String>? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class JournalListResponse(
+    val items: List<JournalEntryRead>,
+    @Json(name = "next_cursor") val nextCursor: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class JournalEntryDeleteConfirm(
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class JournalEntryDeletePending(
+    @Json(name = "pending_action_id") val pendingActionId: String,
+    @Json(name = "finalize_after") val finalizeAfter: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class ContentRevisionRead(
+    val id: String,
+    @Json(name = "target_type") val targetType: String,
+    @Json(name = "target_id") val targetId: String,
+    @Json(name = "user_id") val userId: String?,
+    @Json(name = "editor_member_ids") val editorMemberIds: List<String> = emptyList(),
+    @Json(name = "editor_member_names") val editorMemberNames: List<String> = emptyList(),
+    val title: String?,
+    val body: String,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class RestoreRevisionRequest(
+    @Json(name = "revision_id") val revisionId: String,
 )

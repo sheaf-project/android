@@ -51,6 +51,7 @@ import systems.lupine.sheaf.ui.components.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onNavigateUp: () -> Unit,
     onNavigateToSystemEdit: () -> Unit,
     onNavigateToSpImport: () -> Unit,
     onNavigateToSheafImport: () -> Unit,
@@ -116,7 +117,16 @@ fun SettingsScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
-        topBar = { SheafTopAppBar(title = { Text("Settings") }) },
+        topBar = {
+            SheafTopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateUp) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier

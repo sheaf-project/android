@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -23,6 +25,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -246,6 +250,44 @@ fun ActiveDot(modifier: Modifier = Modifier) {
             .size(10.dp)
             .background(MaterialTheme.colorScheme.tertiary, CircleShape),
     )
+}
+
+// ── Member search field ───────────────────────────────────────────────────────
+
+/** Compact search input for filtering member-pickers in modal sheets. */
+@Composable
+fun MemberSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "Search members",
+    autoFocus: Boolean = false,
+) {
+    val focusRequester = remember { FocusRequester() }
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text(placeholder) },
+        leadingIcon = {
+            Icon(Icons.Default.Search, contentDescription = null)
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear search")
+                }
+            }
+        },
+        singleLine = true,
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (autoFocus) Modifier.focusRequester(focusRequester) else Modifier),
+    )
+    if (autoFocus) {
+        LaunchedEffect(Unit) {
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
 }
 
 // ── Section header ────────────────────────────────────────────────────────────

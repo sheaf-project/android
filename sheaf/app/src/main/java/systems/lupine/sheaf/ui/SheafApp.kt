@@ -4,6 +4,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -19,10 +21,13 @@ import systems.lupine.sheaf.ui.auth.LoginScreen
 import systems.lupine.sheaf.ui.groups.GroupDetailScreen
 import systems.lupine.sheaf.ui.groups.GroupsScreen
 import systems.lupine.sheaf.ui.history.HistoryScreen
+import systems.lupine.sheaf.ui.journals.JournalDetailScreen
+import systems.lupine.sheaf.ui.journals.JournalsScreen
 import systems.lupine.sheaf.ui.home.HomeScreen
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
+import systems.lupine.sheaf.ui.people.PeopleScreen
 import systems.lupine.sheaf.ui.importsp.ImportScreen
 import systems.lupine.sheaf.ui.sheafimport.SheafImportScreen
 import systems.lupine.sheaf.ui.fields.CustomFieldsScreen
@@ -38,11 +43,14 @@ import systems.lupine.sheaf.ui.settings.SystemSafetyScreen
 object Routes {
     const val LOGIN         = "login"
     const val HOME          = "home"
+    const val PEOPLE        = "people"
     const val MEMBERS       = "members"
     const val MEMBER_DETAIL = "members/{memberId}"
     const val MEMBER_EDIT   = "members/{memberId}/edit"
     const val GROUPS        = "groups"
     const val GROUP_DETAIL  = "groups/{groupId}"
+    const val JOURNALS      = "journals"
+    const val JOURNAL_DETAIL = "journals/{journalId}"
     const val HISTORY       = "history"
     const val SETTINGS      = "settings"
     const val SYSTEM_EDIT   = "settings/system"
@@ -65,11 +73,10 @@ data class TopLevelDest(
 )
 
 val topLevelDestinations = listOf(
-    TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,          Icons.Outlined.Home),
-    TopLevelDest(Routes.MEMBERS,  "Members",  Icons.Filled.People,        Icons.Outlined.People),
-    TopLevelDest(Routes.GROUPS,   "Groups",   Icons.Filled.FolderSpecial, Icons.Outlined.FolderSpecial),
-    TopLevelDest(Routes.HISTORY,  "History",  Icons.Filled.History,       Icons.Outlined.History),
-    TopLevelDest(Routes.SETTINGS, "Settings", Icons.Filled.Settings,      Icons.Outlined.Settings),
+    TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,                  Icons.Outlined.Home),
+    TopLevelDest(Routes.PEOPLE,   "Members",  Icons.Filled.People,                Icons.Outlined.People),
+    TopLevelDest(Routes.JOURNALS, "Journals", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook),
+    TopLevelDest(Routes.HISTORY,  "History",  Icons.Filled.History,               Icons.Outlined.History),
 )
 
 // ── Root composable ───────────────────────────────────────────────────────────
@@ -151,14 +158,29 @@ fun SheafApp(
             }
             composable(Routes.HOME) {
                 HomeScreen(
-                    onNavigateToMembers = { navController.navigate(Routes.MEMBERS) },
+                    onNavigateToMembers = { navController.navigate(Routes.PEOPLE) },
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                )
+            }
+            composable(Routes.PEOPLE) {
+                PeopleScreen(
+                    onMemberClick = { id ->
+                        navController.navigate(if (id == "new") "members/new" else "members/$id")
+                    },
+                    onGroupClick = { id ->
+                        navController.navigate(if (id == "new") "groups/new" else "groups/$id")
+                    },
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
             composable(Routes.MEMBERS) {
-                MembersScreen(onMemberClick = { id ->
-                    navController.navigate(if (id == "new") "members/new" else "members/$id")
-                })
+                MembersScreen(
+                    onMemberClick = { id ->
+                        navController.navigate(if (id == "new") "members/new" else "members/$id")
+                    },
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                )
             }
             composable(Routes.MEMBER_DETAIL) { backStack ->
                 val memberId = backStack.arguments?.getString("memberId") ?: "new"
@@ -176,19 +198,36 @@ fun SheafApp(
                 MemberDetailScreen(memberId = memberId, onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.GROUPS) {
-                GroupsScreen(onGroupClick = { id ->
-                    navController.navigate(if (id == "new") "groups/new" else "groups/$id")
-                })
+                GroupsScreen(
+                    onGroupClick = { id ->
+                        navController.navigate(if (id == "new") "groups/new" else "groups/$id")
+                    },
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                )
             }
             composable(Routes.GROUP_DETAIL) { backStack ->
                 val groupId = backStack.arguments?.getString("groupId") ?: "new"
                 GroupDetailScreen(groupId = groupId, onNavigateUp = { navController.navigateUp() })
             }
+            composable(Routes.JOURNALS) {
+                JournalsScreen(
+                    onEntryClick = { id ->
+                        navController.navigate(if (id == "new") "journals/new" else "journals/$id")
+                    },
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                )
+            }
+            composable(Routes.JOURNAL_DETAIL) {
+                JournalDetailScreen(onNavigateUp = { navController.navigateUp() })
+            }
             composable(Routes.HISTORY) {
-                HistoryScreen()
+                HistoryScreen(
+                    onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                )
             }
             composable(Routes.SETTINGS) {
                 SettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
                     onNavigateToSystemEdit = { navController.navigate(Routes.SYSTEM_EDIT) },
                     onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
                     onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },

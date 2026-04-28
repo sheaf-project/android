@@ -182,6 +182,43 @@ interface SheafApiService {
         @Body body: GroupMemberUpdate,
     ): List<MemberRead>
 
+    // ── Journals ──────────────────────────────────────────────────────────────
+
+    @GET("/v1/journals")
+    suspend fun listJournals(
+        @Query("member_id") memberId: String? = null,
+        @Query("system_only") systemOnly: Boolean? = null,
+        @Query("before") before: String? = null,
+        @Query("limit") limit: Int = 50,
+    ): JournalListResponse
+
+    @POST("/v1/journals")
+    suspend fun createJournal(@Body body: JournalEntryCreate): JournalEntryRead
+
+    @GET("/v1/journals/{id}")
+    suspend fun getJournal(@Path("id") id: String): JournalEntryReadWithCount
+
+    @PATCH("/v1/journals/{id}")
+    suspend fun updateJournal(
+        @Path("id") id: String,
+        @Body body: JournalEntryUpdate,
+    ): JournalEntryRead
+
+    @HTTP(method = "DELETE", path = "/v1/journals/{id}", hasBody = true)
+    suspend fun deleteJournal(
+        @Path("id") id: String,
+        @Body body: JournalEntryDeleteConfirm = JournalEntryDeleteConfirm(),
+    ): Response<JournalEntryDeletePending>
+
+    @GET("/v1/journals/{id}/revisions")
+    suspend fun listJournalRevisions(@Path("id") id: String): List<ContentRevisionRead>
+
+    @POST("/v1/journals/{id}/restore-revision")
+    suspend fun restoreJournalRevision(
+        @Path("id") id: String,
+        @Body body: RestoreRevisionRequest,
+    ): JournalEntryRead
+
     // ── Tags ──────────────────────────────────────────────────────────────────
 
     @GET("/v1/tags")
@@ -375,6 +412,20 @@ suspend fun SheafApiService.deleteMemberOrQueue(
     totpCode: String? = null,
 ): MemberDeletePending? {
     val resp = deleteMember(id, MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
+    if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
+    return if (resp.code() == 202) resp.body() else null
+}
+
+/** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
+suspend fun SheafApiService.deleteJournalOrQueue(
+    id: String,
+    password: String? = null,
+    totpCode: String? = null,
+): JournalEntryDeletePending? {
+    val resp = deleteJournal(
+        id,
+        JournalEntryDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }),
+    )
     if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
     return if (resp.code() == 202) resp.body() else null
 }

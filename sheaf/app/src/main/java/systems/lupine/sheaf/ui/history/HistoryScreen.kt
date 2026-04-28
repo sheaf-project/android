@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -55,6 +56,7 @@ import java.util.Locale
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
+    onNavigateToSettings: () -> Unit,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -150,6 +152,9 @@ fun HistoryScreen(
                 actions = {
                     IconButton(onClick = { showAddSheet = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Add entry")
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
             )
@@ -669,21 +674,38 @@ private fun FrontEntrySheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                allMembers.forEach { member ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(
-                            checked = member.id in selectedIds,
-                            onCheckedChange = { checked ->
-                                selectedIds = if (checked) selectedIds + member.id else selectedIds - member.id
-                            },
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        MemberAvatar(member = member, size = 32.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text(member.displayNameOrName, style = MaterialTheme.typography.bodyMedium)
+                var memberQuery by remember { mutableStateOf("") }
+                val filteredMembers = remember(memberQuery, allMembers) {
+                    if (memberQuery.isBlank()) allMembers
+                    else allMembers.filter { it.displayNameOrName.contains(memberQuery.trim(), ignoreCase = true) }
+                }
+                MemberSearchField(
+                    query = memberQuery,
+                    onQueryChange = { memberQuery = it },
+                )
+                if (filteredMembers.isEmpty()) {
+                    Text(
+                        "No matches",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    filteredMembers.forEach { member ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = member.id in selectedIds,
+                                onCheckedChange = { checked ->
+                                    selectedIds = if (checked) selectedIds + member.id else selectedIds - member.id
+                                },
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            MemberAvatar(member = member, size = 32.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(member.displayNameOrName, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }
