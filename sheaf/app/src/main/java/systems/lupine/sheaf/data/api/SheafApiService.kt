@@ -3,6 +3,7 @@ package systems.lupine.sheaf.data.api
 import systems.lupine.sheaf.data.model.*
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import retrofit2.Response
 import retrofit2.http.*
 
 interface SheafApiService {
@@ -98,6 +99,20 @@ interface SheafApiService {
     @PUT("/v1/systems/me/delete-confirmation")
     suspend fun updateDeleteConfirmation(@Body body: DeleteConfirmationUpdate): SystemRead
 
+    // ── System Safety ─────────────────────────────────────────────────────────
+
+    @GET("/v1/system/safety")
+    suspend fun getSystemSafety(): SystemSafetyResponse
+
+    @PATCH("/v1/system/safety")
+    suspend fun updateSystemSafety(@Body body: SystemSafetyUpdate): SystemSafetyUpdateResponse
+
+    @DELETE("/v1/system/safety/pending-actions/{id}")
+    suspend fun cancelPendingAction(@Path("id") id: String)
+
+    @DELETE("/v1/system/safety/pending-changes/{id}")
+    suspend fun cancelPendingSafetyChange(@Path("id") id: String)
+
     // ── Members ───────────────────────────────────────────────────────────────
 
     @GET("/v1/members")
@@ -115,8 +130,11 @@ interface SheafApiService {
     @PATCH("/v1/members/{id}")
     suspend fun patchMemberRaw(@Path("id") id: String, @Body body: RequestBody): MemberRead
 
-    @DELETE("/v1/members/{id}")
-    suspend fun deleteMember(@Path("id") id: String)
+    @HTTP(method = "DELETE", path = "/v1/members/{id}", hasBody = true)
+    suspend fun deleteMember(
+        @Path("id") id: String,
+        @Body body: MemberDeleteConfirm = MemberDeleteConfirm(),
+    ): Response<MemberDeletePending>
 
     // ── Fronts ────────────────────────────────────────────────────────────────
 
@@ -348,4 +366,15 @@ interface SheafApiService {
 
     @POST("/v1/admin/users/{id}/cancel-deletion")
     suspend fun adminCancelDeletion(@Path("id") id: String)
+}
+
+/** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
+suspend fun SheafApiService.deleteMemberOrQueue(
+    id: String,
+    password: String? = null,
+    totpCode: String? = null,
+): MemberDeletePending? {
+    val resp = deleteMember(id, MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
+    if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
+    return if (resp.code() == 202) resp.body() else null
 }

@@ -58,6 +58,7 @@ fun SettingsScreen(
     onNavigateToApiKeys: () -> Unit,
     onNavigateToSessions: () -> Unit,
     onNavigateToAdminPanel: () -> Unit,
+    onNavigateToSystemSafety: () -> Unit,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -74,7 +75,6 @@ fun SettingsScreen(
     var showTotpSheet by remember { mutableStateOf(false) }
     var showDisableTotpDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
-    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
     var showDeleteOrphansDialog by remember { mutableStateOf(false) }
 
     var pendingExportJson by remember { mutableStateOf<String?>(null) }
@@ -370,9 +370,9 @@ fun SettingsScreen(
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
                 icon = Icons.Outlined.Shield,
-                title = "Deletion Protection",
-                subtitle = formatDeleteConfirmation(state.system?.deleteConfirmation),
-                onClick = { showDeleteConfirmationDialog = true },
+                title = "System Safety",
+                subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
+                onClick = onNavigateToSystemSafety,
             )
 
             // ── System ───────────────────────────────────────────────────────
@@ -704,113 +704,6 @@ fun SettingsScreen(
         )
     }
 
-    // ── Delete Confirmation Level Dialog ──────────────────────────────────────
-
-    if (showDeleteConfirmationDialog) {
-        val totpEnabled = state.user?.totpEnabled == true
-        val currentLevel = state.system?.deleteConfirmation ?: "password"
-        var selectedLevel by remember(currentLevel) { mutableStateOf(currentLevel) }
-        var confirmPassword by remember { mutableStateOf("") }
-        var confirmTotpCode by remember { mutableStateOf("") }
-        val levels = listOf(
-            "none" to "None",
-            "password" to "Password",
-            "totp" to "Authenticator Code",
-            "both" to "Password + Authenticator Code",
-        )
-        AlertDialog(
-            onDismissRequest = {
-                if (!state.isUpdatingDeleteConfirmation) {
-                    showDeleteConfirmationDialog = false
-                    settingsViewModel.clearDeleteConfirmationError()
-                }
-            },
-            title = { Text("Deletion Confirmation") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "Choose how much confirmation is required before your account can be deleted.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    levels.forEach { (value, label) ->
-                        val requiresTotp = value == "totp" || value == "both"
-                        if (requiresTotp && !totpEnabled) return@forEach
-                        Surface(
-                            onClick = { selectedLevel = value },
-                            shape = MaterialTheme.shapes.small,
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                RadioButton(
-                                    selected = selectedLevel == value,
-                                    onClick = { selectedLevel = value },
-                                )
-                                Text(label, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                    }
-                    HorizontalDivider()
-                    Text("Confirm with your credentials:", style = MaterialTheme.typography.labelMedium)
-                    OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = { Text("Password") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (totpEnabled) {
-                        OutlinedTextField(
-                            value = confirmTotpCode,
-                            onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) confirmTotpCode = it },
-                            label = { Text("Authenticator code") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    if (state.deleteConfirmationError != null) {
-                        Text(state.deleteConfirmationError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        settingsViewModel.updateDeleteConfirmation(
-                            selectedLevel,
-                            confirmPassword,
-                            confirmTotpCode.takeIf { totpEnabled },
-                        )
-                    },
-                    enabled = confirmPassword.isNotBlank() &&
-                        (!totpEnabled || confirmTotpCode.length == 6) &&
-                        !state.isUpdatingDeleteConfirmation,
-                ) {
-                    if (state.isUpdatingDeleteConfirmation) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("Save")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteConfirmationDialog = false; settingsViewModel.clearDeleteConfirmationError() },
-                    enabled = !state.isUpdatingDeleteConfirmation,
-                ) { Text("Cancel") }
-            },
-        )
-        LaunchedEffect(state.isUpdatingDeleteConfirmation) {
-            if (!state.isUpdatingDeleteConfirmation && state.deleteConfirmationError == null && confirmPassword.isNotBlank()) {
-                showDeleteConfirmationDialog = false
-            }
-        }
-    }
 }
 
 // ── TOTP Setup Sheet ──────────────────────────────────────────────────────────
@@ -1042,12 +935,12 @@ private fun formatBytes(bytes: Long): String = when {
     else -> "${"%.1f".format(bytes / 1_073_741_824.0)} GB"
 }
 
-private fun formatDeleteConfirmation(level: String?): String = when (level) {
-    "none"     -> "None"
-    "password" -> "Password required"
-    "totp"     -> "Authenticator code required"
-    "both"     -> "Password + authenticator code"
-    else       -> "—"
+private fun formatSafetySubtitle(level: String?): String = when (level) {
+    "none" -> "Re-auth: none"
+    "password" -> "Re-auth: password"
+    "totp" -> "Re-auth: authenticator code"
+    "both" -> "Re-auth: password + authenticator"
+    else -> "Grace period and re-auth for destructive actions"
 }
 
 // ── System stats row ──────────────────────────────────────────────────────────

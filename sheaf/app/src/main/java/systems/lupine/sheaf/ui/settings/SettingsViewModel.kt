@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.ClientSettingsBody
 import systems.lupine.sheaf.data.model.DeleteAccountRequest
-import systems.lupine.sheaf.data.model.DeleteConfirmationUpdate
 import systems.lupine.sheaf.data.model.FileRead
 import systems.lupine.sheaf.data.model.SystemRead
 import systems.lupine.sheaf.data.model.TOTPDisable
@@ -46,9 +45,6 @@ data class SettingsUiState(
     val deletionError: String? = null,
     val isCancellingDeletion: Boolean = false,
     val cancelDeletionError: String? = null,
-    // Delete confirmation level
-    val isUpdatingDeleteConfirmation: Boolean = false,
-    val deleteConfirmationError: String? = null,
     // Email verification
     val isResendingVerification: Boolean = false,
     val verificationEmailSent: Boolean = false,
@@ -248,27 +244,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    // ── Delete confirmation level ─────────────────────────────────────────────
-
-    fun updateDeleteConfirmation(level: String, password: String, totpCode: String?) {
-        _state.update { it.copy(isUpdatingDeleteConfirmation = true, deleteConfirmationError = null) }
-        viewModelScope.launch {
-            runCatching {
-                api.updateDeleteConfirmation(DeleteConfirmationUpdate(level, password, totpCode?.ifBlank { null }))
-            }
-                .onSuccess { system ->
-                    _state.update { it.copy(isUpdatingDeleteConfirmation = false, system = system) }
-                }
-                .onFailure { e ->
-                    val msg = if (e is HttpException && e.code() in listOf(400, 401))
-                        "Incorrect password or authenticator code"
-                    else
-                        e.toUserMessage("Failed to update deletion confirmation")
-                    _state.update { it.copy(isUpdatingDeleteConfirmation = false, deleteConfirmationError = msg) }
-                }
-        }
-    }
-
     // ── Email verification ────────────────────────────────────────────────────
 
     fun resendVerificationEmail() {
@@ -286,7 +261,6 @@ class SettingsViewModel @Inject constructor(
     fun clearError()  { _state.update { it.copy(error = null) } }
     fun clearTotpError() { _state.update { it.copy(totpError = null) } }
     fun clearDeletionError() { _state.update { it.copy(deletionError = null) } }
-    fun clearDeleteConfirmationError() { _state.update { it.copy(deleteConfirmationError = null) } }
     fun clearAccountDeletionRequested() { _state.update { it.copy(accountDeletionRequested = false) } }
 
     // ── Orphaned files ────────────────────────────────────────────────────────

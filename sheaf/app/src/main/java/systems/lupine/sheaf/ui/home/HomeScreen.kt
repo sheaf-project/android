@@ -32,11 +32,14 @@ import systems.lupine.sheaf.ui.components.*
 import systems.lupine.sheaf.ui.theme.LocalWarningColors
 import java.time.Duration
 import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.format.DateTimeParseException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToMembers: () -> Unit,
+    onNavigateToSystemSafety: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -88,6 +91,28 @@ fun HomeScreen(
                     deletionRequestedAt = state.user?.deletionRequestedAt,
                     graceDays = authConfig?.accountDeletionGraceDays,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            val pendingActionsCount = state.pendingSafetyActions.size
+            val pendingChangesCount = state.pendingSafetyChanges.size
+            if (pendingActionsCount > 0) {
+                val earliest = state.pendingSafetyActions.mapNotNull { parseFinalize(it.finalizeAfter) }.minOrNull()
+                SafetyPendingBanner(
+                    kind = SafetyBannerKind.ACTIONS,
+                    count = pendingActionsCount,
+                    earliestFinalize = earliest,
+                    onClick = onNavigateToSystemSafety,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            if (pendingChangesCount > 0) {
+                val earliest = state.pendingSafetyChanges.mapNotNull { parseFinalize(it.finalizeAfter) }.minOrNull()
+                SafetyPendingBanner(
+                    kind = SafetyBannerKind.CHANGES,
+                    count = pendingChangesCount,
+                    earliestFinalize = earliest,
+                    onClick = onNavigateToSystemSafety,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
             OfflineSyncChip(
@@ -386,6 +411,81 @@ private fun SwitchFrontSheet(
             Spacer(Modifier.navigationBarsPadding())
         }
     }
+}
+
+// ── System Safety pending banner ──────────────────────────────────────────────
+
+private enum class SafetyBannerKind { ACTIONS, CHANGES }
+
+@Composable
+private fun SafetyPendingBanner(
+    kind: SafetyBannerKind,
+    count: Int,
+    earliestFinalize: OffsetDateTime?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val critical = earliestFinalize != null &&
+        Duration.between(OffsetDateTime.now(), earliestFinalize).toHours() < 24
+    val containerColor = if (critical) MaterialTheme.colorScheme.errorContainer
+                         else LocalWarningColors.current.container
+    val onContainerColor = if (critical) MaterialTheme.colorScheme.onErrorContainer
+                           else LocalWarningColors.current.onContainer
+
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = onContainerColor,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = safetyBannerMessage(kind, count, earliestFinalize),
+                style = MaterialTheme.typography.bodyMedium,
+                color = onContainerColor,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+private fun safetyBannerMessage(kind: SafetyBannerKind, count: Int, earliest: OffsetDateTime?): String {
+    val time = earliest?.let { formatRelativeFinalize(it) } ?: "soon"
+    return when (kind) {
+        SafetyBannerKind.ACTIONS ->
+            if (count == 1) "1 pending destructive action — finalizes $time."
+            else "$count pending destructive actions — next finalizes $time."
+        SafetyBannerKind.CHANGES ->
+            if (count == 1) "Safety settings change pending — finalizes $time."
+            else "$count safety settings changes pending — next finalizes $time."
+    }
+}
+
+private fun formatRelativeFinalize(target: OffsetDateTime): String {
+    val duration = Duration.between(OffsetDateTime.now(), target)
+    if (duration.isNegative || duration.isZero) return "any moment"
+    val hours = duration.toHours()
+    if (hours < 24) {
+        val h = (duration.toMinutes() + 59) / 60
+        return "in ${h}h"
+    }
+    val days = (duration.toMinutes() + 24 * 60 - 1) / (24 * 60)
+    return if (days == 1L) "in 1 day" else "in $days days"
+}
+
+private fun parseFinalize(iso: String): OffsetDateTime? = try {
+    OffsetDateTime.parse(iso)
+} catch (_: DateTimeParseException) {
+    null
 }
 
 // ── Pending deletion banner ───────────────────────────────────────────────────

@@ -259,21 +259,26 @@ fun MembersScreen(
     }
 
     if (memberToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { memberToDelete = null },
-            title = { Text("Remove member?") },
-            text = { Text("This will permanently delete ${memberToDelete!!.displayNameOrName}. This cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.deleteMember(memberToDelete!!.id); memberToDelete = null },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Delete") }
+        val target = memberToDelete!!
+        LaunchedEffect(target.id) { viewModel.loadDeleteSafety() }
+        MemberDeleteDialog(
+            memberLabel = target.displayNameOrName,
+            safety = state.deleteSafety,
+            isDeleting = state.isDeleting,
+            errorMessage = state.deleteError,
+            onConfirm = { password, totpCode ->
+                viewModel.deleteMember(target.id, password, totpCode)
             },
-            dismissButton = {
-                TextButton(onClick = { memberToDelete = null }) { Text("Cancel") }
-            },
+            onDismiss = { memberToDelete = null; viewModel.clearDeleteError() },
         )
+        LaunchedEffect(state.deleteCompleted) {
+            if (state.deleteCompleted) {
+                memberToDelete = null
+                viewModel.clearDeleteCompleted()
+            }
+        }
     }
+
 }
 
 // ── Member detail / edit / create ─────────────────────────────────────────────
@@ -700,20 +705,18 @@ fun MemberProfileScreen(
     }
 
     if (showDeleteDialog && member != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete member?") },
-            text = { Text("This will permanently delete ${member.displayNameOrName}. This cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { showDeleteDialog = false; viewModel.delete() },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
-            },
+        LaunchedEffect(member.id) { viewModel.loadDeleteSafety() }
+        MemberDeleteDialog(
+            memberLabel = member.displayNameOrName,
+            safety = state.deleteSafety,
+            isDeleting = state.isDeleting,
+            errorMessage = state.deleteError,
+            onConfirm = { password, totpCode -> viewModel.delete(password, totpCode) },
+            onDismiss = { showDeleteDialog = false; viewModel.clearDeleteError() },
         )
+        LaunchedEffect(state.deleted) {
+            if (state.deleted) showDeleteDialog = false
+        }
     }
 }
 

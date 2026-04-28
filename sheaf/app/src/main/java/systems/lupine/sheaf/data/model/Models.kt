@@ -221,7 +221,82 @@ data class SystemUpdate(
     val privacy: String? = null,
 )
 
+// ── System Safety ─────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class SystemSafetySettings(
+    @Json(name = "grace_period_days") val gracePeriodDays: Int,
+    @Json(name = "auth_tier") val authTier: String,
+    @Json(name = "applies_to_members") val appliesToMembers: Boolean,
+    @Json(name = "applies_to_groups") val appliesToGroups: Boolean,
+    @Json(name = "applies_to_tags") val appliesToTags: Boolean,
+    @Json(name = "applies_to_fields") val appliesToFields: Boolean,
+    @Json(name = "applies_to_fronts") val appliesToFronts: Boolean,
+)
+
+@JsonClass(generateAdapter = true)
+data class SystemSafetyUpdate(
+    @Json(name = "grace_period_days") val gracePeriodDays: Int? = null,
+    @Json(name = "auth_tier") val authTier: String? = null,
+    @Json(name = "applies_to_members") val appliesToMembers: Boolean? = null,
+    @Json(name = "applies_to_groups") val appliesToGroups: Boolean? = null,
+    @Json(name = "applies_to_tags") val appliesToTags: Boolean? = null,
+    @Json(name = "applies_to_fields") val appliesToFields: Boolean? = null,
+    @Json(name = "applies_to_fronts") val appliesToFronts: Boolean? = null,
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PendingActionRead(
+    val id: String,
+    @Json(name = "action_type") val actionType: String,
+    @Json(name = "target_id") val targetId: String,
+    @Json(name = "target_label") val targetLabel: String,
+    @Json(name = "requested_at") val requestedAt: String,
+    @Json(name = "requested_by_user_id") val requestedByUserId: String?,
+    @Json(name = "finalize_after") val finalizeAfter: String,
+    @Json(name = "fronting_member_ids") val frontingMemberIds: List<String>,
+    @Json(name = "fronting_member_names") val frontingMemberNames: List<String>,
+    val status: String,
+)
+
+// `changes` is an arbitrary JSON object — kept untyped, handled by KotlinJsonAdapterFactory.
+data class SafetyChangeRequestRead(
+    val id: String,
+    @Json(name = "requested_at") val requestedAt: String,
+    @Json(name = "requested_by_user_id") val requestedByUserId: String?,
+    @Json(name = "finalize_after") val finalizeAfter: String,
+    val changes: Map<String, Any?>,
+    val status: String,
+)
+
+data class SystemSafetyResponse(
+    val settings: SystemSafetySettings,
+    @Json(name = "pending_actions") val pendingActions: List<PendingActionRead>,
+    @Json(name = "pending_changes") val pendingChanges: List<SafetyChangeRequestRead>,
+)
+
+data class SystemSafetyUpdateResponse(
+    val settings: SystemSafetySettings,
+    val applied: List<String>,
+    val deferred: List<String>,
+    @Json(name = "pending_change") val pendingChange: SafetyChangeRequestRead?,
+)
+
 // ── Members ───────────────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class MemberDeleteConfirm(
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MemberDeletePending(
+    @Json(name = "pending_action_id") val pendingActionId: String,
+    @Json(name = "finalize_after") val finalizeAfter: String,
+)
 
 @JsonClass(generateAdapter = true)
 data class MemberRead(

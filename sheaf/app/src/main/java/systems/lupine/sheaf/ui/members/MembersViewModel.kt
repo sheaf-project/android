@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.api.deleteMemberOrQueue
 import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.*
 import systems.lupine.sheaf.data.network.NetworkMonitor
@@ -28,6 +29,10 @@ data class MembersUiState(
     val currentFronts: List<FrontRead> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    val deleteSafety: MemberDeleteSafety = MemberDeleteSafety(),
+    val isDeleting: Boolean = false,
+    val deleteError: String? = null,
+    val deleteCompleted: Boolean = false,
 )
 
 @HiltViewModel
@@ -124,14 +129,52 @@ class MembersViewModel @Inject constructor(
         }
     }
 
-    fun deleteMember(memberId: String) {
+    fun loadDeleteSafety() {
         viewModelScope.launch {
-            _state.update { it.copy(error = null) }
-            runCatching { api.deleteMember(memberId) }
-                .onSuccess { _state.update { it.copy(members = it.members.filter { m -> m.id != memberId }) } }
-                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
+            runCatching {
+                val safety = api.getSystemSafety()
+                val user = runCatching { api.getMe() }.getOrNull()
+                MemberDeleteSafety(
+                    authTier = safety.settings.authTier,
+                    totpEnabled = user?.totpEnabled == true,
+                    appliesToMembers = safety.settings.appliesToMembers,
+                    gracePeriodDays = safety.settings.gracePeriodDays,
+                )
+            }.onSuccess { s -> _state.update { it.copy(deleteSafety = s) } }
         }
     }
+
+    fun deleteMember(memberId: String, password: String? = null, totpCode: String? = null) {
+        viewModelScope.launch {
+            _state.update { it.copy(isDeleting = true, deleteError = null, deleteCompleted = false) }
+            runCatching { api.deleteMemberOrQueue(memberId, password, totpCode) }
+                .onSuccess { queued ->
+                    if (queued != null) {
+                        // Member stays on the server until grace expires; refresh from source.
+                        _state.update { it.copy(isDeleting = false, deleteCompleted = true) }
+                        load()
+                    } else {
+                        _state.update {
+                            it.copy(
+                                isDeleting = false,
+                                deleteCompleted = true,
+                                members = it.members.filter { m -> m.id != memberId },
+                            )
+                        }
+                    }
+                }
+                .onFailure { e ->
+                    val msg = if (e is retrofit2.HttpException && e.code() in listOf(400, 401))
+                        "Incorrect password or authenticator code"
+                    else
+                        e.toUserMessage("Failed to delete member")
+                    _state.update { it.copy(isDeleting = false, deleteError = msg) }
+                }
+        }
+    }
+
+    fun clearDeleteError() { _state.update { it.copy(deleteError = null) } }
+    fun clearDeleteCompleted() { _state.update { it.copy(deleteCompleted = false) } }
 }
 
 // ── Detail / create / edit ────────────────────────────────────────────────────
@@ -156,6 +199,9 @@ data class MemberDetailUiState(
     val error: String? = null,
     val saved: Boolean = false,
     val deleted: Boolean = false,
+    val deleteSafety: MemberDeleteSafety = MemberDeleteSafety(),
+    val deleteError: String? = null,
+    val deleteQueued: Boolean = false,
 )
 
 @HiltViewModel
@@ -247,15 +293,46 @@ class MemberDetailViewModel @Inject constructor(
         }
     }
 
-    fun delete() {
-        if (memberId == null) return
+    fun loadDeleteSafety() {
         viewModelScope.launch {
-            _state.update { it.copy(isDeleting = true, error = null) }
-            runCatching { api.deleteMember(memberId) }
-                .onSuccess { _state.update { it.copy(isDeleting = false, deleted = true) } }
-                .onFailure { e -> _state.update { it.copy(isDeleting = false, error = e.toUserMessage()) } }
+            runCatching {
+                val safety = api.getSystemSafety()
+                val user = runCatching { api.getMe() }.getOrNull()
+                MemberDeleteSafety(
+                    authTier = safety.settings.authTier,
+                    totpEnabled = user?.totpEnabled == true,
+                    appliesToMembers = safety.settings.appliesToMembers,
+                    gracePeriodDays = safety.settings.gracePeriodDays,
+                )
+            }.onSuccess { s -> _state.update { it.copy(deleteSafety = s) } }
         }
     }
+
+    fun delete(password: String? = null, totpCode: String? = null) {
+        if (memberId == null) return
+        viewModelScope.launch {
+            _state.update { it.copy(isDeleting = true, deleteError = null, deleteQueued = false) }
+            runCatching { api.deleteMemberOrQueue(memberId, password, totpCode) }
+                .onSuccess { queued ->
+                    _state.update {
+                        it.copy(
+                            isDeleting = false,
+                            deleted = true,
+                            deleteQueued = queued != null,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    val msg = if (e is retrofit2.HttpException && e.code() in listOf(400, 401))
+                        "Incorrect password or authenticator code"
+                    else
+                        e.toUserMessage("Failed to delete member")
+                    _state.update { it.copy(isDeleting = false, deleteError = msg) }
+                }
+        }
+    }
+
+    fun clearDeleteError() { _state.update { it.copy(deleteError = null) } }
 
     fun uploadAndSetAvatar(uri: Uri) {
         viewModelScope.launch {
@@ -294,6 +371,10 @@ data class MemberProfileUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val deleted: Boolean = false,
+    val deleteSafety: MemberDeleteSafety = MemberDeleteSafety(),
+    val isDeleting: Boolean = false,
+    val deleteError: String? = null,
+    val deleteQueued: Boolean = false,
 )
 
 @HiltViewModel
@@ -390,12 +471,43 @@ class MemberProfileViewModel @Inject constructor(
         }
     }
 
-    fun delete() {
+    fun loadDeleteSafety() {
         viewModelScope.launch {
-            _state.update { it.copy(error = null) }
-            runCatching { api.deleteMember(memberId) }
-                .onSuccess { _state.update { it.copy(deleted = true) } }
-                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
+            runCatching {
+                val safety = api.getSystemSafety()
+                val user = runCatching { api.getMe() }.getOrNull()
+                MemberDeleteSafety(
+                    authTier = safety.settings.authTier,
+                    totpEnabled = user?.totpEnabled == true,
+                    appliesToMembers = safety.settings.appliesToMembers,
+                    gracePeriodDays = safety.settings.gracePeriodDays,
+                )
+            }.onSuccess { s -> _state.update { it.copy(deleteSafety = s) } }
         }
     }
+
+    fun delete(password: String? = null, totpCode: String? = null) {
+        viewModelScope.launch {
+            _state.update { it.copy(isDeleting = true, deleteError = null, deleteQueued = false) }
+            runCatching { api.deleteMemberOrQueue(memberId, password, totpCode) }
+                .onSuccess { queued ->
+                    _state.update {
+                        it.copy(
+                            isDeleting = false,
+                            deleted = true,
+                            deleteQueued = queued != null,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    val msg = if (e is retrofit2.HttpException && e.code() in listOf(400, 401))
+                        "Incorrect password or authenticator code"
+                    else
+                        e.toUserMessage("Failed to delete member")
+                    _state.update { it.copy(isDeleting = false, deleteError = msg) }
+                }
+        }
+    }
+
+    fun clearDeleteError() { _state.update { it.copy(deleteError = null) } }
 }

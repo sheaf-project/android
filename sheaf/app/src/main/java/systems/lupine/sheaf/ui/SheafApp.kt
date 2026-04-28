@@ -31,6 +31,7 @@ import systems.lupine.sheaf.ui.sessions.SessionsScreen
 import systems.lupine.sheaf.ui.admin.AdminPanelScreen
 import systems.lupine.sheaf.ui.settings.SettingsScreen
 import systems.lupine.sheaf.ui.settings.SystemEditScreen
+import systems.lupine.sheaf.ui.settings.SystemSafetyScreen
 
 // ── Route constants ───────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ object Routes {
     const val API_KEYS       = "settings/keys"
     const val SESSIONS       = "settings/sessions"
     const val ADMIN_PANEL    = "settings/admin"
+    const val SYSTEM_SAFETY  = "settings/safety"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -148,7 +150,10 @@ fun SheafApp(
                 })
             }
             composable(Routes.HOME) {
-                HomeScreen(onNavigateToMembers = { navController.navigate(Routes.MEMBERS) })
+                HomeScreen(
+                    onNavigateToMembers = { navController.navigate(Routes.MEMBERS) },
+                    onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                )
             }
             composable(Routes.MEMBERS) {
                 MembersScreen(onMemberClick = { id ->
@@ -191,6 +196,7 @@ fun SheafApp(
                     onNavigateToApiKeys = { navController.navigate(Routes.API_KEYS) },
                     onNavigateToSessions = { navController.navigate(Routes.SESSIONS) },
                     onNavigateToAdminPanel = { navController.navigate(Routes.ADMIN_PANEL) },
+                    onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
                 )
             }
             composable(Routes.SYSTEM_EDIT) {
@@ -213,6 +219,9 @@ fun SheafApp(
             }
             composable(Routes.ADMIN_PANEL) {
                 AdminPanelScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.SYSTEM_SAFETY) {
+                SystemSafetyScreen(onNavigateUp = { navController.navigateUp() })
             }
         }
     }

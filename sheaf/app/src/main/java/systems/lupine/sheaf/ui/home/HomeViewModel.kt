@@ -13,6 +13,8 @@ import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.model.MemberRead
+import systems.lupine.sheaf.data.model.PendingActionRead
+import systems.lupine.sheaf.data.model.SafetyChangeRequestRead
 import systems.lupine.sheaf.data.model.SystemRead
 import systems.lupine.sheaf.data.model.UserRead
 import systems.lupine.sheaf.data.network.NetworkMonitor
@@ -42,6 +44,8 @@ data class HomeUiState(
     val switchSelection: Set<String> = emptySet(),
     val isOnline: Boolean = true,
     val pendingOpCount: Int = 0,
+    val pendingSafetyActions: List<PendingActionRead> = emptyList(),
+    val pendingSafetyChanges: List<SafetyChangeRequestRead> = emptyList(),
 ) {
     val visibleAnnouncements: List<AnnouncementPublic>
         get() = announcements.filter { it.id !in dismissedAnnouncementIds }
@@ -94,6 +98,7 @@ class HomeViewModel @Inject constructor(
                     val fronts = api.getCurrentFronts()
                     val members = api.listMembers()
                     val announcements = runCatching { api.getAnnouncements() }.getOrDefault(emptyList())
+                    val safety = runCatching { api.getSystemSafety() }.getOrNull()
                     // Persist to cache.
                     cache.saveSystem(system)
                     cache.saveMembers(members)
@@ -108,6 +113,8 @@ class HomeViewModel @Inject constructor(
                             frontingMembers = frontingMembers,
                             allMembers = members,
                             announcements = announcements,
+                            pendingSafetyActions = safety?.pendingActions ?: it.pendingSafetyActions,
+                            pendingSafetyChanges = safety?.pendingChanges ?: it.pendingSafetyChanges,
                             isLoading = false,
                         )
                     }
