@@ -126,22 +126,26 @@ fun PeopleScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            PrimaryTabRow(
-                selectedTabIndex = tab.ordinal,
-                containerColor = Color.Transparent,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
             ) {
-                Tab(
-                    selected = tab == PeopleTab.MEMBERS,
-                    onClick = { tab = PeopleTab.MEMBERS },
-                    text = { Text("Members") },
-                    icon = { Icon(Icons.Outlined.People, contentDescription = null) },
-                )
-                Tab(
-                    selected = tab == PeopleTab.GROUPS,
-                    onClick = { tab = PeopleTab.GROUPS },
-                    text = { Text("Groups") },
-                    icon = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
-                )
+                SingleChoiceSegmentedButtonRow {
+                    SegmentedButton(
+                        selected = tab == PeopleTab.MEMBERS,
+                        onClick = { tab = PeopleTab.MEMBERS },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        label = { Text("Members") },
+                    )
+                    SegmentedButton(
+                        selected = tab == PeopleTab.GROUPS,
+                        onClick = { tab = PeopleTab.GROUPS },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        label = { Text("Groups") },
+                    )
+                }
             }
 
             when (tab) {
