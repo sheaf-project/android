@@ -112,7 +112,8 @@ private fun FilePickSection(onPick: () -> Unit) {
         Text("Choose your Simply Plural export file to get started.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Button(onClick = onPick) { Text("Choose file") }
         Text(
-            "Export your data from Simply Plural via Settings → Export Data, then select the downloaded JSON file here.",
+            "In Simply Plural, go to Settings → Account → Export Data → Request data export. " +
+            "You'll receive the export by email — download the JSON file from there, then select it here.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )

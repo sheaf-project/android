@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.components.*
 
@@ -60,6 +61,7 @@ fun SettingsScreen(
     onNavigateToSessions: () -> Unit,
     onNavigateToAdminPanel: () -> Unit,
     onNavigateToSystemSafety: () -> Unit,
+    onNavigateToDebug: () -> Unit,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -489,6 +491,16 @@ fun SettingsScreen(
                 tint = MaterialTheme.colorScheme.error,
             )
 
+            if (BuildConfig.DEBUG) {
+                SectionHeader("Debug")
+                SettingItem(
+                    icon = Icons.Outlined.BugReport,
+                    title = "Debug Menu",
+                    subtitle = "Developer tools",
+                    onClick = onNavigateToDebug,
+                )
+            }
+
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -720,7 +732,7 @@ fun SettingsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TotpSetupSheet(
+internal fun TotpSetupSheet(
     state: SettingsUiState,
     onAdvanceToVerify: () -> Unit,
     onVerify: (String) -> Unit,
@@ -754,7 +766,7 @@ private fun TotpSetupSheet(
                 }
 
                 TotpStep.SECRET -> {
-                    Text("Scan with Authenticator", style = MaterialTheme.typography.titleLarge)
+                    Text("Add to Authenticator", style = MaterialTheme.typography.titleLarge)
                     Text(
                         "Add this to your authenticator app (Aegis, 1Password, Google Authenticator). Tap the secret to copy it.",
                         style = MaterialTheme.typography.bodyMedium,

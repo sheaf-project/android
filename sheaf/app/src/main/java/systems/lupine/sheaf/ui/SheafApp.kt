@@ -18,6 +18,8 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.auth.LoginScreen
+import systems.lupine.sheaf.ui.auth.OnboardingScreen
+import systems.lupine.sheaf.ui.debug.DebugScreen
 import systems.lupine.sheaf.ui.groups.GroupDetailScreen
 import systems.lupine.sheaf.ui.groups.GroupsScreen
 import systems.lupine.sheaf.ui.history.HistoryScreen
@@ -42,6 +44,7 @@ import systems.lupine.sheaf.ui.settings.SystemSafetyScreen
 
 object Routes {
     const val LOGIN         = "login"
+    const val ONBOARDING    = "onboarding"
     const val HOME          = "home"
     const val PEOPLE        = "people"
     const val MEMBERS       = "members"
@@ -61,6 +64,7 @@ object Routes {
     const val SESSIONS       = "settings/sessions"
     const val ADMIN_PANEL    = "settings/admin"
     const val SYSTEM_SAFETY  = "settings/safety"
+    const val DEBUG          = "settings/debug"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -91,7 +95,8 @@ fun SheafApp(
     // React to login state changes
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
-            navController.navigate(Routes.HOME) {
+            val target = if (authViewModel.pendingOnboarding.value) Routes.ONBOARDING else Routes.HOME
+            navController.navigate(target) {
                 popUpTo(Routes.LOGIN) { inclusive = true }
             }
         } else if (navController.currentDestination?.route != Routes.LOGIN) {
@@ -151,10 +156,23 @@ fun SheafApp(
         ) {
             composable(Routes.LOGIN) {
                 LoginScreen(onLoginSuccess = {
-                    navController.navigate(Routes.HOME) {
+                    val target = if (authViewModel.pendingOnboarding.value) Routes.ONBOARDING else Routes.HOME
+                    navController.navigate(target) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
                 })
+            }
+            composable(Routes.ONBOARDING) {
+                OnboardingScreen(
+                    onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                    onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
+                    onContinue = {
+                        authViewModel.completeOnboarding()
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    },
+                )
             }
             composable(Routes.HOME) {
                 HomeScreen(
@@ -236,6 +254,7 @@ fun SheafApp(
                     onNavigateToSessions = { navController.navigate(Routes.SESSIONS) },
                     onNavigateToAdminPanel = { navController.navigate(Routes.ADMIN_PANEL) },
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                    onNavigateToDebug = { navController.navigate(Routes.DEBUG) },
                 )
             }
             composable(Routes.SYSTEM_EDIT) {
@@ -261,6 +280,17 @@ fun SheafApp(
             }
             composable(Routes.SYSTEM_SAFETY) {
                 SystemSafetyScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.DEBUG) {
+                DebugScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onShowOnboarding = {
+                        authViewModel.forceShowOnboarding()
+                        navController.navigate(Routes.ONBOARDING) {
+                            popUpTo(Routes.DEBUG) { inclusive = true }
+                        }
+                    },
+                )
             }
         }
     }

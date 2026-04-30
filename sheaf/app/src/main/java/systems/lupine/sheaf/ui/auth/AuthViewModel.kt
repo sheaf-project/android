@@ -67,6 +67,12 @@ class AuthViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    // Set when registration completes so the post-login navigation can route
+    // the user through onboarding rather than straight to home. Cleared once
+    // the user finishes (or skips) onboarding.
+    private val _pendingOnboarding = MutableStateFlow(false)
+    val pendingOnboarding: StateFlow<Boolean> = _pendingOnboarding.asStateFlow()
+
     // Holds tokens during email-verification hold
     private var pendingAccessToken: String? = null
     private var pendingRefreshToken: String? = null
@@ -175,6 +181,7 @@ class AuthViewModel @Inject constructor(
                 api.register(UserRegister(email, password, inviteCode?.ifBlank { null }, captcha = captcha))
             }
                 .onSuccess { tokens ->
+                    _pendingOnboarding.value = true
                     if (config?.emailVerification != "none") {
                         // Hold tokens in memory — don't persist so isLoggedIn stays false
                         pendingAccessToken = tokens.accessToken
@@ -231,6 +238,7 @@ class AuthViewModel @Inject constructor(
             runCatching { api.logout() }
             prefs.clearTokens()
             clearPending()
+            _pendingOnboarding.value = false
         }
     }
 
@@ -241,7 +249,16 @@ class AuthViewModel @Inject constructor(
 
     fun cancelEmailVerification() {
         clearPending()
+        _pendingOnboarding.value = false
         _uiState.value = AuthUiState.Idle
+    }
+
+    fun completeOnboarding() {
+        _pendingOnboarding.value = false
+    }
+
+    fun forceShowOnboarding() {
+        _pendingOnboarding.value = true
     }
 
     private suspend fun finishAuth() {
