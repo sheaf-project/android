@@ -265,7 +265,9 @@ data class PendingActionRead(
     val status: String,
 )
 
-// `changes` is an arbitrary JSON object — kept untyped, handled by KotlinJsonAdapterFactory.
+// `changes` is an arbitrary JSON object whose values come back as Moshi's
+// built-in Object adapter handles (Boolean / Double / String / List / Map).
+@JsonClass(generateAdapter = true)
 data class SafetyChangeRequestRead(
     val id: String,
     @Json(name = "requested_at") val requestedAt: String,
@@ -275,12 +277,14 @@ data class SafetyChangeRequestRead(
     val status: String,
 )
 
+@JsonClass(generateAdapter = true)
 data class SystemSafetyResponse(
     val settings: SystemSafetySettings,
     @Json(name = "pending_actions") val pendingActions: List<PendingActionRead>,
     @Json(name = "pending_changes") val pendingChanges: List<SafetyChangeRequestRead>,
 )
 
+@JsonClass(generateAdapter = true)
 data class SystemSafetyUpdateResponse(
     val settings: SystemSafetySettings,
     val applied: List<String>,

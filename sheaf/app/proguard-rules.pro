@@ -3,7 +3,7 @@
     @com.squareup.moshi.FromJson *;
     @com.squareup.moshi.ToJson *;
 }
--keep class app.sheaf.data.model.** { *; }
+-keep class systems.lupine.sheaf.data.model.** { *; }
 
 # Retrofit
 -keepattributes Signature
