@@ -499,6 +499,17 @@ data class FileRead(
     @Json(name = "created_at") val createdAt: String,
 )
 
+// Both response shapes for DELETE /v1/files/{id}: 200 returns
+// {deleted, key, freed_bytes} on immediate delete, 202 returns
+// {pending_action_id, finalize_after} when image-safeguarded. All fields
+// nullable so a single adapter handles either shape; the caller decides
+// which path was taken from the HTTP status code.
+@JsonClass(generateAdapter = true)
+data class FileDeletePending(
+    @Json(name = "pending_action_id") val pendingActionId: String? = null,
+    @Json(name = "finalize_after") val finalizeAfter: String? = null,
+)
+
 // ── Client Settings ───────────────────────────────────────────────────────────
 // No codegen — settings is arbitrary JSON (Map<String, Any>), handled by KotlinJsonAdapterFactory.
 

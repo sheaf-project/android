@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # sigstore/cosign keyless OIDC signing
 
 jobs:
   build:
@@ -31,6 +32,20 @@ jobs:
 
       - name: Make gradlew executable
         run: chmod +x sheaf/gradlew
+
+      - name: Run unit tests
+        working-directory: sheaf
+        run: ./gradlew :app:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            sheaf/app/build/reports/tests/
+            sheaf/app/build/test-results/
+          if-no-files-found: ignore
 
       - name: Build release APK
         working-directory: sheaf
@@ -60,6 +75,41 @@ jobs:
           echo "app_path=$APP_APK" >> "$GITHUB_OUTPUT"
           echo "wear_path=$WEAR_APK" >> "$GITHUB_OUTPUT"
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Sign each APK with cosign keyless OIDC. The .sig + .pem are uploaded
+      # alongside the APK so verifiers can run `cosign verify-blob` without
+      # needing any access to the GH workflow token. SBOM attestation is
+      # tracked as a follow-up; see docs/VERIFYING.md.
+      - name: Sign APKs with cosign
+        id: sign
+        env:
+          APP_APK: ${{ steps.apk.outputs.app_path }}
+          WEAR_APK: ${{ steps.apk.outputs.wear_path }}
+        run: |
+          set -euo pipefail
+          ARTEFACTS=()
+          sign_blob() {
+            local path="$1"
+            [ -n "$path" ] && [ -f "$path" ] || return 0
+            cosign sign-blob --yes \
+              --output-signature "$path.sig" \
+              --output-certificate "$path.pem" \
+              "$path"
+            ARTEFACTS+=("$path.sig" "$path.pem")
+            echo "Signed $(basename "$path")"
+          }
+          sign_blob "$APP_APK"
+          sign_blob "$WEAR_APK"
+          {
+            echo 'extra_files<<EOF'
+            if [ "${#ARTEFACTS[@]}" -gt 0 ]; then
+              printf '%s\n' "${ARTEFACTS[@]}"
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Delete existing dev release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,6 +127,10 @@ jobs:
             Automated development build from commit ${{ github.sha }}.
 
             Built from branch `${{ github.ref_name }}` on ${{ github.run_id }}.
+
+            APKs are cosign-signed via keyless OIDC; verification instructions
+            are in [`docs/VERIFYING.md`](https://github.com/${{ github.repository }}/blob/${{ github.sha }}/docs/VERIFYING.md).
           files: |
             ${{ steps.apk.outputs.app_path }}
             ${{ steps.apk.outputs.wear_path }}
+            ${{ steps.sign.outputs.extra_files }}

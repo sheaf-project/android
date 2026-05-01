@@ -3,6 +3,7 @@ package systems.lupine.sheaf.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.api.deleteFileOrQueue
 import systems.lupine.sheaf.data.model.ClientSettingsBody
 import systems.lupine.sheaf.data.model.DeleteAccountRequest
 import systems.lupine.sheaf.data.model.FileRead
@@ -21,6 +22,14 @@ import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
 enum class TotpStep { LOADING, SECRET, VERIFY, RECOVERY_CODES, DONE }
+
+/** Step-up auth and grace-period state for the orphan-files cleanup action. */
+data class OrphanFilesDeleteSafety(
+    val authTier: String = "none",
+    val totpEnabled: Boolean = false,
+    val appliesToImages: Boolean = false,
+    val gracePeriodDays: Int = 0,
+)
 
 data class SettingsUiState(
     val user: UserRead? = null,
@@ -53,6 +62,8 @@ data class SettingsUiState(
     val orphanedFiles: List<FileRead>? = null,
     val isDeletingOrphans: Boolean = false,
     val fileError: String? = null,
+    val orphanDeleteSafety: OrphanFilesDeleteSafety = OrphanFilesDeleteSafety(),
+    val orphanDeleteResultMessage: String? = null,
 )
 
 private const val CLIENT_ID = "android"
@@ -106,6 +117,20 @@ class SettingsViewModel @Inject constructor(
                 api.getCurrentFronts().flatMap { it.memberIds }.toSet().size
             }.getOrDefault(0)
             _state.update { it.copy(memberCount = memberCount, groupCount = groupCount, frontingCount = frontingCount) }
+
+            runCatching { api.getSystemSafety() }.onSuccess { safety ->
+                val totp = _state.value.user?.totpEnabled == true
+                _state.update {
+                    it.copy(
+                        orphanDeleteSafety = OrphanFilesDeleteSafety(
+                            authTier = safety.settings.authTier,
+                            totpEnabled = totp,
+                            appliesToImages = safety.settings.appliesToImages,
+                            gracePeriodDays = safety.settings.gracePeriodDays,
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -292,21 +317,47 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun deleteOrphanedFiles() {
+    fun deleteOrphanedFiles(password: String? = null, totpCode: String? = null) {
         val orphans = _state.value.orphanedFiles ?: return
         if (orphans.isEmpty()) return
-        _state.update { it.copy(isDeletingOrphans = true, fileError = null) }
+        _state.update { it.copy(isDeletingOrphans = true, fileError = null, orphanDeleteResultMessage = null) }
         viewModelScope.launch {
             runCatching {
-                orphans.forEach { api.deleteFile(it.id) }
-            }.onSuccess {
-                _state.update { it.copy(isDeletingOrphans = false, orphanedFiles = emptyList()) }
+                var deletedNow = 0
+                var queued = 0
+                orphans.forEach {
+                    val pending = api.deleteFileOrQueue(it.id, password, totpCode)
+                    if (pending?.pendingActionId != null) queued++ else deletedNow++
+                }
+                deletedNow to queued
+            }.onSuccess { (deletedNow, queued) ->
+                val grace = _state.value.orphanDeleteSafety.gracePeriodDays
+                val message = when {
+                    queued == 0 -> "Deleted $deletedNow file${plural(deletedNow)}."
+                    deletedNow == 0 -> "Queued $queued file${plural(queued)} for deletion " +
+                        "in $grace day${plural(grace)}. Cancel from System Safety before then."
+                    else -> "Deleted $deletedNow, queued $queued for deletion in " +
+                        "$grace day${plural(grace)}."
+                }
+                _state.update {
+                    it.copy(
+                        isDeletingOrphans = false,
+                        orphanedFiles = emptyList(),
+                        orphanDeleteResultMessage = message,
+                    )
+                }
             }.onFailure { e ->
-                _state.update { it.copy(isDeletingOrphans = false, fileError = e.toUserMessage()) }
+                val msg = if (e is HttpException && e.code() in listOf(400, 401))
+                    "Incorrect password or authenticator code"
+                else e.toUserMessage("Failed to delete files")
+                _state.update { it.copy(isDeletingOrphans = false, fileError = msg) }
             }
         }
     }
 
     fun clearOrphanedFiles() { _state.update { it.copy(orphanedFiles = null) } }
     fun clearFileError() { _state.update { it.copy(fileError = null) } }
+    fun clearOrphanDeleteResult() { _state.update { it.copy(orphanDeleteResultMessage = null) } }
 }
+
+private fun plural(n: Int) = if (n == 1) "" else "s"
