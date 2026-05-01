@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import dagger.hilt.android.HiltAndroidApp
+import systems.lupine.sheaf.lock.AppLockManager
 import systems.lupine.sheaf.notification.FrontNotificationHelper
 import javax.inject.Inject
 
@@ -15,6 +16,7 @@ class SheafApplication : Application(), ImageLoaderFactory, Configuration.Provid
     @Inject lateinit var notificationHelper: FrontNotificationHelper
     @Inject lateinit var imageLoader: ImageLoader
     @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var lockManager: AppLockManager
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
@@ -22,6 +24,7 @@ class SheafApplication : Application(), ImageLoaderFactory, Configuration.Provid
     override fun onCreate() {
         super.onCreate()
         notificationHelper.createChannel()
+        lockManager.start()
     }
 
     override fun newImageLoader(): ImageLoader = imageLoader

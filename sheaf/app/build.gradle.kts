@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -81,6 +82,9 @@ dependencies {
 
     // Storage
     implementation(libs.datastore.preferences)
+
+    // Biometric / device credential auth (app lock)
+    implementation(libs.androidx.biometric)
 
     // Images
     implementation(libs.coil.compose)

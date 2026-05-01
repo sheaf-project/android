@@ -77,6 +77,9 @@ class SettingsViewModel @Inject constructor(
     val frontNotificationEnabled: StateFlow<Boolean> = prefs.frontNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val appLockEnabled: StateFlow<Boolean> = prefs.appLockEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     init { load() }
 
     fun load() {
@@ -122,6 +125,10 @@ class SettingsViewModel @Inject constructor(
             prefs.saveFrontNotification(enabled)
             if (!enabled) notificationHelper.cancel()
         }
+    }
+
+    fun toggleAppLock(enabled: Boolean) {
+        viewModelScope.launch { prefs.saveAppLock(enabled) }
     }
 
     fun exportData() {

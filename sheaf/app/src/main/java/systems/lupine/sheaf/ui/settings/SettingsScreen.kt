@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -69,14 +70,17 @@ fun SettingsScreen(
     val savedBaseUrl by settingsViewModel.baseUrl.collectAsState()
     val themeMode by settingsViewModel.themeMode.collectAsState()
     val frontNotificationEnabled by settingsViewModel.frontNotificationEnabled.collectAsState()
+    val appLockEnabled by settingsViewModel.appLockEnabled.collectAsState()
     val authConfig by authViewModel.authConfig.collectAsState()
     val context = LocalContext.current
+    var appLockError by remember { mutableStateOf<String?>(null) }
 
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showUrlDialog by remember { mutableStateOf(false) }
     var showTotpSheet by remember { mutableStateOf(false) }
     var showDisableTotpDialog by remember { mutableStateOf(false) }
+    var showDisableAppLockDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var showDeleteOrphansDialog by remember { mutableStateOf(false) }
 
@@ -349,6 +353,55 @@ fun SettingsScreen(
 
             // ── Security ─────────────────────────────────────────────────────
             SectionHeader("Security")
+            ListItem(
+                headlineContent = { Text("App Lock") },
+                supportingContent = {
+                    Text(
+                        appLockError
+                            ?: "Require biometrics or your device passcode to open Sheaf",
+                        color = if (appLockError != null) MaterialTheme.colorScheme.error
+                                else LocalContentColor.current,
+                    )
+                },
+                leadingContent = {
+                    Icon(
+                        Icons.Outlined.Fingerprint,
+                        contentDescription = null,
+                        tint = if (appLockEnabled) MaterialTheme.colorScheme.tertiary
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = appLockEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                val canAuth = BiometricManager.from(context).canAuthenticate(
+                                    BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                                        BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+                                )
+                                when (canAuth) {
+                                    BiometricManager.BIOMETRIC_SUCCESS -> {
+                                        appLockError = null
+                                        settingsViewModel.toggleAppLock(true)
+                                    }
+                                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ->
+                                        appLockError = "Set up a screen lock or biometric in your device settings first."
+                                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
+                                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE ->
+                                        appLockError = "This device doesn't support biometric or passcode unlock."
+                                    else ->
+                                        appLockError = "App lock is unavailable on this device right now."
+                                }
+                            } else {
+                                appLockError = null
+                                showDisableAppLockDialog = true
+                            }
+                        },
+                    )
+                },
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             val totpEnabled = state.user?.totpEnabled == true
             ListItem(
                 headlineContent = { Text("Two-Factor Authentication") },
@@ -599,6 +652,26 @@ fun SettingsScreen(
                 ) { Text("Sign Out") }
             },
             dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showDisableAppLockDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisableAppLockDialog = false },
+            title = { Text("Disable App Lock?") },
+            text = { Text("Sheaf will open without requiring your biometrics or device passcode.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        settingsViewModel.toggleAppLock(false)
+                        showDisableAppLockDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Disable") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisableAppLockDialog = false }) { Text("Cancel") }
+            },
         )
     }
 

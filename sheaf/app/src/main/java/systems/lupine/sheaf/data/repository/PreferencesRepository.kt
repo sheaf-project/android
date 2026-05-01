@@ -29,6 +29,7 @@ class PreferencesRepository @Inject constructor(
         val KEY_CF_CLIENT_ID = stringPreferencesKey("cf_client_id")
         val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
         val KEY_FILE_CDN_BASE = stringPreferencesKey("file_cdn_base")
+        val KEY_APP_LOCK = booleanPreferencesKey("app_lock")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -39,6 +40,7 @@ class PreferencesRepository @Inject constructor(
     val frontNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_FRONT_NOTIFICATION] ?: false }
     val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
     val cfClientSecret: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_SECRET] }
+    val appLockEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_APP_LOCK] ?: false }
 
     suspend fun saveBaseUrl(url: String) {
         context.dataStore.edit { it[KEY_BASE_URL] = url.trimEnd('/') }
@@ -74,6 +76,10 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveFrontNotification(enabled: Boolean) {
         context.dataStore.edit { it[KEY_FRONT_NOTIFICATION] = enabled }
+    }
+
+    suspend fun saveAppLock(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_APP_LOCK] = enabled }
     }
 
     suspend fun clearTokens() {
