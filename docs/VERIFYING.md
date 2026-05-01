@@ -1,0 +1,55 @@
+# Verifying your Sheaf Android build
+
+Every APK published from this repo is signed twice over:
+
+1. **APK signing** by the project's release keystore. This is the standard Android signature; the OS uses it to enforce that updates come from the same source as the original install.
+2. **Cosign keyless OIDC** by the project's CI workflow. This is a Sigstore signature tying the APK file to the exact GitHub Actions run that built it, recorded in the public [Rekor](https://github.com/sigstore/rekor) transparency log.
+
+The first protects you against drive-by update tampering once the app is installed. The second is what lets you confirm, before installing, that the APK you're about to run was built from public source by Sheaf's CI rather than handed to you by some intermediary.
+
+For the broader threat model and how this relates to Sheaf's backend / web verifiability story, see the main repo's [`docs/VERIFYING.md`](https://github.com/sheaf-project/sheaf/blob/master/docs/VERIFYING.md).
+
+## What you can check
+
+- That the `.apk` you downloaded was signed by `https://github.com/sheaf-project/android/.github/workflows/dev-release.yml` running on a specific commit.
+- That the signature is recorded in the public Sigstore transparency log.
+- That the APK signature on disk matches the project's published release key fingerprint.
+
+## What this doesn't claim
+
+- **Reproducibility from source.** Byte-for-byte rebuild from a tag is a future goal, not a guarantee today. Android Gradle Plugin output has a few sources of non-determinism (timestamps, ZIP entry order, baseline profile generation) that need to be sanded down before we can stand behind a strict reproducibility claim. Tracked alongside the F-Droid effort.
+- **SBOM attestation.** The main repo publishes a Sigstore-attested SPDX SBOM for every released image. The Android equivalent (`syft` over the APK + `cosign attest-blob`) is planned but not yet wired up; this page will describe how to verify it once it ships.
+- **Runtime attestation.** Once the APK is installed, the OS only knows the APK signature; it can't tell you whether the running code matches what was on disk minutes ago. This is true of every Android app and isn't something verification at the release level can address.
+
+## How to verify (manual)
+
+You'll need [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) and Java's `apksigner` (ships with the Android SDK build-tools).
+
+### 1. Cosign signature on the APK
+
+Download `app-release.apk`, `app-release.apk.sig`, and `app-release.apk.pem` from the release page, then:
+
+```sh
+cosign verify-blob \
+  --signature app-release.apk.sig \
+  --certificate app-release.apk.pem \
+  --certificate-identity-regexp "https://github.com/sheaf-project/android/.github/workflows/.+" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  app-release.apk
+```
+
+Expected output: `Verified OK`. Anything else (mismatch, missing log entry, wrong identity) is a failure.
+
+The same pattern applies to `wear-release.apk`.
+
+### 2. APK signing certificate
+
+```sh
+apksigner verify --print-certs app-release.apk
+```
+
+Compare the printed `SHA-256` digest of `Signer #1 certificate` against the project's published key fingerprint. The fingerprint is pinned in the project README; if you've never installed Sheaf before, this is the certificate every future update will need to match.
+
+## How to verify (script)
+
+A `scripts/verify-release.sh` helper that bundles all of the above is planned but not yet shipped. Until then, run the commands above by hand.
