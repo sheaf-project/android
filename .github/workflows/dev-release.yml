@@ -32,6 +32,20 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x sheaf/gradlew
 
+      - name: Run unit tests
+        working-directory: sheaf
+        run: ./gradlew :app:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            sheaf/app/build/reports/tests/
+            sheaf/app/build/test-results/
+          if-no-files-found: ignore
+
       - name: Build release APK
         working-directory: sheaf
         env:
