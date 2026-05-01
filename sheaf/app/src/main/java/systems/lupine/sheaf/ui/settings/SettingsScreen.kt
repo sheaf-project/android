@@ -483,10 +483,11 @@ fun SettingsScreen(
             SectionHeader("Storage")
             SettingItem(
                 icon = if (state.isCheckingFiles) Icons.Outlined.HourglassEmpty else Icons.Outlined.DeleteSweep,
-                title = if (state.isCheckingFiles) "Checking…" else "Clean Up Orphaned Files",
+                title = if (state.isCheckingFiles) "Checking…" else "Delete unused files",
                 subtitle = when {
-                    state.orphanedFiles?.isEmpty() == true -> "No orphaned files found"
-                    else -> "Find and delete uploaded files no longer in use"
+                    state.orphanedFiles?.isEmpty() == true -> "No unused files found"
+                    state.orphanDeleteResultMessage != null -> state.orphanDeleteResultMessage!!
+                    else -> "Find and delete uploads no member or system still references"
                 },
                 onClick = { if (!state.isCheckingFiles) settingsViewModel.checkOrphanedFiles() },
             )
@@ -558,44 +559,23 @@ fun SettingsScreen(
         }
     }
 
-    // ── Delete Orphaned Files Dialog ──────────────────────────────────────────
+    // ── Delete Unused Files Dialog ────────────────────────────────────────────
 
     if (showDeleteOrphansDialog) {
         val orphans = state.orphanedFiles ?: emptyList()
-        AlertDialog(
-            onDismissRequest = {
-                if (!state.isDeletingOrphans) {
-                    showDeleteOrphansDialog = false
-                    settingsViewModel.clearOrphanedFiles()
-                }
+        OrphanFilesDeleteDialog(
+            fileCount = orphans.size,
+            totalBytesLabel = formatBytes(orphans.sumOf { it.sizeBytes }),
+            safety = state.orphanDeleteSafety,
+            isDeleting = state.isDeletingOrphans,
+            errorMessage = state.fileError,
+            onConfirm = { password, totpCode ->
+                settingsViewModel.deleteOrphanedFiles(password, totpCode)
+                showDeleteOrphansDialog = false
             },
-            icon = { Icon(Icons.Outlined.DeleteSweep, contentDescription = null) },
-            title = { Text("Delete Orphaned Files") },
-            text = {
-                Text(
-                    "This will permanently delete ${orphans.size} file(s) " +
-                    "(${formatBytes(orphans.sumOf { it.sizeBytes })}) that are no longer used by any member or system. " +
-                    "This cannot be undone."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { settingsViewModel.deleteOrphanedFiles(); showDeleteOrphansDialog = false },
-                    enabled = !state.isDeletingOrphans,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    if (state.isDeletingOrphans) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("Delete")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteOrphansDialog = false; settingsViewModel.clearOrphanedFiles() },
-                    enabled = !state.isDeletingOrphans,
-                ) { Text("Cancel") }
+            onDismiss = {
+                showDeleteOrphansDialog = false
+                settingsViewModel.clearOrphanedFiles()
             },
         )
     }

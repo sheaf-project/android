@@ -271,8 +271,11 @@ interface SheafApiService {
     @GET("/v1/files/list")
     suspend fun listFiles(): List<FileRead>
 
-    @DELETE("/v1/files/{id}")
-    suspend fun deleteFile(@Path("id") id: String)
+    @HTTP(method = "DELETE", path = "/v1/files/{id}", hasBody = true)
+    suspend fun deleteFile(
+        @Path("id") id: String,
+        @Body body: MemberDeleteConfirm = MemberDeleteConfirm(),
+    ): Response<FileDeletePending>
 
     // ── Client Settings ───────────────────────────────────────────────────────
 
@@ -421,6 +424,17 @@ suspend fun SheafApiService.deleteMemberOrQueue(
     totpCode: String? = null,
 ): MemberDeletePending? {
     val resp = deleteMember(id, MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
+    if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
+    return if (resp.code() == 202) resp.body() else null
+}
+
+/** Returns null when deletion was immediate (200) or queued payload when image-safeguarded (202). */
+suspend fun SheafApiService.deleteFileOrQueue(
+    id: String,
+    password: String? = null,
+    totpCode: String? = null,
+): FileDeletePending? {
+    val resp = deleteFile(id, MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
     if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
     return if (resp.code() == 202) resp.body() else null
 }
