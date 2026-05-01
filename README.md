@@ -40,6 +40,20 @@ Stable releases (`v*` tags) and store-distributed builds (Play Store, F-Droid) a
 
 Every APK is signed twice: by the project's release keystore (Android's standard signing, enforced by the OS at install/update time), and by Sheaf's CI workflow via cosign keyless OIDC. The cosign signature ties the APK to the exact GitHub Actions run that produced it and is recorded in the public Sigstore transparency log.
 
+Quick check (cosign + gh required):
+
+```sh
+./scripts/verify-release.sh --tag dev
+```
+
+Release-key SHA-256 fingerprint:
+
+```
+4a:9b:b3:0c:d2:c3:bd:74:7b:98:17:b1:66:c2:1d:94:b2:3a:46:c0:45:44:fc:8c:32:74:ea:49:d7:a4:34:e6
+```
+
+This is the fingerprint Android pins on first install. Every future update has to be signed with the same key, and `apksigner verify --print-certs <apk>` should print this same digest. If a build ever shows a different fingerprint, do not install it.
+
 Step-by-step verification: [`docs/VERIFYING.md`](docs/VERIFYING.md).
 
 ## Build from source
