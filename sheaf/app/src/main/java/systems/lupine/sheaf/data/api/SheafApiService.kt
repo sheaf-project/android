@@ -145,6 +145,18 @@ interface SheafApiService {
         @Body body: RestoreRevisionRequest,
     ): MemberRead
 
+    @POST("/v1/members/{id}/pin-revision")
+    suspend fun pinMemberBioRevision(
+        @Path("id") id: String,
+        @Body body: PinRevisionRequest,
+    ): ContentRevisionRead
+
+    @POST("/v1/members/{id}/unpin-revision")
+    suspend fun unpinMemberBioRevision(
+        @Path("id") id: String,
+        @Body body: UnpinRevisionRequest,
+    ): UnpinRevisionResponse
+
     // ── Fronts ────────────────────────────────────────────────────────────────
 
     @GET("/v1/fronts")
@@ -227,6 +239,18 @@ interface SheafApiService {
         @Path("id") id: String,
         @Body body: RestoreRevisionRequest,
     ): JournalEntryRead
+
+    @POST("/v1/journals/{id}/pin-revision")
+    suspend fun pinJournalRevision(
+        @Path("id") id: String,
+        @Body body: PinRevisionRequest,
+    ): ContentRevisionRead
+
+    @POST("/v1/journals/{id}/unpin-revision")
+    suspend fun unpinJournalRevision(
+        @Path("id") id: String,
+        @Body body: UnpinRevisionRequest,
+    ): UnpinRevisionResponse
 
     // ── Tags ──────────────────────────────────────────────────────────────────
 

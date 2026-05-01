@@ -234,6 +234,8 @@ data class SystemSafetySettings(
     @Json(name = "applies_to_fronts") val appliesToFronts: Boolean,
     @Json(name = "applies_to_journals") val appliesToJournals: Boolean,
     @Json(name = "applies_to_images") val appliesToImages: Boolean,
+    @Json(name = "applies_to_revisions") val appliesToRevisions: Boolean = false,
+    @Json(name = "auto_pin_first_revision") val autoPinFirstRevision: Boolean = true,
 )
 
 @JsonClass(generateAdapter = true)
@@ -247,6 +249,8 @@ data class SystemSafetyUpdate(
     @Json(name = "applies_to_fronts") val appliesToFronts: Boolean? = null,
     @Json(name = "applies_to_journals") val appliesToJournals: Boolean? = null,
     @Json(name = "applies_to_images") val appliesToImages: Boolean? = null,
+    @Json(name = "applies_to_revisions") val appliesToRevisions: Boolean? = null,
+    @Json(name = "auto_pin_first_revision") val autoPinFirstRevision: Boolean? = null,
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
 )
@@ -787,9 +791,34 @@ data class ContentRevisionRead(
     val title: String?,
     val body: String,
     @Json(name = "created_at") val createdAt: String,
+    @Json(name = "pinned_at") val pinnedAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
 data class RestoreRevisionRequest(
     @Json(name = "revision_id") val revisionId: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class PinRevisionRequest(
+    @Json(name = "revision_id") val revisionId: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class UnpinRevisionRequest(
+    @Json(name = "revision_id") val revisionId: String,
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+/**
+ * Backend returns either an immediate result (`revision` populated) or a queued
+ * action (`pendingActionId` + `finalizeAfter`) when revision-safety is enabled
+ * with a positive grace period.
+ */
+@JsonClass(generateAdapter = true)
+data class UnpinRevisionResponse(
+    val revision: ContentRevisionRead? = null,
+    @Json(name = "pending_action_id") val pendingActionId: String? = null,
+    @Json(name = "finalize_after") val finalizeAfter: String? = null,
 )

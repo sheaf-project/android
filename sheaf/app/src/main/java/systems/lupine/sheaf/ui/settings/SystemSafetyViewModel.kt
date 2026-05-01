@@ -196,6 +196,8 @@ class SystemSafetyViewModel @Inject constructor(
         appliesToFronts = draft.appliesToFronts.takeIf { it != current.appliesToFronts },
         appliesToJournals = draft.appliesToJournals.takeIf { it != current.appliesToJournals },
         appliesToImages = draft.appliesToImages.takeIf { it != current.appliesToImages },
+        appliesToRevisions = draft.appliesToRevisions.takeIf { it != current.appliesToRevisions },
+        autoPinFirstRevision = draft.autoPinFirstRevision.takeIf { it != current.autoPinFirstRevision },
         password = password?.ifBlank { null },
         totpCode = totpCode?.ifBlank { null },
     )
@@ -219,6 +221,8 @@ class SystemSafetyViewModel @Inject constructor(
             if (current.appliesToFronts && !draft.appliesToFronts) return true
             if (current.appliesToJournals && !draft.appliesToJournals) return true
             if (current.appliesToImages && !draft.appliesToImages) return true
+            if (current.appliesToRevisions && !draft.appliesToRevisions) return true
+            if (current.autoPinFirstRevision && !draft.autoPinFirstRevision) return true
             return false
         }
     }

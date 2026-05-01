@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -349,6 +350,8 @@ fun JournalDetailScreen(
     }
 
     if (state.showRevisions) {
+        LaunchedEffect(Unit) { viewModel.loadRevisionSafety() }
+        var unpinTarget by remember { mutableStateOf<ContentRevisionRead?>(null) }
         ModalBottomSheet(onDismissRequest = { viewModel.toggleRevisions() }) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
@@ -357,6 +360,26 @@ fun JournalDetailScreen(
                     modifier = Modifier.padding(20.dp, 12.dp),
                 )
                 HorizontalDivider()
+                if (state.pinError != null) {
+                    ErrorBanner(
+                        state.pinError!!,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+                if (state.unpinQueued) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                    ) {
+                        Text(
+                            "Unpin queued — finalizes after the safety grace period.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                }
                 if (state.revisions.isEmpty()) {
                     Text(
                         "No prior revisions for this entry.",
@@ -370,7 +393,16 @@ fun JournalDetailScreen(
                             RevisionRow(
                                 revision = rev,
                                 isRestoring = state.isRestoring,
+                                isPinning = state.pendingRevisionId == rev.id,
                                 onRestore = { viewModel.restoreRevision(rev.id) },
+                                onPin = { viewModel.pinRevision(rev.id) },
+                                onUnpinRequested = {
+                                    if (state.revisionSafety.willQueueUnpin) {
+                                        unpinTarget = rev
+                                    } else {
+                                        viewModel.unpinRevision(rev.id)
+                                    }
+                                },
                             )
                             HorizontalDivider()
                         }
@@ -378,6 +410,23 @@ fun JournalDetailScreen(
                 }
                 Spacer(Modifier.navigationBarsPadding())
             }
+        }
+
+        val unpin = unpinTarget
+        if (unpin != null) {
+            RevisionUnpinDialog(
+                safety = state.revisionSafety,
+                isUnpinning = state.pendingRevisionId == unpin.id,
+                errorMessage = state.pinError,
+                onConfirm = { pwd, code ->
+                    viewModel.unpinRevision(unpin.id, pwd, code)
+                    unpinTarget = null
+                },
+                onDismiss = {
+                    unpinTarget = null
+                    viewModel.clearPinError()
+                },
+            )
         }
     }
 
@@ -622,13 +671,28 @@ private fun JournalEditor(
 private fun RevisionRow(
     revision: ContentRevisionRead,
     isRestoring: Boolean,
+    isPinning: Boolean,
     onRestore: () -> Unit,
+    onPin: () -> Unit,
+    onUnpinRequested: () -> Unit,
 ) {
+    val isPinned = revision.pinnedAt != null
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            revision.title?.takeIf { it.isNotBlank() } ?: "Untitled",
-            style = MaterialTheme.typography.titleSmall,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                revision.title?.takeIf { it.isNotBlank() } ?: "Untitled",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (isPinned) {
+                Icon(
+                    Icons.Outlined.PushPin,
+                    contentDescription = "Pinned",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         Text(
             formatJournalDate(revision.createdAt),
             style = MaterialTheme.typography.labelSmall,
@@ -647,8 +711,24 @@ private fun RevisionRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
-        TextButton(onClick = onRestore, enabled = !isRestoring) {
-            Text(if (isRestoring) "Restoring…" else "Restore this version")
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onRestore, enabled = !isRestoring) {
+                Text(if (isRestoring) "Restoring…" else "Restore")
+            }
+            TextButton(
+                onClick = if (isPinned) onUnpinRequested else onPin,
+                enabled = !isPinning,
+            ) {
+                Icon(Icons.Outlined.PushPin, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    when {
+                        isPinning -> if (isPinned) "Unpinning…" else "Pinning…"
+                        isPinned -> "Unpin"
+                        else -> "Pin"
+                    },
+                )
+            }
         }
     }
 }

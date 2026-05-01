@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
@@ -732,7 +733,9 @@ fun MemberProfileScreen(
     }
 
     if (state.showRevisions) {
+        LaunchedEffect(Unit) { viewModel.loadRevisionSafety() }
         var openRevision by remember { mutableStateOf<ContentRevisionRead?>(null) }
+        var unpinTarget by remember { mutableStateOf<ContentRevisionRead?>(null) }
         ModalBottomSheet(onDismissRequest = { viewModel.toggleRevisions() }) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
@@ -741,6 +744,26 @@ fun MemberProfileScreen(
                     modifier = Modifier.padding(20.dp, 12.dp),
                 )
                 HorizontalDivider()
+                if (state.pinError != null) {
+                    ErrorBanner(
+                        state.pinError!!,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+                if (state.unpinQueued) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                    ) {
+                        Text(
+                            "Unpin queued — finalizes after the safety grace period.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                }
                 when {
                     state.isLoadingRevisions -> Box(
                         Modifier.fillMaxWidth().padding(40.dp),
@@ -770,15 +793,44 @@ fun MemberProfileScreen(
 
         val target = openRevision
         if (target != null) {
+            // Re-resolve from state so the pinned badge updates after pin/unpin.
+            val live = state.revisions.firstOrNull { it.id == target.id } ?: target
+            val isPinning = state.pendingRevisionId == live.id
             BioRevisionDialog(
-                revision = target,
+                revision = live,
                 currentBody = member?.description.orEmpty(),
                 isRestoring = state.isRestoring,
+                isPinning = isPinning,
                 onRestore = {
-                    viewModel.restoreRevision(target.id)
+                    viewModel.restoreRevision(live.id)
                     openRevision = null
                 },
+                onPin = { viewModel.pinRevision(live.id) },
+                onUnpinRequested = {
+                    if (state.revisionSafety.willQueueUnpin) {
+                        unpinTarget = live
+                    } else {
+                        viewModel.unpinRevision(live.id)
+                    }
+                },
                 onDismiss = { openRevision = null },
+            )
+        }
+
+        val unpin = unpinTarget
+        if (unpin != null) {
+            RevisionUnpinDialog(
+                safety = state.revisionSafety,
+                isUnpinning = state.pendingRevisionId == unpin.id,
+                errorMessage = state.pinError,
+                onConfirm = { pwd, code ->
+                    viewModel.unpinRevision(unpin.id, pwd, code)
+                    unpinTarget = null
+                },
+                onDismiss = {
+                    unpinTarget = null
+                    viewModel.clearPinError()
+                },
             )
         }
     }
@@ -796,10 +848,21 @@ private fun BioRevisionRow(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            formatRevisionDate(revision.createdAt),
-            style = MaterialTheme.typography.titleSmall,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                formatRevisionDate(revision.createdAt),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (revision.pinnedAt != null) {
+                Icon(
+                    Icons.Outlined.PushPin,
+                    contentDescription = "Pinned",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
         Text(
             revision.body.ifBlank { "(empty bio)" },
             style = MaterialTheme.typography.bodySmall,
@@ -824,7 +887,10 @@ private fun BioRevisionDialog(
     revision: ContentRevisionRead,
     currentBody: String,
     isRestoring: Boolean,
+    isPinning: Boolean,
     onRestore: () -> Unit,
+    onPin: () -> Unit,
+    onUnpinRequested: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var diffMode by remember { mutableStateOf(false) }
@@ -832,12 +898,40 @@ private fun BioRevisionDialog(
         if (revision.body == currentBody) emptyList()
         else diffBioLines(currentBody, revision.body)
     }
+    val isPinned = revision.pinnedAt != null
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(formatRevisionDate(revision.createdAt)) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(formatRevisionDate(revision.createdAt), modifier = Modifier.weight(1f))
+                if (isPinned) {
+                    Icon(
+                        Icons.Outlined.PushPin,
+                        contentDescription = "Pinned",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = if (isPinned) onUnpinRequested else onPin,
+                    enabled = !isPinning,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Outlined.PushPin, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        when {
+                            isPinning -> if (isPinned) "Unpinning…" else "Pinning…"
+                            isPinned -> "Unpin from history"
+                            else -> "Pin this version"
+                        },
+                    )
+                }
                 PrimaryTabRow(
                     selectedTabIndex = if (diffMode) 1 else 0,
                     containerColor = Color.Transparent,

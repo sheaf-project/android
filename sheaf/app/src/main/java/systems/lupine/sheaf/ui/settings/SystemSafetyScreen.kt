@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -108,6 +109,14 @@ fun SystemSafetyScreen(
                 onFronts = { viewModel.updateDraft { copy(appliesToFronts = it) } },
                 onJournals = { viewModel.updateDraft { copy(appliesToJournals = it) } },
                 onImages = { viewModel.updateDraft { copy(appliesToImages = it) } },
+                onRevisions = { viewModel.updateDraft { copy(appliesToRevisions = it) } },
+            )
+
+            SectionHeader("Revision history")
+            RevisionPinningCard(
+                autoPinFirstRevision = draft.autoPinFirstRevision,
+                onAutoPinChange = { viewModel.updateDraft { copy(autoPinFirstRevision = it) } },
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
 
             if (state.saveError != null) {
@@ -338,25 +347,63 @@ private fun CategoryToggles(
     onFronts: (Boolean) -> Unit,
     onJournals: (Boolean) -> Unit,
     onImages: (Boolean) -> Unit,
+    onRevisions: (Boolean) -> Unit,
 ) {
+    data class CategoryRow(val label: String, val supporting: String?, val value: Boolean, val onChange: (Boolean) -> Unit)
     val items = listOf(
-        Triple("Members", draft.appliesToMembers, onMembers),
-        Triple("Groups", draft.appliesToGroups, onGroups),
-        Triple("Tags", draft.appliesToTags, onTags),
-        Triple("Custom fields", draft.appliesToFields, onFields),
-        Triple("Fronts", draft.appliesToFronts, onFronts),
-        Triple("Journal entries", draft.appliesToJournals, onJournals),
-        Triple("Images", draft.appliesToImages, onImages),
+        CategoryRow("Members", null, draft.appliesToMembers, onMembers),
+        CategoryRow("Groups", null, draft.appliesToGroups, onGroups),
+        CategoryRow("Tags", null, draft.appliesToTags, onTags),
+        CategoryRow("Custom fields", null, draft.appliesToFields, onFields),
+        CategoryRow("Fronts", null, draft.appliesToFronts, onFronts),
+        CategoryRow("Journal entries", null, draft.appliesToJournals, onJournals),
+        CategoryRow("Images", null, draft.appliesToImages, onImages),
+        CategoryRow(
+            "Pinned revisions",
+            "Require re-auth and grace before unpinning",
+            draft.appliesToRevisions,
+            onRevisions,
+        ),
     )
     Column {
-        items.forEachIndexed { index, (label, value, onChange) ->
+        items.forEachIndexed { index, row ->
             ListItem(
-                headlineContent = { Text(label) },
+                headlineContent = { Text(row.label) },
+                supportingContent = row.supporting?.let { { Text(it) } },
                 trailingContent = {
-                    Switch(checked = value, onCheckedChange = onChange)
+                    Switch(checked = row.value, onCheckedChange = row.onChange)
                 },
             )
             if (index != items.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+        }
+    }
+}
+
+@Composable
+private fun RevisionPinningCard(
+    autoPinFirstRevision: Boolean,
+    onAutoPinChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+            ListItem(
+                headlineContent = { Text("Auto-pin first revision") },
+                supportingContent = {
+                    Text(
+                        "Pins the first captured revision for each entry and bio so " +
+                            "spam edits can't push the original off the history.",
+                    )
+                },
+                trailingContent = {
+                    Switch(checked = autoPinFirstRevision, onCheckedChange = onAutoPinChange)
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
         }
     }
 }
@@ -523,6 +570,10 @@ private fun formatField(field: String): String = when (field) {
     "applies_to_tags" -> "tags"
     "applies_to_fields" -> "fields"
     "applies_to_fronts" -> "fronts"
+    "applies_to_journals" -> "journal entries"
+    "applies_to_images" -> "images"
+    "applies_to_revisions" -> "pinned revisions"
+    "auto_pin_first_revision" -> "auto-pin first revision"
     else -> field
 }
 
@@ -532,6 +583,9 @@ private fun formatActionType(type: String): String = when (type) {
     "tag_delete" -> "Delete tag"
     "field_delete" -> "Delete field"
     "front_delete" -> "Delete front"
+    "journal_delete" -> "Delete journal"
+    "image_delete" -> "Delete image"
+    "revision_unpin" -> "Unpin revision"
     else -> type.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 

@@ -10,6 +10,7 @@ import systems.lupine.sheaf.data.api.deleteMemberOrQueue
 import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.*
 import systems.lupine.sheaf.data.network.NetworkMonitor
+import systems.lupine.sheaf.ui.components.RevisionSafety
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -416,6 +417,10 @@ data class MemberProfileUiState(
     val showRevisions: Boolean = false,
     val isLoadingRevisions: Boolean = false,
     val isRestoring: Boolean = false,
+    val revisionSafety: RevisionSafety = RevisionSafety(),
+    val pendingRevisionId: String? = null,
+    val pinError: String? = null,
+    val unpinQueued: Boolean = false,
 )
 
 @HiltViewModel
@@ -585,4 +590,82 @@ class MemberProfileViewModel @Inject constructor(
                 .onFailure { e -> _state.update { it.copy(isRestoring = false, error = e.toUserMessage()) } }
         }
     }
+
+    fun loadRevisionSafety() {
+        viewModelScope.launch {
+            runCatching {
+                val safety = api.getSystemSafety()
+                val user = runCatching { api.getMe() }.getOrNull()
+                RevisionSafety(
+                    authTier = safety.settings.authTier,
+                    totpEnabled = user?.totpEnabled == true,
+                    appliesToRevisions = safety.settings.appliesToRevisions,
+                    gracePeriodDays = safety.settings.gracePeriodDays,
+                )
+            }.onSuccess { s -> _state.update { it.copy(revisionSafety = s) } }
+        }
+    }
+
+    fun pinRevision(revisionId: String) {
+        _state.update { it.copy(pendingRevisionId = revisionId, pinError = null) }
+        viewModelScope.launch {
+            runCatching { api.pinMemberBioRevision(memberId, PinRevisionRequest(revisionId)) }
+                .onSuccess { updated ->
+                    _state.update { st ->
+                        st.copy(
+                            pendingRevisionId = null,
+                            revisions = st.revisions.map { if (it.id == updated.id) updated else it },
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            pendingRevisionId = null,
+                            pinError = e.toUserMessage("Failed to pin revision"),
+                        )
+                    }
+                }
+        }
+    }
+
+    fun unpinRevision(revisionId: String, password: String? = null, totpCode: String? = null) {
+        _state.update { it.copy(pendingRevisionId = revisionId, pinError = null, unpinQueued = false) }
+        viewModelScope.launch {
+            runCatching {
+                api.unpinMemberBioRevision(
+                    memberId,
+                    UnpinRevisionRequest(revisionId, password?.ifBlank { null }, totpCode?.ifBlank { null }),
+                )
+            }
+                .onSuccess { resp ->
+                    val updated = resp.revision
+                    _state.update { st ->
+                        val nextRevisions = if (updated != null) {
+                            st.revisions.map { if (it.id == updated.id) updated else it }
+                        } else st.revisions
+                        st.copy(
+                            pendingRevisionId = null,
+                            revisions = nextRevisions,
+                            unpinQueued = resp.pendingActionId != null,
+                        )
+                    }
+                    // Refresh from source so pending unpins reflect server-side state.
+                    if (resp.pendingActionId != null) {
+                        runCatching { api.listMemberBioRevisions(memberId) }
+                            .onSuccess { revs -> _state.update { it.copy(revisions = revs) } }
+                    }
+                }
+                .onFailure { e ->
+                    val msg = if (e is retrofit2.HttpException && e.code() in listOf(400, 401))
+                        "Incorrect password or authenticator code"
+                    else
+                        e.toUserMessage("Failed to unpin revision")
+                    _state.update { it.copy(pendingRevisionId = null, pinError = msg) }
+                }
+        }
+    }
+
+    fun clearPinError() { _state.update { it.copy(pinError = null) } }
+    fun clearUnpinQueued() { _state.update { it.copy(unpinQueued = false) } }
 }
