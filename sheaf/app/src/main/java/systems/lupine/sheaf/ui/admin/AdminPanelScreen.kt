@@ -108,7 +108,8 @@ fun AdminPanelScreen(
             if (authStatus != null && !authStatus.verified) {
                 StepUpSection(
                     isSteppingUp = state.isSteppingUp,
-                    requiresTotp = authStatus.totpEnabled,
+                    level = authStatus.level,
+                    totpEnabled = authStatus.totpEnabled,
                     error = state.stepUpError,
                     onStepUp = { password, totp -> viewModel.stepUp(password, totp) },
                 )
@@ -341,10 +342,15 @@ private fun formatBytes(bytes: Long): String = when {
 @Composable
 private fun StepUpSection(
     isSteppingUp: Boolean,
-    requiresTotp: Boolean,
+    level: String,
+    totpEnabled: Boolean,
     error: String?,
     onStepUp: (password: String, totp: String) -> Unit,
 ) {
+    val needsPassword = level == "password"
+    val needsTotp = level == "totp"
+    val totpRequiredButMissing = needsTotp && !totpEnabled
+
     var password by remember { mutableStateOf("") }
     var totpCode by remember { mutableStateOf("") }
 
@@ -356,20 +362,30 @@ private fun StepUpSection(
     ) {
         Text("Admin Authentication", style = MaterialTheme.typography.titleLarge)
         Text(
-            "Confirm your identity to access the admin panel.",
+            when {
+                totpRequiredButMissing ->
+                    "This server requires authenticator-based step-up for admin access, " +
+                        "but you don't have an authenticator set up yet. Enable 2FA in Settings, " +
+                        "then come back here."
+                needsPassword -> "Confirm your password to access the admin panel."
+                needsTotp -> "Enter your authenticator code to access the admin panel."
+                else -> "Confirm your identity to access the admin panel."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (error != null) ErrorBanner(error)
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (requiresTotp) {
+        if (needsPassword) {
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (needsTotp && totpEnabled) {
             OutlinedTextField(
                 value = totpCode,
                 onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) totpCode = it },
@@ -380,7 +396,9 @@ private fun StepUpSection(
         }
         Button(
             onClick = { onStepUp(password, totpCode) },
-            enabled = !isSteppingUp && password.isNotBlank() && (!requiresTotp || totpCode.length == 6),
+            enabled = !isSteppingUp && !totpRequiredButMissing &&
+                (!needsPassword || password.isNotBlank()) &&
+                (!needsTotp || totpCode.length == 6),
             modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             if (isSteppingUp) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
