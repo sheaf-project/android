@@ -42,6 +42,14 @@ Expected output: `Verified OK`. Anything else (mismatch, missing log entry, wron
 
 The same pattern applies to `wear-release.apk`.
 
+> **Inspecting the certificate by hand:** cosign emits the `.pem` file base64-encoded (the `LS0tLS1CRUdJTi...` you'll see if you `head` it), not as raw PEM. `cosign verify-blob` decodes this transparently, so the verification command above just works. If you want to look at the cert's identity claims yourself with `openssl x509`, decode first:
+>
+> ```sh
+> base64 -d app-release.apk.pem | openssl x509 -noout -ext subjectAltName -issuer
+> ```
+>
+> The SAN URI is the workflow identity that signed the blob (e.g. `https://github.com/sheaf-project/android/.github/workflows/dev-release.yml@refs/heads/master`). The issuer should be `O=sigstore.dev, CN=sigstore-intermediate`.
+
 ### 2. APK signing certificate
 
 ```sh
@@ -52,4 +60,15 @@ Compare the printed `SHA-256` digest of `Signer #1 certificate` against the proj
 
 ## How to verify (script)
 
-A `scripts/verify-release.sh` helper that bundles all of the above is planned but not yet shipped. Until then, run the commands above by hand.
+`scripts/verify-release.sh` bundles the cosign and (optional) `apksigner` checks. Two modes:
+
+```sh
+# Verify a local APK file. Expects <apk>.sig and <apk>.pem alongside it.
+./scripts/verify-release.sh path/to/app-release.apk
+
+# Download the artefacts from a GitHub release and verify them in a temp dir.
+./scripts/verify-release.sh --tag dev          # latest dev build
+./scripts/verify-release.sh --tag v0.1.0       # a tagged release (when those exist)
+```
+
+Requires `cosign`. The `--tag` mode also needs `gh` (GitHub CLI). `apksigner` is used opportunistically to print the APK signing fingerprint, and the script runs without it but skips that step.
