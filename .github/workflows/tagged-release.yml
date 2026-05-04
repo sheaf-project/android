@@ -1,0 +1,201 @@
+name: Tagged Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  id-token: write  # sigstore/cosign keyless OIDC signing
+
+jobs:
+  release:
+    name: Tagged Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse tag and compute versionCode
+        id: version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          if ! [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "ERROR: tag '$TAG' is not strict semver vMAJOR.MINOR.PATCH"
+            echo "Pre-release suffixes (-beta, -rc, etc.) are not supported under the current versionCode scheme."
+            exit 1
+          fi
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          # versionCode = M*10000 + m*100 + p (v0.1.0 -> 100, v1.0.0 -> 10000).
+          # Caps minor/patch at 99 each. Bump the scheme before those caps bite.
+          if [ "$MINOR" -gt 99 ] || [ "$PATCH" -gt 99 ]; then
+            echo "ERROR: minor and patch must be <= 99 under current versionCode scheme"
+            exit 1
+          fi
+          VCODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          VNAME="${MAJOR}.${MINOR}.${PATCH}"
+          # 0.x is treated as pre-release for the public GitHub Release marker.
+          if [ "$MAJOR" -eq 0 ]; then
+            PRERELEASE=true
+          else
+            PRERELEASE=false
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VCODE" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VNAME" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG  versionCode: $VCODE  versionName: $VNAME  prerelease: $PRERELEASE"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Generate Gradle wrapper JAR
+        working-directory: sheaf
+        run: gradle wrapper
+
+      - name: Make gradlew executable
+        run: chmod +x sheaf/gradlew
+
+      - name: Run unit tests
+        working-directory: sheaf
+        run: ./gradlew :app:test
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            sheaf/app/build/reports/tests/
+            sheaf/app/build/test-results/
+          if-no-files-found: ignore
+
+      - name: Build .open APKs (signed with dev CI keystore)
+        working-directory: sheaf
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          VCODE: ${{ steps.version.outputs.version_code }}
+          VNAME: ${{ steps.version.outputs.version_name }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ERROR: KEYSTORE_BASE64 secret missing — cannot build signed .open release"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
+          ./gradlew :app:assembleRelease :wear:assembleRelease \
+            -PopenBuild=true \
+            -PversionCode="$VCODE" \
+            -PversionName="$VNAME" \
+            -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          rm -f keystore.jks
+
+      - name: Stage .open APKs
+        run: |
+          set -euo pipefail
+          mkdir -p artefacts/open
+          VNAME="${{ steps.version.outputs.version_name }}"
+          APP_APK=$(find sheaf/app/build/outputs/apk/release -name "*.apk" | head -1)
+          WEAR_APK=$(find sheaf/wear/build/outputs/apk/release -name "*.apk" | head -1)
+          [ -n "$APP_APK" ] || { echo "ERROR: no app APK found"; exit 1; }
+          [ -n "$WEAR_APK" ] || { echo "ERROR: no wear APK found"; exit 1; }
+          cp "$APP_APK"  "artefacts/open/sheaf-${VNAME}-open.apk"
+          cp "$WEAR_APK" "artefacts/open/sheaf-wear-${VNAME}-open.apk"
+          ls -la artefacts/open/
+
+      - name: Clean release outputs before prod build
+        working-directory: sheaf
+        run: ./gradlew :app:clean :wear:clean
+
+      - name: Build prod unsigned APK + AAB
+        working-directory: sheaf
+        env:
+          VCODE: ${{ steps.version.outputs.version_code }}
+          VNAME: ${{ steps.version.outputs.version_name }}
+        run: |
+          ./gradlew \
+            :app:assembleRelease :app:bundleRelease \
+            :wear:assembleRelease :wear:bundleRelease \
+            -PversionCode="$VCODE" \
+            -PversionName="$VNAME"
+
+      - name: Stage prod unsigned artefacts
+        run: |
+          set -euo pipefail
+          mkdir -p artefacts/prod
+          VNAME="${{ steps.version.outputs.version_name }}"
+          APP_APK=$(find sheaf/app/build/outputs/apk/release -name "*.apk" | head -1)
+          APP_AAB=$(find sheaf/app/build/outputs/bundle/release -name "*.aab" | head -1)
+          WEAR_APK=$(find sheaf/wear/build/outputs/apk/release -name "*.apk" | head -1)
+          WEAR_AAB=$(find sheaf/wear/build/outputs/bundle/release -name "*.aab" | head -1)
+          [ -n "$APP_APK" ] || { echo "ERROR: no app APK found"; exit 1; }
+          [ -n "$APP_AAB" ] || { echo "ERROR: no app AAB found"; exit 1; }
+          [ -n "$WEAR_APK" ] || { echo "ERROR: no wear APK found"; exit 1; }
+          [ -n "$WEAR_AAB" ] || { echo "ERROR: no wear AAB found"; exit 1; }
+          cp "$APP_APK"  "artefacts/prod/sheaf-${VNAME}-unsigned.apk"
+          cp "$APP_AAB"  "artefacts/prod/sheaf-${VNAME}-unsigned.aab"
+          cp "$WEAR_APK" "artefacts/prod/sheaf-wear-${VNAME}-unsigned.apk"
+          cp "$WEAR_AAB" "artefacts/prod/sheaf-wear-${VNAME}-unsigned.aab"
+          ls -la artefacts/prod/
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Cosign sign all artefacts
+        run: |
+          set -euo pipefail
+          for f in artefacts/open/*.apk artefacts/prod/*.apk artefacts/prod/*.aab; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes \
+              --output-signature "$f.sig" \
+              --output-certificate "$f.pem" \
+              "$f"
+            echo "Signed $f"
+          done
+
+      - name: Publish public release (.open only)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          body: |
+            Tagged release `${{ steps.version.outputs.tag }}` built from commit ${{ github.sha }}.
+
+            **versionCode:** ${{ steps.version.outputs.version_code }}
+            **versionName:** ${{ steps.version.outputs.version_name }}
+
+            Attached APKs are the **`.open`** flavour (`systems.lupine.sheaf.open`),
+            signed with the project's CI keystore and cosign-signed via Sigstore
+            keyless OIDC. They install side-by-side with the Play Store release
+            (`systems.lupine.sheaf`).
+
+            **Verifying the build:** see [`docs/VERIFYING.md`](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/docs/VERIFYING.md).
+
+            For Play Store users: install via Play, not from here.
+          files: |
+            artefacts/open/*
+
+      - name: Upload prod unsigned artefact (private)
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-unsigned-${{ steps.version.outputs.tag }}
+          path: artefacts/prod/
+          retention-days: 90
+          if-no-files-found: error

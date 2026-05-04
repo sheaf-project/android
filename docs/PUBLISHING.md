@@ -4,19 +4,43 @@ Where we stand on getting Sheaf Android into the two distribution channels users
 
 ## Status today
 
-- **GitHub releases:** working. Every push to `master` produces a cosign-signed APK at the `dev` tag.
-- **Google Play:** not started. Multiple gating items below.
+- **GitHub releases:**
+  - Rolling `dev` tag: every push to `master` produces a cosign-signed `.open` APK pair (phone + watch).
+  - Tagged `vX.Y.Z` releases: produce signed `.open` APKs publicly *and* unsigned prod APK + AAB privately as a workflow artefact for the offline signing ceremony.
+- **Google Play:** in progress. Developer account approved; tagged-release pipeline ready; first `v0.1.0` upload pending.
 - **F-Droid (main repo):** blocked by a proprietary dependency. See the F-Droid section.
 - **F-Droid (IzzyOnDroid third-party repo):** plausible without code changes.
 
-## Cross-cutting prerequisites (needed for either store)
+## Build flavours and version scheme
 
-These are things both stores expect, none of which exist yet.
+Two `applicationId`s are produced from the same source tree:
 
-- [ ] **Privacy policy.** Required by Play, expected by users on F-Droid. Needs to be hosted at a stable URL (likely on the main project's site). Should cover: what data the app collects locally, what it transmits to a Sheaf instance, what an instance operator can see, that the app does no telemetry of its own.
-- [ ] **Tagged release workflow.** Current CI publishes only to a rolling `dev` tag. Stores expect semver-tagged releases (`v0.1.0`, etc.) with a corresponding versionCode bump. Add a `release-on-tag.yml` workflow alongside the existing `dev-release.yml`.
-- [ ] **versionCode strategy.** `app/build.gradle.kts` has `versionCode = 1` hardcoded. Play rejects re-uploads at the same versionCode, so this needs to be derived per-release (typical pattern: use the GitHub Actions run number, or compute from the tag).
-- [ ] **App Bundle (AAB) build.** Play requires AAB for new submissions; APK is fine for sideload and F-Droid. Add `:app:bundleRelease` to the tagged-release workflow. Wear OS still ships as APK.
+| Flavour | `applicationId` | Distribution | Signing |
+|---|---|---|---|
+| `.open` (`-PopenBuild=true`) | `systems.lupine.sheaf.open` | GitHub releases, IzzyOnDroid | CI keystore (rotatable, kept in CI secrets) |
+| prod (default) | `systems.lupine.sheaf` | Google Play | YubiKey-resident production key, signed offline |
+
+The two install side-by-side on a device — different package names = different APK identities. The CI keystore never signs the `systems.lupine.sheaf` namespace, and the production key never touches CI.
+
+`versionCode` is derived per-build:
+
+- **Tagged releases** (`v*.*.*`): `MAJOR*10000 + MINOR*100 + PATCH`. v0.1.0 → 100, v1.0.0 → 10000. Caps at v99.99.99 → 999999. Bump the scheme before that bites.
+- **Dev (`master` head)**: `1000000 + git rev-list --count HEAD`. Always strictly greater than any tagged release, so `.open` users can keep updating from dev without ever being blocked by a tagged release downgrade.
+
+`versionName` mirrors the tag for tagged releases (`0.1.0`); dev uses `0.0.0-dev.<short-sha>`.
+
+## What the tagged-release workflow produces
+
+`tagged-release.yml` triggers on `v*.*.*` tag pushes and emits two sets of artefacts:
+
+1. **Public GitHub release** (the tag): `.open` APKs (phone + watch), each cosign-signed (`*.sig` + `*.pem`). This is what IzzyOnDroid pulls and what direct-download users install.
+2. **Private workflow artefact** (`prod-unsigned-vX.Y.Z`, 90-day retention): unsigned prod APK + AAB (phone + watch), each cosign-signed. Only repo collaborators with `actions:read` can fetch it via `gh run download`. Operational details for fetching, verifying, signing with the YubiKey, and uploading to Play live in the private release-ops repo.
+
+The cosign signature over the *unsigned* prod bytes is the chain-of-custody from "CI built this commit" to "this is the exact byte sequence the offline ceremony then signed".
+
+## Cross-cutting prerequisites (still open)
+
+- [ ] **Privacy policy URL plumbing.** Policy text exists; in-app pointer + Play Console URL still needed.
 - [ ] **Store listing assets.** Icon (already present), feature graphic 1024x500, phone screenshots (recommend 4–8), Wear screenshots, short description (80 chars), full description (4000 chars). Same assets reused for both stores plus IzzyOnDroid where applicable.
 - [ ] **Reproducible builds.** Not strictly required by either store but a F-Droid badge and a meaningful improvement to the verifiability story. Currently blocked by typical AGP non-determinism (timestamps, ZIP entry order, baseline profiles). Tracked in `docs/VERIFYING.md`.
 
@@ -24,13 +48,13 @@ These are things both stores expect, none of which exist yet.
 
 ### Required steps
 
-- [ ] **Google Play Developer account.** One-time $25 registration fee, plus identity verification (org or individual). Decide which Lupine entity owns the listing.
-- [ ] **Play App Signing.** When you upload an AAB, Google asks to manage the release signing key on your behalf; you keep an "upload key" locally. Tradeoff: simpler key management vs. Google having technical ability to sign APKs you didn't build. Cosign signatures pinned in `docs/VERIFYING.md` are independent of this and remain a useful counterweight.
-- [ ] **Content rating.** IARC questionnaire in Play Console; for Sheaf this is straightforward (no violence, no in-app purchases, etc.) but must be completed.
-- [ ] **Data Safety form.** Declares every category of data collected, retained, shared, and the purpose. Touchy for Sheaf because the app handles GDPR Article 9 special-category data, but the *app itself* doesn't collect it; the user's chosen Sheaf instance does. Wording matters; coordinate with the main repo's privacy posture.
-- [ ] **App access information.** Play reviewers need a working test account on a publicly reachable Sheaf instance to actually exercise the app. Either the hosted tier (once live) or a dedicated review instance.
-- [ ] **Target API level.** Play requires `targetSdk` to be within ~1 year of the latest stable Android. Currently `targetSdk = 35` (Android 15), so we're current.
-- [ ] **Pre-launch report compliance.** Play runs the AAB on a test farm and flags crashes, accessibility issues, etc. Expect to need to fix at least a couple of edge cases before the first production release.
+- [x] **Google Play Developer account.** Approved (LLC tier, skips the 20-day closed-testing gate that applies to personal accounts).
+- [x] **Play App Signing decision.** Opted out — production signing key lives on YubiKeys held by the maintainers, AABs are signed offline (jarsigner + PKCS#11). The cosign chain attests to the exact unsigned bytes that get YubiKey-signed.
+- [x] **Content rating.** IARC questionnaire complete.
+- [x] **Data Safety form.** Submitted; mirrors the Android privacy policy (no app-side telemetry, instance-side data is the operator's responsibility).
+- [x] **App access information.** Reviewer test account provided.
+- [x] **Target API level.** `targetSdk = 35` (Android 15) — current.
+- [ ] **Pre-launch report compliance.** First upload will surface this. Expect to need to fix at least a couple of edge cases.
 
 ### Tracks and rollout
 

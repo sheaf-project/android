@@ -16,6 +16,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history for commit count
+
+      - name: Compute dev versionCode
+        id: version
+        run: |
+          set -euo pipefail
+          # Dev versionCode = 1,000,000 + commit count.
+          # Tagged releases use M*10000 + m*100 + p (max 999,999 at v99.99.99),
+          # so dev is always strictly greater than any tagged release.
+          # This means a user who installs a tagged release CANNOT downgrade to
+          # dev without uninstalling first, and a user on dev can update to dev
+          # builds indefinitely.
+          COMMITS=$(git rev-list --count HEAD)
+          VCODE=$((1000000 + COMMITS))
+          # Keep versionName recognisable: 0.0.0-dev.<sha>.
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          VNAME="0.0.0-dev.${SHORT_SHA}"
+          echo "version_code=$VCODE" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VNAME" >> "$GITHUB_OUTPUT"
+          echo "Dev versionCode: $VCODE  versionName: $VNAME"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -54,18 +75,25 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          VCODE: ${{ steps.version.outputs.version_code }}
+          VNAME: ${{ steps.version.outputs.version_name }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
             ./gradlew :app:assembleRelease :wear:assembleRelease \
               -PopenBuild=true \
+              -PversionCode="$VCODE" \
+              -PversionName="$VNAME" \
               -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
               -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
               -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
               -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
             rm -f keystore.jks
           else
-            ./gradlew :app:assembleDebug :wear:assembleDebug -PopenBuild=true
+            ./gradlew :app:assembleDebug :wear:assembleDebug \
+              -PopenBuild=true \
+              -PversionCode="$VCODE" \
+              -PversionName="$VNAME"
           fi
 
       - name: Locate APKs
