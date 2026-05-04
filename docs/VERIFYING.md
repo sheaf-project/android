@@ -56,7 +56,13 @@ The same pattern applies to `wear-release.apk`.
 apksigner verify --print-certs app-release.apk
 ```
 
-Compare the printed `SHA-256` digest of `Signer #1 certificate` against the project's published key fingerprint. The fingerprint is pinned in the project README; if you've never installed Sheaf before, this is the certificate every future update will need to match.
+Compare the printed `SHA-256` digest of `Signer #1 certificate` against the published release-key fingerprint:
+
+```
+4a:9b:b3:0c:d2:c3:bd:74:7b:98:17:b1:66:c2:1d:94:b2:3a:46:c0:45:44:fc:8c:32:74:ea:49:d7:a4:34:e6
+```
+
+(Same fingerprint as the [README](../README.md#verifying-a-build).) Android pins this on first install, so every future update has to be signed with the same key. If a build prints a different fingerprint, do not install it.
 
 ## How to verify (script)
 
