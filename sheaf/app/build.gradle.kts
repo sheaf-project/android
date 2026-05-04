@@ -11,7 +11,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "systems.lupine.sheaf"
+        applicationId = if (providers.gradleProperty("openBuild").orNull == "true") {
+            "systems.lupine.sheaf.open"
+        } else {
+            "systems.lupine.sheaf"
+        }
         minSdk = 26
         targetSdk = 35
         versionCode = 1

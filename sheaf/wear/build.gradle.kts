@@ -9,7 +9,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "systems.lupine.sheaf.wear"
+        applicationId = if (providers.gradleProperty("openBuild").orNull == "true") {
+            "systems.lupine.sheaf.open.wear"
+        } else {
+            "systems.lupine.sheaf.wear"
+        }
         minSdk = 26
         targetSdk = 35
         versionCode = 1
