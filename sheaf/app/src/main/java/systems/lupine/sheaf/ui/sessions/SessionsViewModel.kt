@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import systems.lupine.sheaf.util.extractSessionId
 import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
@@ -35,8 +36,17 @@ class SessionsViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
+            // The server's /v1/auth/sessions identifies the current session by
+            // cookie, which our bearer-token client doesn't carry, so it always
+            // returns is_current=false. Fall back to the JWT's `sid` claim.
+            val sid = extractSessionId(prefs.accessToken.firstOrNull())
             runCatching { api.listSessions() }
-                .onSuccess { sessions -> _state.update { it.copy(isLoading = false, sessions = sessions) } }
+                .onSuccess { sessions ->
+                    val tagged = if (sid != null) {
+                        sessions.map { it.copy(isCurrent = it.id == sid) }
+                    } else sessions
+                    _state.update { it.copy(isLoading = false, sessions = tagged) }
+                }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage("Failed to load sessions")) } }
         }
     }
