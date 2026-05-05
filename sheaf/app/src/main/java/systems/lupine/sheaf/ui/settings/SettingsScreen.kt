@@ -55,73 +55,22 @@ import systems.lupine.sheaf.ui.components.*
 @Composable
 fun SettingsScreen(
     onNavigateUp: () -> Unit,
-    onNavigateToSystemEdit: () -> Unit,
-    onNavigateToSpImport: () -> Unit,
-    onNavigateToSheafImport: () -> Unit,
-    onNavigateToCustomFields: () -> Unit,
-    onNavigateToApiKeys: () -> Unit,
-    onNavigateToSessions: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToAccount: () -> Unit,
+    onNavigateToAppearance: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    onNavigateToServer: () -> Unit,
+    onNavigateToSystem: () -> Unit,
+    onNavigateToData: () -> Unit,
+    onNavigateToSafety: () -> Unit,
+    onNavigateToDanger: () -> Unit,
     onNavigateToAdminPanel: () -> Unit,
-    onNavigateToSystemSafety: () -> Unit,
-    onNavigateToFiles: () -> Unit,
     onNavigateToDebug: () -> Unit,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
     val state by settingsViewModel.state.collectAsState()
-    val savedBaseUrl by settingsViewModel.baseUrl.collectAsState()
-    val themeMode by settingsViewModel.themeMode.collectAsState()
-    val frontNotificationEnabled by settingsViewModel.frontNotificationEnabled.collectAsState()
-    val appLockEnabled by settingsViewModel.appLockEnabled.collectAsState()
     val authConfig by authViewModel.authConfig.collectAsState()
-    val context = LocalContext.current
-    var appLockError by remember { mutableStateOf<String?>(null) }
-
-    var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
-    var showLogoutDialog by remember { mutableStateOf(false) }
-    var showUrlDialog by remember { mutableStateOf(false) }
-    var showTotpSheet by remember { mutableStateOf(false) }
-    var showDisableTotpDialog by remember { mutableStateOf(false) }
-    var showDisableAppLockDialog by remember { mutableStateOf(false) }
-    var showDeleteAccountDialog by remember { mutableStateOf(false) }
-    var showDeleteOrphansDialog by remember { mutableStateOf(false) }
-
-    var pendingExportJson by remember { mutableStateOf<String?>(null) }
-    val saveFileLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        uri?.let {
-            pendingExportJson?.let { json ->
-                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-            }
-        }
-        pendingExportJson = null
-        settingsViewModel.clearExport()
-    }
-
-    LaunchedEffect(state.exportJson) {
-        state.exportJson?.let { json ->
-            pendingExportJson = json
-            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
-            saveFileLauncher.launch("sheaf-export-$timestamp.json")
-        }
-    }
-
-    LaunchedEffect(state.orphanedFiles) {
-        if (state.orphanedFiles != null && state.orphanedFiles!!.isNotEmpty()) {
-            showDeleteOrphansDialog = true
-        } else if (state.orphanedFiles?.isEmpty() == true) {
-            showDeleteOrphansDialog = false
-        }
-    }
-
-    LaunchedEffect(state.accountDeletionRequested) {
-        if (state.accountDeletionRequested) {
-            showDeleteAccountDialog = false
-            settingsViewModel.clearAccountDeletionRequested()
-            authViewModel.logout()
-        }
-    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -142,7 +91,7 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // ── Account card ─────────────────────────────────────────────────
+            // Account / system summary card up top.
             if (state.isLoading) {
                 Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -207,355 +156,128 @@ fun SettingsScreen(
                 ErrorBanner(state.error!!, modifier = Modifier.padding(horizontal = 16.dp))
             }
 
+            // Pending-deletion banner stays on the landing so it's impossible
+            // to miss; the full cancel UI lives in Danger zone.
             if (state.user?.accountStatus == "pending_deletion" || state.accountDeletionRequested) {
                 val timeRemaining = formatDeletionTimeRemaining(
                     state.user?.deletionRequestedAt,
                     authConfig?.accountDeletionGraceDays,
                 )
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             buildString {
                                 append("Account deletion requested.")
                                 if (timeRemaining != null) append(" $timeRemaining remaining.")
-                                append(" Your account will be permanently deleted after the grace period.")
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
-                        state.cancelDeletionError?.let { error ->
-                            Text(
-                                error,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = { settingsViewModel.cancelAccountDeletion() },
-                            enabled = !state.isCancellingDeletion,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            if (state.isCancellingDeletion) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    strokeWidth = 2.dp,
-                                )
-                            } else {
-                                Text("Cancel Deletion")
-                            }
-                        }
+                        Text(
+                            "Open Danger Zone to cancel.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                        )
                     }
                 }
             }
 
             if (state.user?.emailVerified == false) {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            if (state.verificationEmailSent) "Verification email sent — check your inbox."
-                            else "Your email address is not verified.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        )
-                        if (!state.verificationEmailSent) {
-                            TextButton(
-                                onClick = { settingsViewModel.resendVerificationEmail() },
-                                enabled = !state.isResendingVerification,
-                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onTertiaryContainer),
-                                contentPadding = PaddingValues(0.dp),
-                            ) {
-                                if (state.isResendingVerification) {
-                                    CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                                    Spacer(Modifier.width(8.dp))
-                                }
-                                Text("Resend verification email", style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── Appearance ───────────────────────────────────────────────────
-            SectionHeader("Appearance")
-            val themeModes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
-            val themeIcons = mapOf("system" to Icons.Outlined.BrightnessAuto, "light" to Icons.Outlined.LightMode, "dark" to Icons.Outlined.DarkMode)
-            themeModes.forEach { (mode, label) ->
-                Surface(
-                    onClick = { settingsViewModel.saveTheme(mode) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    ListItem(
-                        headlineContent = { Text(label) },
-                        leadingContent = {
-                            Icon(
-                                themeIcons[mode] ?: Icons.Outlined.BrightnessAuto,
-                                contentDescription = null,
-                                tint = if (themeMode == mode) MaterialTheme.colorScheme.primary
-                                       else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        trailingContent = if (themeMode == mode) ({
-                            Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        }) else null,
-                    )
-                }
-                if (mode != "dark") HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            }
-
-            // ── Notifications ────────────────────────────────────────────────
-            SectionHeader("Notifications")
-            val permissionLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission()
-            ) { granted ->
-                if (granted) settingsViewModel.toggleFrontNotification(true)
-            }
-            ListItem(
-                headlineContent = { Text("Fronting Notification") },
-                supportingContent = { Text("Persistent silent notification showing who's fronting") },
-                leadingContent = {
-                    Icon(
-                        Icons.Outlined.Notifications,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                trailingContent = {
-                    Switch(
-                        checked = frontNotificationEnabled,
-                        onCheckedChange = { enabled ->
-                            if (enabled) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    val granted = ContextCompat.checkSelfPermission(
-                                        context, Manifest.permission.POST_NOTIFICATIONS
-                                    ) == PackageManager.PERMISSION_GRANTED
-                                    if (granted) settingsViewModel.toggleFrontNotification(true)
-                                    else permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                } else {
-                                    settingsViewModel.toggleFrontNotification(true)
-                                }
-                            } else {
-                                settingsViewModel.toggleFrontNotification(false)
-                            }
-                        },
-                    )
-                },
-            )
-
-            // ── Security ─────────────────────────────────────────────────────
-            SectionHeader("Security")
-            ListItem(
-                headlineContent = { Text("App Lock") },
-                supportingContent = {
                     Text(
-                        appLockError
-                            ?: "Require biometrics or your device passcode to open Sheaf",
-                        color = if (appLockError != null) MaterialTheme.colorScheme.error
-                                else LocalContentColor.current,
+                        "Your email is not verified. Open Account to resend the verification email.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(16.dp),
                     )
-                },
-                leadingContent = {
-                    Icon(
-                        Icons.Outlined.Fingerprint,
-                        contentDescription = null,
-                        tint = if (appLockEnabled) MaterialTheme.colorScheme.tertiary
-                               else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                trailingContent = {
-                    Switch(
-                        checked = appLockEnabled,
-                        onCheckedChange = { enabled ->
-                            if (enabled) {
-                                val canAuth = BiometricManager.from(context).canAuthenticate(
-                                    BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                                        BiometricManager.Authenticators.DEVICE_CREDENTIAL,
-                                )
-                                when (canAuth) {
-                                    BiometricManager.BIOMETRIC_SUCCESS -> {
-                                        appLockError = null
-                                        settingsViewModel.toggleAppLock(true)
-                                    }
-                                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ->
-                                        appLockError = "Set up a screen lock or biometric in your device settings first."
-                                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
-                                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE ->
-                                        appLockError = "This device doesn't support biometric or passcode unlock."
-                                    else ->
-                                        appLockError = "App lock is unavailable on this device right now."
-                                }
-                            } else {
-                                appLockError = null
-                                showDisableAppLockDialog = true
-                            }
-                        },
-                    )
-                },
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            val totpEnabled = state.user?.totpEnabled == true
-            ListItem(
-                headlineContent = { Text("Two-Factor Authentication") },
-                supportingContent = { Text(if (totpEnabled) "Enabled" else "Disabled") },
-                leadingContent = {
-                    Icon(
-                        Icons.Outlined.Lock,
-                        contentDescription = null,
-                        tint = if (totpEnabled) MaterialTheme.colorScheme.tertiary
-                               else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            if (totpEnabled) {
-                SettingItem(
-                    icon = Icons.Outlined.LockOpen,
-                    title = "Disable 2FA",
-                    subtitle = null,
-                    onClick = { showDisableTotpDialog = true },
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            } else {
-                SettingItem(
-                    icon = Icons.Outlined.AddCircle,
-                    title = "Set Up 2FA",
-                    subtitle = null,
-                    onClick = { settingsViewModel.startTotpSetup(); showTotpSheet = true },
-                )
+                }
             }
+
+            // Category list. Order roughly matches frequency-of-use.
+            Spacer(Modifier.height(8.dp))
+            SettingItem(
+                icon = Icons.Outlined.Edit,
+                title = "Profile",
+                subtitle = state.system?.name ?: "System name, description, avatar",
+                onClick = onNavigateToProfile,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.Person,
+                title = "Account",
+                subtitle = "Email, two-factor auth, API keys, sessions",
+                onClick = onNavigateToAccount,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.Palette,
+                title = "Appearance",
+                subtitle = "Theme",
+                onClick = onNavigateToAppearance,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.AutoMirrored.Outlined.List,
+                title = "System",
+                subtitle = "Custom fields",
+                onClick = onNavigateToSystem,
+            )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
                 icon = Icons.Outlined.Shield,
-                title = "System Safety",
+                title = "Safety",
                 subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
-                onClick = onNavigateToSystemSafety,
-            )
-
-            // ── System ───────────────────────────────────────────────────────
-            SectionHeader("System")
-            SettingItem(
-                icon = Icons.Outlined.Edit,
-                title = "Edit System",
-                subtitle = state.system?.name ?: "—",
-                onClick = onNavigateToSystemEdit,
-            )
-
-            // ── Data ─────────────────────────────────────────────────────────
-            SectionHeader("Data")
-            SettingItem(
-                icon = Icons.AutoMirrored.Outlined.List,
-                title = "Custom Fields",
-                subtitle = null,
-                onClick = onNavigateToCustomFields,
+                onClick = onNavigateToSafety,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
-                icon = Icons.Outlined.Download,
-                title = "Export All Data",
-                subtitle = "Download a full JSON backup",
-                onClick = { settingsViewModel.exportData() },
+                icon = Icons.Outlined.Folder,
+                title = "Data",
+                subtitle = "Files, export, import",
+                onClick = onNavigateToData,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
-                icon = Icons.Outlined.Upload,
-                title = "Import from Simply Plural",
-                subtitle = "Import members, groups, and history",
-                onClick = onNavigateToSpImport,
+                icon = Icons.Outlined.Notifications,
+                title = "Notifications & Lock",
+                subtitle = "Fronting notification, app lock",
+                onClick = onNavigateToNotifications,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingItem(
-                icon = Icons.Outlined.Upload,
-                title = "Import from Sheaf Export",
-                subtitle = "Restore from a Sheaf JSON backup",
-                onClick = onNavigateToSheafImport,
-            )
-
-            // ── Storage ──────────────────────────────────────────────────────
-            SectionHeader("Storage")
-            SettingItem(
-                icon = Icons.Outlined.PhotoLibrary,
-                title = "Uploaded files",
-                subtitle = "Browse, preview, and delete uploads",
-                onClick = onNavigateToFiles,
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingItem(
-                icon = if (state.isCheckingFiles) Icons.Outlined.HourglassEmpty else Icons.Outlined.DeleteSweep,
-                title = if (state.isCheckingFiles) "Checking…" else "Delete unused files",
-                subtitle = when {
-                    state.orphanedFiles?.isEmpty() == true -> "No unused files found"
-                    state.orphanDeleteResultMessage != null -> state.orphanDeleteResultMessage!!
-                    else -> "Find and delete uploads no member or system still references"
-                },
-                onClick = { if (!state.isCheckingFiles) settingsViewModel.checkOrphanedFiles() },
-            )
-            if (state.fileError != null) {
-                ErrorBanner(state.fileError!!, modifier = Modifier.padding(horizontal = 16.dp))
-            }
-
-            // ── Server ───────────────────────────────────────────────────────
-            SectionHeader("Server")
             SettingItem(
                 icon = Icons.Outlined.Storage,
-                title = "API Server",
-                subtitle = savedBaseUrl.ifBlank { "Not configured" },
-                onClick = { urlDraft = savedBaseUrl; showUrlDialog = true },
+                title = "Server",
+                subtitle = settingsViewModel.baseUrl.collectAsState().value.ifBlank { "Not configured" },
+                onClick = onNavigateToServer,
             )
 
-            // ── Account ──────────────────────────────────────────────────────
-            SectionHeader("Account")
-            SettingItem(
-                icon = Icons.Outlined.Key,
-                title = "API Keys",
-                subtitle = "Manage API keys for scripts and integrations",
-                onClick = onNavigateToApiKeys,
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingItem(
-                icon = Icons.Outlined.Devices,
-                title = "Active Sessions",
-                subtitle = "View and revoke signed-in devices",
-                onClick = onNavigateToSessions,
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             if (state.user?.isAdmin == true) {
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                 SettingItem(
                     icon = Icons.Outlined.AdminPanelSettings,
                     title = "Admin Panel",
                     subtitle = null,
                     onClick = onNavigateToAdminPanel,
                 )
-                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             }
-            SettingItem(
-                icon = Icons.AutoMirrored.Outlined.Logout,
-                title = "Sign Out",
-                subtitle = null,
-                onClick = { showLogoutDialog = true },
-                tint = MaterialTheme.colorScheme.error,
-            )
+
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
-                icon = Icons.Outlined.DeleteForever,
-                title = "Delete Account",
-                subtitle = "Permanently delete your account and all data",
-                onClick = { showDeleteAccountDialog = true },
+                icon = Icons.Outlined.Warning,
+                title = "Danger Zone",
+                subtitle = "Sign out, delete account",
+                onClick = onNavigateToDanger,
                 tint = MaterialTheme.colorScheme.error,
             )
 
             if (BuildConfig.DEBUG) {
-                SectionHeader("Debug")
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                 SettingItem(
                     icon = Icons.Outlined.BugReport,
                     title = "Debug Menu",
@@ -567,228 +289,8 @@ fun SettingsScreen(
             Spacer(Modifier.height(24.dp))
         }
     }
-
-    // ── Delete Unused Files Dialog ────────────────────────────────────────────
-
-    if (showDeleteOrphansDialog) {
-        val orphans = state.orphanedFiles ?: emptyList()
-        OrphanFilesDeleteDialog(
-            fileCount = orphans.size,
-            totalBytesLabel = formatBytes(orphans.sumOf { it.sizeBytes }),
-            safety = state.orphanDeleteSafety,
-            isDeleting = state.isDeletingOrphans,
-            errorMessage = state.fileError,
-            onConfirm = { password, totpCode ->
-                settingsViewModel.deleteOrphanedFiles(password, totpCode)
-                showDeleteOrphansDialog = false
-            },
-            onDismiss = {
-                showDeleteOrphansDialog = false
-                settingsViewModel.clearOrphanedFiles()
-            },
-        )
-    }
-
-    // ── TOTP Setup Sheet ──────────────────────────────────────────────────────
-
-    if (showTotpSheet) {
-        TotpSetupSheet(
-            state = state,
-            onAdvanceToVerify = { settingsViewModel.advanceTotpToVerify() },
-            onVerify = { code -> settingsViewModel.verifyTotp(code) },
-            onAdvanceToDone = { settingsViewModel.advanceTotpToDone() },
-            onDismiss = {
-                showTotpSheet = false
-                settingsViewModel.resetTotpSetup()
-            },
-        )
-    }
-
-    // ── Dialogs ───────────────────────────────────────────────────────────────
-
-    if (showUrlDialog) {
-        AlertDialog(
-            onDismissRequest = { showUrlDialog = false },
-            title = { Text("API Server") },
-            text = {
-                OutlinedTextField(
-                    value = urlDraft,
-                    onValueChange = { urlDraft = it },
-                    label = { Text("Base URL") },
-                    placeholder = { Text("https://app.sheaf.sh") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { settingsViewModel.saveBaseUrl(urlDraft.trim()); showUrlDialog = false }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = { TextButton(onClick = { showUrlDialog = false }) { Text("Cancel") } },
-        )
-    }
-
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Sign out?") },
-            text = { Text("You'll need to sign in again to use Sheaf.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { authViewModel.logout(); showLogoutDialog = false },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Sign Out") }
-            },
-            dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") } },
-        )
-    }
-
-    if (showDisableAppLockDialog) {
-        AlertDialog(
-            onDismissRequest = { showDisableAppLockDialog = false },
-            title = { Text("Disable App Lock?") },
-            text = { Text("Sheaf will open without requiring your biometrics or device passcode.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        settingsViewModel.toggleAppLock(false)
-                        showDisableAppLockDialog = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Disable") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDisableAppLockDialog = false }) { Text("Cancel") }
-            },
-        )
-    }
-
-    if (showDisableTotpDialog) {
-        var disablePassword by remember { mutableStateOf("") }
-        var disableTotpCode by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showDisableTotpDialog = false },
-            title = { Text("Disable 2FA") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Enter your password and a current authenticator code to confirm.")
-                    OutlinedTextField(
-                        value = disablePassword,
-                        onValueChange = { disablePassword = it },
-                        label = { Text("Password") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = disableTotpCode,
-                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) disableTotpCode = it },
-                        label = { Text("Authenticator code") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (state.totpError != null) {
-                        Text(state.totpError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        settingsViewModel.disableTotp(disablePassword, disableTotpCode)
-                    },
-                    enabled = disablePassword.isNotBlank() && disableTotpCode.length == 6 && !state.totpIsDisabling,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    if (state.totpIsDisabling) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("Disable")
-                    }
-                }
-            },
-            dismissButton = { TextButton(onClick = { showDisableTotpDialog = false; settingsViewModel.clearTotpError() }) { Text("Cancel") } },
-        )
-        LaunchedEffect(state.user?.totpEnabled) {
-            if (state.user?.totpEnabled == false) showDisableTotpDialog = false
-        }
-    }
-
-    // ── Delete Account Dialog ─────────────────────────────────────────────────
-
-    if (showDeleteAccountDialog) {
-        val totpEnabled = state.user?.totpEnabled == true
-        var deletePassword by remember { mutableStateOf("") }
-        var deleteTotpCode by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = {
-                if (!state.isDeletingAccount) {
-                    showDeleteAccountDialog = false
-                    settingsViewModel.clearDeletionError()
-                }
-            },
-            icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-            title = { Text("Delete Account") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("This will permanently delete your account and all associated data. This action cannot be undone.")
-                    OutlinedTextField(
-                        value = deletePassword,
-                        onValueChange = { deletePassword = it },
-                        label = { Text("Password") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (totpEnabled) {
-                        OutlinedTextField(
-                            value = deleteTotpCode,
-                            onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) deleteTotpCode = it },
-                            label = { Text("Authenticator code") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    if (state.deletionError != null) {
-                        Text(state.deletionError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        settingsViewModel.requestAccountDeletion(
-                            deletePassword,
-                            deleteTotpCode.takeIf { totpEnabled },
-                        )
-                    },
-                    enabled = deletePassword.isNotBlank() &&
-                        (!totpEnabled || deleteTotpCode.length == 6) &&
-                        !state.isDeletingAccount,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    if (state.isDeletingAccount) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("Delete Account")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteAccountDialog = false; settingsViewModel.clearDeletionError() },
-                    enabled = !state.isDeletingAccount,
-                ) { Text("Cancel") }
-            },
-        )
-    }
-
 }
+
 
 // ── TOTP Setup Sheet ──────────────────────────────────────────────────────────
 
@@ -868,7 +370,7 @@ internal fun TotpSetupSheet(
                     Button(
                         onClick = onAdvanceToVerify,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                    ) { Text("I've added it — Next") }
+                    ) { Text("I've added it, next") }
                 }
 
                 TotpStep.VERIFY -> {
@@ -951,7 +453,7 @@ internal fun TotpSetupSheet(
                     Button(
                         onClick = onAdvanceToDone,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                    ) { Text("I've saved them — Done") }
+                    ) { Text("I've saved them, done") }
                 }
 
                 TotpStep.DONE -> {
@@ -989,7 +491,7 @@ internal fun TotpSetupSheet(
 // ── Setting item ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun SettingItem(
+internal fun SettingItem(
     icon: ImageVector,
     title: String,
     subtitle: String?,
@@ -1006,20 +508,20 @@ private fun SettingItem(
     }
 }
 
-private fun formatTier(tier: String): String = when (tier) {
+internal fun formatTier(tier: String): String = when (tier) {
     "saas"        -> "SaaS"
     "self_hosted" -> "Self-hosted"
     else          -> tier.split('_').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
 }
 
-private fun formatBytes(bytes: Long): String = when {
+internal fun formatBytes(bytes: Long): String = when {
     bytes < 1_024 -> "$bytes B"
     bytes < 1_048_576 -> "${"%.1f".format(bytes / 1_024.0)} KB"
     bytes < 1_073_741_824 -> "${"%.1f".format(bytes / 1_048_576.0)} MB"
     else -> "${"%.1f".format(bytes / 1_073_741_824.0)} GB"
 }
 
-private fun formatSafetySubtitle(level: String?): String = when (level) {
+internal fun formatSafetySubtitle(level: String?): String = when (level) {
     "none" -> "Re-auth: none"
     "password" -> "Re-auth: password"
     "totp" -> "Re-auth: authenticator code"

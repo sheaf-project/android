@@ -1,0 +1,762 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package systems.lupine.sheaf.ui.settings
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.BrightnessAuto
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.HourglassEmpty
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.Upload
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import systems.lupine.sheaf.ui.auth.AuthViewModel
+import systems.lupine.sheaf.ui.components.ErrorBanner
+import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+// Common scaffold: every category detail screen wears the same TopAppBar +
+// scroll-column shell, only the content varies.
+@Composable
+private fun CategoryScaffold(
+    title: String,
+    onNavigateUp: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Scaffold(
+        contentWindowInsets = WindowInsets(0),
+        topBar = {
+            SheafTopAppBar(
+                title = { Text(title) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateUp) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState()),
+            content = content,
+        )
+    }
+}
+
+// ── Appearance ──────────────────────────────────────────────────────────────
+
+@Composable
+fun AppearanceSettingsScreen(
+    onNavigateUp: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val themeMode by viewModel.themeMode.collectAsState()
+    CategoryScaffold(title = "Appearance", onNavigateUp = onNavigateUp) {
+        val themeModes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
+        val themeIcons = mapOf(
+            "system" to Icons.Outlined.BrightnessAuto,
+            "light"  to Icons.Outlined.LightMode,
+            "dark"   to Icons.Outlined.DarkMode,
+        )
+        themeModes.forEach { (mode, label) ->
+            Surface(
+                onClick = { viewModel.saveTheme(mode) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                ListItem(
+                    headlineContent = { Text(label) },
+                    leadingContent = {
+                        Icon(
+                            themeIcons[mode] ?: Icons.Outlined.BrightnessAuto,
+                            contentDescription = null,
+                            tint = if (themeMode == mode) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    trailingContent = if (themeMode == mode) ({
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }) else null,
+                )
+            }
+            if (mode != "dark") HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        }
+    }
+}
+
+// ── Notifications ───────────────────────────────────────────────────────────
+
+@Composable
+fun NotificationSettingsScreen(
+    onNavigateUp: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val frontNotificationEnabled by viewModel.frontNotificationEnabled.collectAsState()
+    val appLockEnabled by viewModel.appLockEnabled.collectAsState()
+    val context = LocalContext.current
+    var appLockError by remember { mutableStateOf<String?>(null) }
+    var showDisableAppLockDialog by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.toggleFrontNotification(true)
+    }
+
+    CategoryScaffold(title = "Notifications & Lock", onNavigateUp = onNavigateUp) {
+        ListItem(
+            headlineContent = { Text("Fronting Notification") },
+            supportingContent = { Text("Persistent silent notification showing who's fronting") },
+            leadingContent = {
+                Icon(Icons.Outlined.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            trailingContent = {
+                Switch(
+                    checked = frontNotificationEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val granted = ContextCompat.checkSelfPermission(
+                                    context, Manifest.permission.POST_NOTIFICATIONS
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (granted) viewModel.toggleFrontNotification(true)
+                                else permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.toggleFrontNotification(true)
+                            }
+                        } else viewModel.toggleFrontNotification(false)
+                    },
+                )
+            },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        ListItem(
+            headlineContent = { Text("App Lock") },
+            supportingContent = {
+                Text(
+                    appLockError ?: "Require biometrics or your device passcode to open Sheaf",
+                    color = if (appLockError != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
+                )
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Fingerprint,
+                    contentDescription = null,
+                    tint = if (appLockEnabled) MaterialTheme.colorScheme.tertiary
+                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            trailingContent = {
+                Switch(
+                    checked = appLockEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            val canAuth = BiometricManager.from(context).canAuthenticate(
+                                BiometricManager.Authenticators.BIOMETRIC_WEAK or
+                                    BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+                            )
+                            when (canAuth) {
+                                BiometricManager.BIOMETRIC_SUCCESS -> {
+                                    appLockError = null
+                                    viewModel.toggleAppLock(true)
+                                }
+                                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ->
+                                    appLockError = "Set up a screen lock or biometric in your device settings first."
+                                BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
+                                BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE ->
+                                    appLockError = "This device doesn't support biometric or passcode unlock."
+                                else ->
+                                    appLockError = "App lock is unavailable on this device right now."
+                            }
+                        } else {
+                            appLockError = null
+                            showDisableAppLockDialog = true
+                        }
+                    },
+                )
+            },
+        )
+    }
+
+    if (showDisableAppLockDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisableAppLockDialog = false },
+            title = { Text("Disable App Lock?") },
+            text = { Text("Sheaf will open without requiring your biometrics or device passcode.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.toggleAppLock(false); showDisableAppLockDialog = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Disable") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisableAppLockDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+// ── Server ─────────────────────────────────────────────────────────────────
+
+@Composable
+fun ServerSettingsScreen(
+    onNavigateUp: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val savedBaseUrl by viewModel.baseUrl.collectAsState()
+    var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
+    var showUrlDialog by remember { mutableStateOf(false) }
+    CategoryScaffold(title = "Server", onNavigateUp = onNavigateUp) {
+        SettingItem(
+            icon = Icons.Outlined.Storage,
+            title = "API Server",
+            subtitle = savedBaseUrl.ifBlank { "Not configured" },
+            onClick = { urlDraft = savedBaseUrl; showUrlDialog = true },
+        )
+    }
+    if (showUrlDialog) {
+        AlertDialog(
+            onDismissRequest = { showUrlDialog = false },
+            title = { Text("API Server") },
+            text = {
+                OutlinedTextField(
+                    value = urlDraft,
+                    onValueChange = { urlDraft = it },
+                    label = { Text("Base URL") },
+                    placeholder = { Text("https://app.sheaf.sh") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.saveBaseUrl(urlDraft.trim()); showUrlDialog = false }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = { TextButton(onClick = { showUrlDialog = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+// ── System (custom fields, future: tags, front prefs) ──────────────────────
+
+@Composable
+fun SystemCategoryScreen(
+    onNavigateUp: () -> Unit,
+    onNavigateToCustomFields: () -> Unit,
+) {
+    CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
+        SettingItem(
+            icon = Icons.AutoMirrored.Outlined.List,
+            title = "Custom Fields",
+            subtitle = "Define additional fields for member profiles",
+            onClick = onNavigateToCustomFields,
+        )
+    }
+}
+
+// ── Safety ─────────────────────────────────────────────────────────────────
+
+@Composable
+fun SafetyCategoryScreen(
+    onNavigateUp: () -> Unit,
+    onNavigateToSystemSafety: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsState()
+    CategoryScaffold(title = "Safety", onNavigateUp = onNavigateUp) {
+        SettingItem(
+            icon = Icons.Outlined.Shield,
+            title = "System Safety",
+            subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
+            onClick = onNavigateToSystemSafety,
+        )
+    }
+}
+
+// ── Data ───────────────────────────────────────────────────────────────────
+
+@Composable
+fun DataSettingsScreen(
+    onNavigateUp: () -> Unit,
+    onNavigateToFiles: () -> Unit,
+    onNavigateToSpImport: () -> Unit,
+    onNavigateToSheafImport: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    var showDeleteOrphansDialog by remember { mutableStateOf(false) }
+    var pendingExportJson by remember { mutableStateOf<String?>(null) }
+
+    val saveFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            pendingExportJson?.let { json ->
+                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+            }
+        }
+        pendingExportJson = null
+        viewModel.clearExport()
+    }
+
+    LaunchedEffect(state.exportJson) {
+        state.exportJson?.let { json ->
+            pendingExportJson = json
+            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
+            saveFileLauncher.launch("sheaf-export-$timestamp.json")
+        }
+    }
+
+    LaunchedEffect(state.orphanedFiles) {
+        if (state.orphanedFiles != null && state.orphanedFiles!!.isNotEmpty()) {
+            showDeleteOrphansDialog = true
+        } else if (state.orphanedFiles?.isEmpty() == true) {
+            showDeleteOrphansDialog = false
+        }
+    }
+
+    CategoryScaffold(title = "Data", onNavigateUp = onNavigateUp) {
+        SettingItem(
+            icon = Icons.Outlined.PhotoLibrary,
+            title = "Uploaded files",
+            subtitle = "Browse, preview, and delete uploads",
+            onClick = onNavigateToFiles,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = if (state.isCheckingFiles) Icons.Outlined.HourglassEmpty else Icons.Outlined.DeleteSweep,
+            title = if (state.isCheckingFiles) "Checking…" else "Delete unused files",
+            subtitle = when {
+                state.orphanedFiles?.isEmpty() == true -> "No unused files found"
+                state.orphanDeleteResultMessage != null -> state.orphanDeleteResultMessage!!
+                else -> "Find and delete uploads no member or system still references"
+            },
+            onClick = { if (!state.isCheckingFiles) viewModel.checkOrphanedFiles() },
+        )
+        if (state.fileError != null) {
+            ErrorBanner(state.fileError!!, modifier = Modifier.padding(horizontal = 16.dp))
+        }
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Download,
+            title = "Export All Data",
+            subtitle = "Download a full JSON backup",
+            onClick = { viewModel.exportData() },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from Simply Plural",
+            subtitle = "Import members, groups, and history",
+            onClick = onNavigateToSpImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from Sheaf Export",
+            subtitle = "Restore from a Sheaf JSON backup",
+            onClick = onNavigateToSheafImport,
+        )
+    }
+
+    if (showDeleteOrphansDialog) {
+        val orphans = state.orphanedFiles ?: emptyList()
+        OrphanFilesDeleteDialog(
+            fileCount = orphans.size,
+            totalBytesLabel = formatBytes(orphans.sumOf { it.sizeBytes }),
+            safety = state.orphanDeleteSafety,
+            isDeleting = state.isDeletingOrphans,
+            errorMessage = state.fileError,
+            onConfirm = { password, totpCode ->
+                viewModel.deleteOrphanedFiles(password, totpCode)
+                showDeleteOrphansDialog = false
+            },
+            onDismiss = {
+                showDeleteOrphansDialog = false
+                viewModel.clearOrphanedFiles()
+            },
+        )
+    }
+}
+
+// ── Account ────────────────────────────────────────────────────────────────
+
+@Composable
+fun AccountSettingsScreen(
+    onNavigateUp: () -> Unit,
+    onNavigateToApiKeys: () -> Unit,
+    onNavigateToSessions: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsState()
+    var showTotpSheet by remember { mutableStateOf(false) }
+    var showDisableTotpDialog by remember { mutableStateOf(false) }
+
+    CategoryScaffold(title = "Account", onNavigateUp = onNavigateUp) {
+        if (state.user?.emailVerified == false) {
+            EmailVerificationBanner(
+                sent = state.verificationEmailSent,
+                isResending = state.isResendingVerification,
+                onResend = { viewModel.resendVerificationEmail() },
+            )
+        }
+
+        ListItem(
+            headlineContent = { Text("Email") },
+            supportingContent = { Text(state.user?.email ?: "...") },
+            leadingContent = {
+                Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+
+        val totpEnabled = state.user?.totpEnabled == true
+        ListItem(
+            headlineContent = { Text("Two-Factor Authentication") },
+            supportingContent = { Text(if (totpEnabled) "Enabled" else "Disabled") },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Lock,
+                    contentDescription = null,
+                    tint = if (totpEnabled) MaterialTheme.colorScheme.tertiary
+                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        if (totpEnabled) {
+            SettingItem(
+                icon = Icons.Outlined.LockOpen,
+                title = "Disable 2FA",
+                subtitle = null,
+                onClick = { showDisableTotpDialog = true },
+                tint = MaterialTheme.colorScheme.error,
+            )
+        } else {
+            SettingItem(
+                icon = Icons.Outlined.AddCircle,
+                title = "Set Up 2FA",
+                subtitle = null,
+                onClick = { viewModel.startTotpSetup(); showTotpSheet = true },
+            )
+        }
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Key,
+            title = "API Keys",
+            subtitle = "Manage API keys for scripts and integrations",
+            onClick = onNavigateToApiKeys,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Devices,
+            title = "Active Sessions",
+            subtitle = "View and revoke signed-in devices",
+            onClick = onNavigateToSessions,
+        )
+    }
+
+    if (showTotpSheet) {
+        TotpSetupSheet(
+            state = state,
+            onAdvanceToVerify = { viewModel.advanceTotpToVerify() },
+            onVerify = { code -> viewModel.verifyTotp(code) },
+            onAdvanceToDone = { viewModel.advanceTotpToDone() },
+            onDismiss = {
+                showTotpSheet = false
+                viewModel.resetTotpSetup()
+            },
+        )
+    }
+
+    if (showDisableTotpDialog) {
+        var disablePassword by remember { mutableStateOf("") }
+        var disableTotpCode by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showDisableTotpDialog = false },
+            title = { Text("Disable 2FA") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Enter your password and a current authenticator code to confirm.")
+                    OutlinedTextField(
+                        value = disablePassword,
+                        onValueChange = { disablePassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = disableTotpCode,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) disableTotpCode = it },
+                        label = { Text("Authenticator code") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (state.totpError != null) {
+                        Text(state.totpError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.disableTotp(disablePassword, disableTotpCode) },
+                    enabled = disablePassword.isNotBlank() && disableTotpCode.length == 6 && !state.totpIsDisabling,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    if (state.totpIsDisabling) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text("Disable")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisableTotpDialog = false; viewModel.clearTotpError() }) { Text("Cancel") }
+            },
+        )
+        LaunchedEffect(state.user?.totpEnabled) {
+            if (state.user?.totpEnabled == false) showDisableTotpDialog = false
+        }
+    }
+}
+
+@Composable
+private fun EmailVerificationBanner(
+    sent: Boolean,
+    isResending: Boolean,
+    onResend: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                if (sent) "Verification email sent. Check your inbox."
+                else "Your email address is not verified.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            if (!sent) {
+                TextButton(
+                    onClick = onResend,
+                    enabled = !isResending,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onTertiaryContainer),
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    if (isResending) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text("Resend verification email", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+}
+
+// ── Danger zone ────────────────────────────────────────────────────────────
+
+@Composable
+fun DangerZoneScreen(
+    onNavigateUp: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsState()
+    val authConfig by authViewModel.authConfig.collectAsState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.accountDeletionRequested) {
+        if (state.accountDeletionRequested) {
+            showDeleteAccountDialog = false
+            viewModel.clearAccountDeletionRequested()
+            authViewModel.logout()
+        }
+    }
+
+    CategoryScaffold(title = "Danger Zone", onNavigateUp = onNavigateUp) {
+        if (state.user?.accountStatus == "pending_deletion" || state.accountDeletionRequested) {
+            val timeRemaining = systems.lupine.sheaf.ui.components.formatDeletionTimeRemaining(
+                state.user?.deletionRequestedAt,
+                authConfig?.accountDeletionGraceDays,
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        buildString {
+                            append("Account deletion requested.")
+                            if (timeRemaining != null) append(" $timeRemaining remaining.")
+                            append(" Your account will be permanently deleted after the grace period.")
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    state.cancelDeletionError?.let { error ->
+                        Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                    OutlinedButton(
+                        onClick = { viewModel.cancelAccountDeletion() },
+                        enabled = !state.isCancellingDeletion,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (state.isCancellingDeletion) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text("Cancel Deletion")
+                        }
+                    }
+                }
+            }
+        }
+
+        SettingItem(
+            icon = Icons.AutoMirrored.Outlined.Logout,
+            title = "Sign Out",
+            subtitle = null,
+            onClick = { showLogoutDialog = true },
+            tint = MaterialTheme.colorScheme.error,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.DeleteForever,
+            title = "Delete Account",
+            subtitle = "Permanently delete your account and all data",
+            onClick = { showDeleteAccountDialog = true },
+            tint = MaterialTheme.colorScheme.error,
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Sign out?") },
+            text = { Text("You'll need to sign in again to use Sheaf.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { authViewModel.logout(); showLogoutDialog = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Sign Out") }
+            },
+            dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showDeleteAccountDialog) {
+        val totpEnabled = state.user?.totpEnabled == true
+        var deletePassword by remember { mutableStateOf("") }
+        var deleteTotpCode by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = {
+                if (!state.isDeletingAccount) {
+                    showDeleteAccountDialog = false
+                    viewModel.clearDeletionError()
+                }
+            },
+            icon = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete Account") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("This will permanently delete your account and all associated data. This action cannot be undone.")
+                    OutlinedTextField(
+                        value = deletePassword,
+                        onValueChange = { deletePassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (totpEnabled) {
+                        OutlinedTextField(
+                            value = deleteTotpCode,
+                            onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) deleteTotpCode = it },
+                            label = { Text("Authenticator code") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (state.deletionError != null) {
+                        Text(state.deletionError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.requestAccountDeletion(
+                            deletePassword,
+                            deleteTotpCode.takeIf { totpEnabled },
+                        )
+                    },
+                    enabled = deletePassword.isNotBlank() &&
+                        (!totpEnabled || deleteTotpCode.length == 6) &&
+                        !state.isDeletingAccount,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    if (state.isDeletingAccount) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    else Text("Delete Account")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteAccountDialog = false; viewModel.clearDeletionError() },
+                    enabled = !state.isDeletingAccount,
+                ) { Text("Cancel") }
+            },
+        )
+    }
+}

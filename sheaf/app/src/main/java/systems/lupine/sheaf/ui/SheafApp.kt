@@ -66,6 +66,15 @@ object Routes {
     const val SYSTEM_SAFETY  = "settings/safety"
     const val FILES          = "settings/files"
     const val DEBUG          = "settings/debug"
+    // Categorized settings detail screens.
+    const val SETTINGS_ACCOUNT       = "settings/account"
+    const val SETTINGS_APPEARANCE    = "settings/appearance"
+    const val SETTINGS_NOTIFICATIONS = "settings/notifications"
+    const val SETTINGS_SERVER        = "settings/server"
+    const val SETTINGS_SYSTEM        = "settings/sys"
+    const val SETTINGS_DATA          = "settings/data"
+    const val SETTINGS_SAFETY        = "settings/safety-cat"
+    const val SETTINGS_DANGER        = "settings/danger"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -247,16 +256,64 @@ fun SheafApp(
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     onNavigateUp = { navController.navigateUp() },
-                    onNavigateToSystemEdit = { navController.navigate(Routes.SYSTEM_EDIT) },
-                    onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
-                    onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
-                    onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
+                    onNavigateToProfile       = { navController.navigate(Routes.SYSTEM_EDIT) },
+                    onNavigateToAccount       = { navController.navigate(Routes.SETTINGS_ACCOUNT) },
+                    onNavigateToAppearance    = { navController.navigate(Routes.SETTINGS_APPEARANCE) },
+                    onNavigateToNotifications = { navController.navigate(Routes.SETTINGS_NOTIFICATIONS) },
+                    onNavigateToServer        = { navController.navigate(Routes.SETTINGS_SERVER) },
+                    onNavigateToSystem        = { navController.navigate(Routes.SETTINGS_SYSTEM) },
+                    onNavigateToData          = { navController.navigate(Routes.SETTINGS_DATA) },
+                    onNavigateToSafety        = { navController.navigate(Routes.SETTINGS_SAFETY) },
+                    onNavigateToDanger        = { navController.navigate(Routes.SETTINGS_DANGER) },
+                    onNavigateToAdminPanel    = { navController.navigate(Routes.ADMIN_PANEL) },
+                    onNavigateToDebug         = { navController.navigate(Routes.DEBUG) },
+                )
+            }
+            composable(Routes.SETTINGS_ACCOUNT) {
+                systems.lupine.sheaf.ui.settings.AccountSettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
                     onNavigateToApiKeys = { navController.navigate(Routes.API_KEYS) },
                     onNavigateToSessions = { navController.navigate(Routes.SESSIONS) },
-                    onNavigateToAdminPanel = { navController.navigate(Routes.ADMIN_PANEL) },
-                    onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                )
+            }
+            composable(Routes.SETTINGS_APPEARANCE) {
+                systems.lupine.sheaf.ui.settings.AppearanceSettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.SETTINGS_NOTIFICATIONS) {
+                systems.lupine.sheaf.ui.settings.NotificationSettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.SETTINGS_SERVER) {
+                systems.lupine.sheaf.ui.settings.ServerSettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.SETTINGS_SYSTEM) {
+                systems.lupine.sheaf.ui.settings.SystemCategoryScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
+                )
+            }
+            composable(Routes.SETTINGS_DATA) {
+                systems.lupine.sheaf.ui.settings.DataSettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
                     onNavigateToFiles = { navController.navigate(Routes.FILES) },
-                    onNavigateToDebug = { navController.navigate(Routes.DEBUG) },
+                    onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
+                    onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
+                )
+            }
+            composable(Routes.SETTINGS_SAFETY) {
+                systems.lupine.sheaf.ui.settings.SafetyCategoryScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                )
+            }
+            composable(Routes.SETTINGS_DANGER) {
+                systems.lupine.sheaf.ui.settings.DangerZoneScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.SYSTEM_EDIT) {
