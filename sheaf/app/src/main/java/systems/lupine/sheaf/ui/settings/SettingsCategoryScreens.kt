@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LightMode
@@ -311,6 +312,7 @@ fun SystemCategoryScreen(
 fun SafetyCategoryScreen(
     onNavigateUp: () -> Unit,
     onNavigateToSystemSafety: () -> Unit,
+    onNavigateToRetention: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -320,6 +322,13 @@ fun SafetyCategoryScreen(
             title = "System Safety",
             subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
             onClick = onNavigateToSystemSafety,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.History,
+            title = "Revision retention",
+            subtitle = "How long edits to bios and journals are kept",
+            onClick = onNavigateToRetention,
         )
     }
 }

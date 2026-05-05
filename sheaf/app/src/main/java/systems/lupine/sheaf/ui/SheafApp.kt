@@ -76,6 +76,7 @@ object Routes {
     const val SETTINGS_SAFETY        = "settings/safety-cat"
     const val SETTINGS_DANGER        = "settings/danger"
     const val SETTINGS_TAGS          = "settings/tags"
+    const val SETTINGS_RETENTION     = "settings/retention"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -316,6 +317,12 @@ fun SheafApp(
                 systems.lupine.sheaf.ui.settings.SafetyCategoryScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                    onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
+                )
+            }
+            composable(Routes.SETTINGS_RETENTION) {
+                systems.lupine.sheaf.ui.retention.RetentionScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.SETTINGS_DANGER) {

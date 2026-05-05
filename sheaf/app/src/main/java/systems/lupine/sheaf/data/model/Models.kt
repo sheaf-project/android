@@ -304,6 +304,45 @@ data class SystemSafetyUpdateResponse(
     @Json(name = "pending_change") val pendingChange: SafetyChangeRequestRead?,
 )
 
+// ── Revision retention ────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class RetentionTrimNoticeRead(
+    val id: String,
+    @Json(name = "requested_at") val requestedAt: String,
+    @Json(name = "effective_at") val effectiveAt: String,
+    @Json(name = "from_tier") val fromTier: String,
+    @Json(name = "to_tier") val toTier: String,
+    val reason: String,
+    val status: String,
+)
+
+// Caps semantics: 0 means "unlimited" (selfhosted tier default). override_*
+// is null when no override is set and the tier max applies directly.
+@JsonClass(generateAdapter = true)
+data class RetentionResponse(
+    @Json(name = "effective_max_revisions") val effectiveMaxRevisions: Int,
+    @Json(name = "effective_max_days") val effectiveMaxDays: Int,
+    @Json(name = "tier_max_revisions") val tierMaxRevisions: Int,
+    @Json(name = "tier_max_days") val tierMaxDays: Int,
+    @Json(name = "override_revisions") val overrideRevisions: Int? = null,
+    @Json(name = "override_days") val overrideDays: Int? = null,
+    @Json(name = "trim_notice") val trimNotice: RetentionTrimNoticeRead? = null,
+)
+
+// Lowering a cap (keeping fewer revisions) is the loosening path: it routes
+// through the safety grace period and needs re-auth via password / totp_code,
+// because dropping retention is destructive (existing revisions over the new
+// cap get pruned). Raising a cap or clearing the override (null) applies
+// immediately. 0 means "unlimited".
+@JsonClass(generateAdapter = true)
+data class RetentionUpdate(
+    @Json(name = "max_revisions") val maxRevisions: Int? = null,
+    @Json(name = "max_revision_days") val maxRevisionDays: Int? = null,
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
 // ── Members ───────────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

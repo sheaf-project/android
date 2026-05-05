@@ -113,6 +113,17 @@ interface SheafApiService {
     @DELETE("/v1/system/safety/pending-changes/{id}")
     suspend fun cancelPendingSafetyChange(@Path("id") id: String)
 
+    // ── Revision retention ─────────────────────────────────────────────────────
+
+    @GET("/v1/retention")
+    suspend fun getRetention(): RetentionResponse
+
+    @PATCH("/v1/retention")
+    suspend fun updateRetention(@Body body: RetentionUpdate): RetentionResponse
+
+    @DELETE("/v1/retention/trim-notice/{id}")
+    suspend fun cancelTrimNotice(@Path("id") id: String)
+
     // ── Members ───────────────────────────────────────────────────────────────
 
     @GET("/v1/members")
