@@ -119,6 +119,7 @@ fun ApiKeysScreen(
 
     if (showCreateSheet) {
         CreateApiKeySheet(
+            isAdmin = state.user?.isAdmin == true,
             isCreating = state.isCreating,
             error = state.error,
             onDismiss = { showCreateSheet = false },
@@ -190,13 +191,20 @@ fun ApiKeysScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CreateApiKeySheet(
+    isAdmin: Boolean,
     isCreating: Boolean,
     error: String?,
     onDismiss: () -> Unit,
     onCreate: (name: String, scopes: List<String>, expiresAt: String?) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
-    var selectedScopes by remember { mutableStateOf(ALL_SCOPES.toSet()) }
+    var levels by remember {
+        mutableStateOf<Map<String, ApiScopeLevel>>(emptyMap())
+    }
+    var adminLevel by remember { mutableStateOf(ApiScopeLevel.NONE) }
+    val computedScopes = remember(levels, adminLevel, isAdmin) {
+        scopesFromLevels(levels, isAdmin, adminLevel)
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -227,26 +235,98 @@ private fun CreateApiKeySheet(
             }
 
             SectionHeader("Scopes")
+            Text(
+                "Write implies Read; Delete implies Read+Write.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
-            ALL_SCOPES.forEach { scope ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Checkbox(
-                        checked = scope in selectedScopes,
-                        onCheckedChange = { checked ->
-                            selectedScopes = if (checked) selectedScopes + scope else selectedScopes - scope
+            SCOPE_GROUPS.forEach { (heading, resources) ->
+                Text(
+                    heading,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                resources.forEach { resource ->
+                    ScopeLevelRow(
+                        resource = resource,
+                        level = levels[resource.key] ?: ApiScopeLevel.NONE,
+                        onLevelChange = { newLevel ->
+                            levels = levels + (resource.key to newLevel)
                         },
                     )
-                    Text(scope, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
                 }
             }
 
+            if (isAdmin) {
+                Text(
+                    "Admin",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                ScopeLevelRow(
+                    resource = ApiScopeResource("admin", "Admin endpoints"),
+                    level = adminLevel,
+                    onLevelChange = { adminLevel = it },
+                )
+            }
+
+            Text(
+                if (computedScopes.isEmpty()) "No scopes selected"
+                else "Will grant: ${computedScopes.joinToString(", ")}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = FontFamily.Monospace,
+            )
+
             Button(
-                onClick = { onCreate(name, selectedScopes.toList(), null) },
-                enabled = !isCreating && name.isNotBlank() && selectedScopes.isNotEmpty(),
+                onClick = { onCreate(name, computedScopes, null) },
+                enabled = !isCreating && name.isNotBlank() && computedScopes.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth().height(48.dp),
             ) {
                 if (isCreating) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 else Text("Create Key")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScopeLevelRow(
+    resource: ApiScopeResource,
+    level: ApiScopeLevel,
+    onLevelChange: (ApiScopeLevel) -> Unit,
+) {
+    // Build the available levels for this resource. read-only / write-only
+    // resources expose a smaller option set.
+    val options: List<Pair<ApiScopeLevel, String>> = when {
+        resource.writeOnly -> listOf(ApiScopeLevel.NONE to "None", ApiScopeLevel.WRITE to "Write")
+        resource.readOnly  -> listOf(ApiScopeLevel.NONE to "None", ApiScopeLevel.READ to "Read")
+        resource.hasDelete -> listOf(
+            ApiScopeLevel.NONE to "None",
+            ApiScopeLevel.READ to "Read",
+            ApiScopeLevel.WRITE to "Write",
+            ApiScopeLevel.DELETE to "Delete",
+        )
+        else -> listOf(
+            ApiScopeLevel.NONE to "None",
+            ApiScopeLevel.READ to "Read",
+            ApiScopeLevel.WRITE to "Write",
+        )
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(resource.label, style = MaterialTheme.typography.bodyMedium)
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            options.forEachIndexed { index, (lvl, label) ->
+                SegmentedButton(
+                    selected = level == lvl,
+                    onClick = { onLevelChange(lvl) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                ) { Text(label, style = MaterialTheme.typography.labelMedium) }
             }
         }
     }
