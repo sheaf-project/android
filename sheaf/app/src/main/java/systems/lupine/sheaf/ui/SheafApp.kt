@@ -75,6 +75,7 @@ object Routes {
     const val SETTINGS_DATA          = "settings/data"
     const val SETTINGS_SAFETY        = "settings/safety-cat"
     const val SETTINGS_DANGER        = "settings/danger"
+    const val SETTINGS_TAGS          = "settings/tags"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -295,6 +296,12 @@ fun SheafApp(
                 systems.lupine.sheaf.ui.settings.SystemCategoryScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
+                    onNavigateToTags = { navController.navigate(Routes.SETTINGS_TAGS) },
+                )
+            }
+            composable(Routes.SETTINGS_TAGS) {
+                systems.lupine.sheaf.ui.tags.TagsManagerScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.SETTINGS_DATA) {

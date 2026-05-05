@@ -451,6 +451,15 @@ data class TagUpdate(
     val color: String? = null,
 )
 
+// Two response shapes for DELETE /v1/tags/{id}: 204 immediate, 202 pending.
+// Both fields nullable so a single adapter handles either; caller decides
+// which path was taken from the HTTP status code.
+@JsonClass(generateAdapter = true)
+data class TagDeletePending(
+    @Json(name = "pending_action_id") val pendingActionId: String? = null,
+    @Json(name = "finalize_after") val finalizeAfter: String? = null,
+)
+
 // ── Custom Fields ─────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Notifications
@@ -285,8 +286,16 @@ fun ServerSettingsScreen(
 fun SystemCategoryScreen(
     onNavigateUp: () -> Unit,
     onNavigateToCustomFields: () -> Unit,
+    onNavigateToTags: () -> Unit,
 ) {
     CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
+        SettingItem(
+            icon = Icons.Outlined.LocalOffer,
+            title = "Tags",
+            subtitle = "Labels you can apply to members",
+            onClick = onNavigateToTags,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
             icon = Icons.AutoMirrored.Outlined.List,
             title = "Custom Fields",

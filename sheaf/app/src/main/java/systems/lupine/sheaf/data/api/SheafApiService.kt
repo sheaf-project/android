@@ -266,8 +266,11 @@ interface SheafApiService {
     @PATCH("/v1/tags/{id}")
     suspend fun updateTag(@Path("id") id: String, @Body body: TagUpdate): TagRead
 
-    @DELETE("/v1/tags/{id}")
-    suspend fun deleteTag(@Path("id") id: String)
+    @HTTP(method = "DELETE", path = "/v1/tags/{id}", hasBody = true)
+    suspend fun deleteTag(
+        @Path("id") id: String,
+        @Body body: MemberDeleteConfirm = MemberDeleteConfirm(),
+    ): Response<TagDeletePending>
 
     // ── Custom Fields ─────────────────────────────────────────────────────────
 
@@ -448,6 +451,17 @@ suspend fun SheafApiService.deleteMemberOrQueue(
     totpCode: String? = null,
 ): MemberDeletePending? {
     val resp = deleteMember(id, MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
+    if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
+    return if (resp.code() == 202) resp.body() else null
+}
+
+/** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
+suspend fun SheafApiService.deleteTagOrQueue(
+    id: String,
+    password: String? = null,
+    totpCode: String? = null,
+): TagDeletePending? {
+    val resp = deleteTag(id, MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
     if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
     return if (resp.code() == 202) resp.body() else null
 }
