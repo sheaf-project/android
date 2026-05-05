@@ -64,6 +64,7 @@ object Routes {
     const val SESSIONS       = "settings/sessions"
     const val ADMIN_PANEL    = "settings/admin"
     const val SYSTEM_SAFETY  = "settings/safety"
+    const val FILES          = "settings/files"
     const val DEBUG          = "settings/debug"
 }
 
@@ -254,6 +255,7 @@ fun SheafApp(
                     onNavigateToSessions = { navController.navigate(Routes.SESSIONS) },
                     onNavigateToAdminPanel = { navController.navigate(Routes.ADMIN_PANEL) },
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                    onNavigateToFiles = { navController.navigate(Routes.FILES) },
                     onNavigateToDebug = { navController.navigate(Routes.DEBUG) },
                 )
             }
@@ -280,6 +282,9 @@ fun SheafApp(
             }
             composable(Routes.SYSTEM_SAFETY) {
                 SystemSafetyScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.FILES) {
+                systems.lupine.sheaf.ui.files.FilesScreen(onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.DEBUG) {
                 DebugScreen(

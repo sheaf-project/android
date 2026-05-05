@@ -63,6 +63,7 @@ fun SettingsScreen(
     onNavigateToSessions: () -> Unit,
     onNavigateToAdminPanel: () -> Unit,
     onNavigateToSystemSafety: () -> Unit,
+    onNavigateToFiles: () -> Unit,
     onNavigateToDebug: () -> Unit,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
@@ -482,6 +483,13 @@ fun SettingsScreen(
 
             // ── Storage ──────────────────────────────────────────────────────
             SectionHeader("Storage")
+            SettingItem(
+                icon = Icons.Outlined.PhotoLibrary,
+                title = "Uploaded files",
+                subtitle = "Browse, preview, and delete uploads",
+                onClick = onNavigateToFiles,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
                 icon = if (state.isCheckingFiles) Icons.Outlined.HourglassEmpty else Icons.Outlined.DeleteSweep,
                 title = if (state.isCheckingFiles) "Checking…" else "Delete unused files",
