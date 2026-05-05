@@ -247,6 +247,7 @@ class MemberDetailViewModel @Inject constructor(
     private val api: SheafApiService,
     private val moshi: Moshi,
     @ApplicationContext private val context: Context,
+    val markdownImages: systems.lupine.sheaf.ui.components.MarkdownImageDelegate,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -262,6 +263,7 @@ class MemberDetailViewModel @Inject constructor(
     val form: StateFlow<MemberFormState> = _form.asStateFlow()
 
     init {
+        markdownImages.loadUser(viewModelScope)
         if (!isNewMember && memberId != null) loadMember()
     }
 

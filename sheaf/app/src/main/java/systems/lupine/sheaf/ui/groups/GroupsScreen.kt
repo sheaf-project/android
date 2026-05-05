@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.ui.components.*
 
 // ── Groups list ───────────────────────────────────────────────────────────────
@@ -150,6 +151,11 @@ fun GroupDetailScreen(
     val form  by viewModel.form.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    val descriptionImagePicker = rememberMarkdownImagePicker(
+        viewModel.markdownImages,
+        viewModel.viewModelScope,
+    )
+
     LaunchedEffect(state.saved, state.deleted) {
         if (state.saved || state.deleted) onNavigateUp()
     }
@@ -199,12 +205,12 @@ fun GroupDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
+            MarkdownBodyEditor(
                 value = form.description,
                 onValueChange = { viewModel.updateForm { copy(description = it) } },
-                label = { Text("Description") },
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth(),
+                label = "Description",
+                minLines = 3,
+                imagePicker = descriptionImagePicker,
             )
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

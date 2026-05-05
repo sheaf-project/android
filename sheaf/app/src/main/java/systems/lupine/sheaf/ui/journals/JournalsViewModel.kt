@@ -152,6 +152,7 @@ data class JournalFormState(
     val title: String = "",
     val body: String = "",
     val memberId: String? = null,
+    val authorMemberIds: List<String> = emptyList(),
 )
 
 data class JournalDetailUiState(
@@ -177,6 +178,7 @@ data class JournalDetailUiState(
 @HiltViewModel
 class JournalDetailViewModel @Inject constructor(
     private val api: SheafApiService,
+    val markdownImages: systems.lupine.sheaf.ui.components.MarkdownImageDelegate,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -198,6 +200,7 @@ class JournalDetailViewModel @Inject constructor(
 
     init {
         loadMembers()
+        markdownImages.loadUser(viewModelScope)
         if (!isNewEntry && entryId != null) load()
     }
 
@@ -211,6 +214,7 @@ class JournalDetailViewModel @Inject constructor(
                         title = entry.title.orEmpty(),
                         body = entry.body,
                         memberId = entry.memberId,
+                        authorMemberIds = entry.authorMemberIds,
                     )
                 }
                 .onFailure { e ->
@@ -241,6 +245,7 @@ class JournalDetailViewModel @Inject constructor(
                 title = entry.title.orEmpty(),
                 body = entry.body,
                 memberId = entry.memberId,
+                authorMemberIds = entry.authorMemberIds,
             )
         }
         _state.update { it.copy(isEditing = false, error = null) }
@@ -258,6 +263,7 @@ class JournalDetailViewModel @Inject constructor(
                             body = f.body.trim(),
                             title = f.title.trim().takeIf { it.isNotBlank() },
                             memberId = f.memberId,
+                            authorMemberIds = f.authorMemberIds,
                         )
                     )
                 } else {
@@ -266,6 +272,7 @@ class JournalDetailViewModel @Inject constructor(
                         JournalEntryUpdate(
                             title = f.title.trim().takeIf { it.isNotBlank() } ?: "",
                             body = f.body.trim(),
+                            authorMemberIds = f.authorMemberIds,
                         ),
                     )
                 }
@@ -405,4 +412,16 @@ class JournalDetailViewModel @Inject constructor(
 
     fun clearPinError() { _state.update { it.copy(pinError = null) } }
     fun clearUnpinQueued() { _state.update { it.copy(unpinQueued = false) } }
+
+    fun setAuthors(ids: List<String>) {
+        _form.update { it.copy(authorMemberIds = ids) }
+    }
+
+    fun toggleAuthor(memberId: String) {
+        _form.update {
+            val ids = it.authorMemberIds
+            it.copy(authorMemberIds = if (memberId in ids) ids - memberId else ids + memberId)
+        }
+    }
+
 }

@@ -37,6 +37,7 @@ data class SystemEditUiState(
 class SystemEditViewModel @Inject constructor(
     private val api: SheafApiService,
     @ApplicationContext private val context: Context,
+    val markdownImages: systems.lupine.sheaf.ui.components.MarkdownImageDelegate,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SystemEditUiState())
@@ -45,7 +46,10 @@ class SystemEditViewModel @Inject constructor(
     private val _form = MutableStateFlow(SystemEditForm())
     val form: StateFlow<SystemEditForm> = _form.asStateFlow()
 
-    init { load() }
+    init {
+        markdownImages.loadUser(viewModelScope)
+        load()
+    }
 
     private fun load() {
         viewModelScope.launch {

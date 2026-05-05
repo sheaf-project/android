@@ -1,15 +1,23 @@
 package systems.lupine.sheaf.ui.journals
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.PushPin
@@ -20,18 +28,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.model.ContentRevisionRead
 import systems.lupine.sheaf.data.model.JournalEntryRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
-import dev.jeziellago.compose.markdowntext.MarkdownText
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
@@ -187,7 +198,7 @@ private fun JournalCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
             }
-            MarkdownText(
+            SheafMarkdownText(
                 markdown = entry.body,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
@@ -250,6 +261,9 @@ fun JournalDetailScreen(
     val form  by viewModel.form.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMemberPicker by remember { mutableStateOf(false) }
+    var showAuthorPicker by remember { mutableStateOf(false) }
+
+    val imagePicker = rememberMarkdownImagePicker(viewModel.markdownImages, viewModel.viewModelScope)
 
     LaunchedEffect(state.saved, state.deleted) {
         if (state.saved || state.deleted) onNavigateUp()
@@ -318,8 +332,10 @@ fun JournalDetailScreen(
                     form = form,
                     members = state.members,
                     isNew = viewModel.isNewEntry,
+                    imagePicker = imagePicker,
                     onUpdate = viewModel::updateForm,
                     onPickMember = { showMemberPicker = true },
+                    onPickAuthors = { showAuthorPicker = true },
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -499,6 +515,73 @@ fun JournalDetailScreen(
         }
     }
 
+    if (showAuthorPicker) {
+        var query by remember { mutableStateOf("") }
+        val filtered = remember(query, state.members) {
+            if (query.isBlank()) state.members
+            else state.members.filter { it.displayNameOrName.contains(query.trim(), ignoreCase = true) }
+        }
+        val authorSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showAuthorPicker = false },
+            sheetState = authorSheetState,
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Authors",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(20.dp, 12.dp),
+                )
+                Text(
+                    "Defaults to whoever is fronting. Empty list = account fallback.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                )
+                MemberSearchField(
+                    query = query,
+                    onQueryChange = { query = it },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+                HorizontalDivider()
+                LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
+                    items(filtered, key = { it.id }) { member ->
+                        val isSelected = member.id in form.authorMemberIds
+                        ListItem(
+                            headlineContent = { Text(member.displayNameOrName) },
+                            leadingContent = { MemberAvatar(member, size = 40.dp) },
+                            trailingContent = {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { viewModel.toggleAuthor(member.id) },
+                                )
+                            },
+                            modifier = Modifier.clickable { viewModel.toggleAuthor(member.id) },
+                        )
+                    }
+                    if (filtered.isEmpty()) {
+                        item {
+                            Text(
+                                "No matches",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(20.dp),
+                            )
+                        }
+                    }
+                }
+                Button(
+                    onClick = { showAuthorPicker = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .height(48.dp),
+                ) { Text("Done (${form.authorMemberIds.size})") }
+                Spacer(Modifier.navigationBarsPadding())
+            }
+        }
+    }
+
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -575,12 +658,13 @@ private fun JournalReader(
             )
         }
         Spacer(Modifier.height(4.dp))
-        MarkdownText(
+        SheafMarkdownText(
             markdown = entry.body,
             style = MaterialTheme.typography.bodyLarge.copy(
                 color = MaterialTheme.colorScheme.onSurface,
             ),
         )
+        ImageReferencesPanel(markdown = entry.body)
         if (entry.revisionCount > 0) {
             Spacer(Modifier.height(8.dp))
             Text(
@@ -597,8 +681,10 @@ private fun JournalEditor(
     form: JournalFormState,
     members: List<MemberRead>,
     isNew: Boolean,
+    imagePicker: MarkdownImagePicker,
     onUpdate: (JournalFormState.() -> JournalFormState) -> Unit,
     onPickMember: () -> Unit,
+    onPickAuthors: () -> Unit,
 ) {
     var previewMode by rememberSaveable { mutableStateOf(false) }
 
@@ -626,12 +712,14 @@ private fun JournalEditor(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
+
+        MarkdownBodyEditor(
             value = form.body,
             onValueChange = { onUpdate { copy(body = it) } },
-            label = { Text("Body *") },
+            label = "Body",
+            required = true,
             minLines = 6,
-            modifier = Modifier.fillMaxWidth(),
+            imagePicker = imagePicker,
         )
     } else {
         Text(
@@ -645,13 +733,29 @@ private fun JournalEditor(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            MarkdownText(
+            SheafMarkdownText(
                 markdown = form.body,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
             )
         }
+    }
+
+    val authors = form.authorMemberIds.mapNotNull { id -> members.firstOrNull { it.id == id } }
+    OutlinedButton(
+        onClick = onPickAuthors,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            when {
+                authors.isEmpty() -> "Authors: defaults to who's fronting"
+                authors.size <= 3 -> "Authors: ${authors.joinToString(", ") { it.displayNameOrName }}"
+                else -> "Authors: ${authors.take(2).joinToString(", ") { it.displayNameOrName }} +${authors.size - 2}"
+            }
+        )
     }
 
     if (isNew) {
@@ -739,3 +843,4 @@ private val journalDateFormatter: DateTimeFormatter =
 private fun formatJournalDate(iso: String): String = runCatching {
     OffsetDateTime.parse(iso).toLocalDateTime().format(journalDateFormatter)
 }.getOrDefault(iso)
+

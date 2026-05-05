@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.ui.auth.AuthViewModel
+import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.ui.components.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1106,6 +1107,11 @@ fun SystemEditScreen(
         ActivityResultContracts.PickVisualMedia()
     ) { uri -> uri?.let { viewModel.uploadAndSetAvatar(it) } }
 
+    val descriptionImagePicker = rememberMarkdownImagePicker(
+        viewModel.markdownImages,
+        viewModel.viewModelScope,
+    )
+
     LaunchedEffect(state.saved) {
         if (state.saved) onNavigateUp()
     }
@@ -1226,13 +1232,12 @@ fun SystemEditScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
+            MarkdownBodyEditor(
                 value = form.description,
                 onValueChange = { viewModel.updateForm { copy(description = it) } },
-                label = { Text("Description") },
+                label = "Description",
                 minLines = 3,
-                maxLines = 6,
-                modifier = Modifier.fillMaxWidth(),
+                imagePicker = descriptionImagePicker,
             )
 
             OutlinedTextField(

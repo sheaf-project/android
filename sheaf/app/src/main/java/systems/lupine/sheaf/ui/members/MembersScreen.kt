@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import systems.lupine.sheaf.data.model.ContentRevisionRead
@@ -306,6 +307,8 @@ fun MemberDetailScreen(
         ActivityResultContracts.PickVisualMedia()
     ) { uri -> uri?.let { viewModel.uploadAndSetAvatar(it) } }
 
+    val bioImagePicker = rememberMarkdownImagePicker(viewModel.markdownImages, viewModel.viewModelScope)
+
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
     LaunchedEffect(state.saved) {
@@ -459,13 +462,12 @@ fun MemberDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
+            MarkdownBodyEditor(
                 value = form.description,
                 onValueChange = { viewModel.updateForm { copy(description = it) } },
-                label = { Text("Description") },
+                label = "Description",
                 minLines = 3,
-                maxLines = 6,
-                modifier = Modifier.fillMaxWidth(),
+                imagePicker = bioImagePicker,
             )
 
             OutlinedTextField(
@@ -619,16 +621,17 @@ fun MemberProfileScreen(
                         }
                     }
 
-                    // Description
+                    // Description (rendered as Markdown so embedded /v1/files/ images load).
                     if (!member.description.isNullOrBlank()) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         ) {
-                            Text(
-                                member.description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            SheafMarkdownText(
+                                markdown = member.description,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
                                 modifier = Modifier.padding(16.dp),
                             )
                         }

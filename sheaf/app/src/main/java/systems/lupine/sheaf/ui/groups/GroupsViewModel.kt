@@ -88,6 +88,7 @@ data class GroupDetailUiState(
 @HiltViewModel
 class GroupDetailViewModel @Inject constructor(
     private val api: SheafApiService,
+    val markdownImages: systems.lupine.sheaf.ui.components.MarkdownImageDelegate,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -102,6 +103,7 @@ class GroupDetailViewModel @Inject constructor(
     val form: StateFlow<GroupFormState> = _form.asStateFlow()
 
     init {
+        markdownImages.loadUser(viewModelScope)
         if (!isNewGroup && groupId != null) load()
         loadAllMembers()
     }
