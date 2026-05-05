@@ -19,7 +19,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): SheafDatabase =
-        Room.databaseBuilder(context, SheafDatabase::class.java, "sheaf.db").build()
+        Room.databaseBuilder(context, SheafDatabase::class.java, "sheaf.db")
+            .addMigrations(SheafDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides fun provideCacheDao(db: SheafDatabase): CacheDao = db.cacheDao()
 

@@ -16,6 +16,7 @@ data class CacheEntry(
 data class PendingFrontSwitch(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     @ColumnInfo(name = "member_ids") val memberIds: String,
+    @ColumnInfo(name = "replace_fronts") val replaceFronts: Boolean = true,
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
 )
 

@@ -120,6 +120,11 @@ data class UserRead(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "last_login_at") val lastLoginAt: String?,
     @Json(name = "deletion_requested_at") val deletionRequestedAt: String? = null,
+    // Effective permission flags. Defaults match backend defaults; older cached
+    // payloads without these fields will treat all paths as allowed.
+    @Json(name = "uploads_allowed") val uploadsAllowed: Boolean = true,
+    @Json(name = "bio_uploads_allowed") val bioUploadsAllowed: Boolean = true,
+    @Json(name = "external_images_allowed") val externalImagesAllowed: Boolean = true,
 )
 
 @JsonClass(generateAdapter = true)
@@ -207,6 +212,9 @@ data class SystemRead(
     val color: String?,
     val privacy: String,
     @Json(name = "delete_confirmation") val deleteConfirmation: String?,
+    // Default to true if the field is missing (older cached payloads); matches
+    // the backend default for replace_fronts_default and web's `?? true` fallback.
+    @Json(name = "replace_fronts_default") val replaceFrontsDefault: Boolean = true,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
 )
@@ -373,6 +381,8 @@ data class FrontRead(
 data class FrontCreate(
     @Json(name = "member_ids") val memberIds: List<String>,
     @Json(name = "started_at") val startedAt: String? = null,
+    // null = let the server fall back to system.replace_fronts_default.
+    @Json(name = "replace_fronts") val replaceFronts: Boolean? = null,
 )
 
 @JsonClass(generateAdapter = true)

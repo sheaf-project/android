@@ -49,11 +49,13 @@ class SyncWorker @AssistedInject constructor(
             val latest = switches.last()
             runCatching {
                 val memberIds = latest.memberIds.split(",")
-                val currentFronts = api.getCurrentFronts()
-                currentFronts.forEach { front ->
-                    api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
-                }
-                api.createFront(FrontCreate(memberIds = memberIds, startedAt = Instant.now().toString()))
+                api.createFront(
+                    FrontCreate(
+                        memberIds = memberIds,
+                        startedAt = Instant.now().toString(),
+                        replaceFronts = latest.replaceFronts,
+                    )
+                )
             }.onSuccess {
                 dao.deleteAllSwitches()
             }.onFailure {

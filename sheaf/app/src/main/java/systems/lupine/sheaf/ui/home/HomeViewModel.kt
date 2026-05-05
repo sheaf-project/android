@@ -12,6 +12,7 @@ import systems.lupine.sheaf.data.model.AnnouncementPublic
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
+import systems.lupine.sheaf.data.model.GroupRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.data.model.PendingActionRead
 import systems.lupine.sheaf.data.model.SafetyChangeRequestRead
@@ -42,6 +43,13 @@ data class HomeUiState(
     val error: String? = null,
     val showSwitchSheet: Boolean = false,
     val switchSelection: Set<String> = emptySet(),
+    val switchEndCurrent: Boolean = true,
+    val groups: List<GroupRead> = emptyList(),
+    // memberId -> set of groupIds that contain that member, built from
+    // /v1/groups/{id}/members on demand. Used by the switch sheet's group
+    // filter chip-row to narrow the member list.
+    val memberGroups: Map<String, Set<String>> = emptyMap(),
+    val switchActiveGroupId: String? = null,
     val isOnline: Boolean = true,
     val pendingOpCount: Int = 0,
     val pendingSafetyActions: List<PendingActionRead> = emptyList(),
@@ -156,8 +164,47 @@ class HomeViewModel @Inject constructor(
     }
 
     fun openSwitchSheet() {
-        val currentIds = _state.value.currentFronts.flatMap { it.memberIds }.toSet()
-        _state.update { it.copy(showSwitchSheet = true, switchSelection = currentIds) }
+        val s = _state.value
+        val currentIds = s.currentFronts.flatMap { it.memberIds }.toSet()
+        // Prefill the end-current toggle from the system pref (web UI does the
+        // same: `replaceFronts ?? (system.replace_fronts_default ?? true)`).
+        val defaultEndCurrent = s.system?.replaceFrontsDefault ?: true
+        _state.update {
+            it.copy(
+                showSwitchSheet = true,
+                switchSelection = currentIds,
+                switchEndCurrent = defaultEndCurrent,
+                switchActiveGroupId = null,
+            )
+        }
+        loadGroupsForFilter()
+    }
+
+    fun setSwitchActiveGroup(groupId: String?) {
+        _state.update { it.copy(switchActiveGroupId = groupId) }
+    }
+
+    private fun loadGroupsForFilter() {
+        if (_state.value.groups.isNotEmpty()) return  // already loaded
+        viewModelScope.launch {
+            runCatching { api.listGroups() }
+                .onSuccess { groups ->
+                    _state.update { it.copy(groups = groups) }
+                    // Build the memberId -> groupIds map by fetching each group's
+                    // members. N+1 queries; acceptable for the typical 5-30 groups
+                    // and matches web's useAllGroupMembers pattern.
+                    val map = mutableMapOf<String, MutableSet<String>>()
+                    groups.forEach { g ->
+                        runCatching { api.getGroupMembers(g.id) }
+                            .onSuccess { members ->
+                                members.forEach { m ->
+                                    map.getOrPut(m.id) { mutableSetOf() }.add(g.id)
+                                }
+                            }
+                    }
+                    _state.update { it.copy(memberGroups = map.mapValues { (_, v) -> v.toSet() }) }
+                }
+        }
     }
 
     fun closeSwitchSheet() {
@@ -172,17 +219,27 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun setSwitchEndCurrent(value: Boolean) {
+        _state.update { it.copy(switchEndCurrent = value) }
+    }
+
     fun confirmSwitch() {
-        val sel = _state.value.switchSelection
+        val s = _state.value
+        val sel = s.switchSelection
         if (sel.isEmpty()) return
+        val replaceFronts = s.switchEndCurrent
         viewModelScope.launch {
             _state.update { it.copy(isSwitching = true, error = null) }
             if (networkMonitor.isOnline.first()) {
                 runCatching {
-                    _state.value.currentFronts.forEach { front ->
-                        api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
-                    }
-                    api.createFront(FrontCreate(memberIds = sel.toList(), startedAt = Instant.now().toString()))
+                    // Server handles end-current atomically when replace_fronts=true.
+                    api.createFront(
+                        FrontCreate(
+                            memberIds = sel.toList(),
+                            startedAt = Instant.now().toString(),
+                            replaceFronts = replaceFronts,
+                        )
+                    )
                 }.onSuccess {
                     _state.update { it.copy(isSwitching = false, showSwitchSheet = false) }
                     load()
@@ -191,7 +248,12 @@ class HomeViewModel @Inject constructor(
                 }
             } else {
                 pendingOpsDao.deleteAllSwitches()
-                pendingOpsDao.insertSwitch(PendingFrontSwitch(memberIds = sel.joinToString(",")))
+                pendingOpsDao.insertSwitch(
+                    PendingFrontSwitch(
+                        memberIds = sel.joinToString(","),
+                        replaceFronts = replaceFronts,
+                    )
+                )
                 SyncWorker.schedule(appContext)
                 _state.update { it.copy(isSwitching = false, showSwitchSheet = false) }
             }

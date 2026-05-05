@@ -118,10 +118,16 @@ fun HistoryScreen(
         )
     }
 
+    if (showAddSheet || frontToEdit != null) {
+        LaunchedEffect(showAddSheet, frontToEdit) { viewModel.loadGroupsForFilter() }
+    }
+
     if (showAddSheet) {
         FrontEntrySheet(
             allMembers = state.allMembers,
             initialFront = null,
+            groups = state.groups,
+            memberGroups = state.memberGroups,
             onDismiss = { showAddSheet = false },
             onConfirm = { memberIds, startedAt, endedAt ->
                 viewModel.addFrontEntry(memberIds, startedAt, endedAt)
@@ -134,6 +140,8 @@ fun HistoryScreen(
         FrontEntrySheet(
             allMembers = state.allMembers,
             initialFront = front,
+            groups = state.groups,
+            memberGroups = state.memberGroups,
             onDismiss = { frontToEdit = null },
             onConfirm = { memberIds, startedAt, endedAt ->
                 viewModel.updateFrontEntry(front.id, memberIds, startedAt, endedAt)
@@ -592,9 +600,12 @@ private fun FrontHistoryCard(
 private fun FrontEntrySheet(
     allMembers: List<MemberRead>,
     initialFront: FrontRead?,
+    groups: List<systems.lupine.sheaf.data.model.GroupRead>,
+    memberGroups: Map<String, Set<String>>,
     onDismiss: () -> Unit,
     onConfirm: (memberIds: List<String>, startedAt: String, endedAt: String?) -> Unit,
 ) {
+    var activeGroupId by remember { mutableStateOf<String?>(null) }
     val isEditing = initialFront != null
     val initialStart = remember(initialFront) {
         initialFront?.startedAt?.let {
@@ -652,7 +663,8 @@ private fun FrontEntrySheet(
         ) { DatePicker(state = pickerState) }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -675,9 +687,20 @@ private fun FrontEntrySheet(
                 )
             } else {
                 var memberQuery by remember { mutableStateOf("") }
-                val filteredMembers = remember(memberQuery, allMembers) {
-                    if (memberQuery.isBlank()) allMembers
-                    else allMembers.filter { it.displayNameOrName.contains(memberQuery.trim(), ignoreCase = true) }
+                if (groups.isNotEmpty()) {
+                    GroupFilterChips(
+                        groups = groups,
+                        activeGroupId = activeGroupId,
+                        onSelect = { activeGroupId = it },
+                    )
+                }
+                val filteredMembers = remember(memberQuery, allMembers, activeGroupId, memberGroups) {
+                    allMembers.filter { m ->
+                        val groupOk = activeGroupId == null || (memberGroups[m.id]?.contains(activeGroupId) == true)
+                        val queryOk = memberQuery.isBlank() ||
+                            m.displayNameOrName.contains(memberQuery.trim(), ignoreCase = true)
+                        groupOk && queryOk
+                    }
                 }
                 MemberSearchField(
                     query = memberQuery,

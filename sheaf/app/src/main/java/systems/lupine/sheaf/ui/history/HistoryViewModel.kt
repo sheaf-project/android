@@ -7,6 +7,7 @@ import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
+import systems.lupine.sheaf.data.model.GroupRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.data.network.NetworkMonitor
 import systems.lupine.sheaf.util.toUserMessage
@@ -24,6 +25,8 @@ data class HistoryUiState(
     val hasMore: Boolean = true,
     val error: String? = null,
     val deleteError: String? = null,
+    val groups: List<GroupRead> = emptyList(),
+    val memberGroups: Map<String, Set<String>> = emptyMap(),
 )
 
 private const val PAGE_SIZE = 30
@@ -124,6 +127,26 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun clearError() { _state.update { it.copy(error = null) } }
+
+    fun loadGroupsForFilter() {
+        if (_state.value.groups.isNotEmpty()) return
+        viewModelScope.launch {
+            runCatching { api.listGroups() }
+                .onSuccess { groups ->
+                    _state.update { it.copy(groups = groups) }
+                    val map = mutableMapOf<String, MutableSet<String>>()
+                    groups.forEach { g ->
+                        runCatching { api.getGroupMembers(g.id) }
+                            .onSuccess { members ->
+                                members.forEach { m ->
+                                    map.getOrPut(m.id) { mutableSetOf() }.add(g.id)
+                                }
+                            }
+                    }
+                    _state.update { it.copy(memberGroups = map.mapValues { (_, v) -> v.toSet() }) }
+                }
+        }
+    }
 
     fun loadMore() {
         if (_state.value.isLoadingMore || !_state.value.hasMore) return

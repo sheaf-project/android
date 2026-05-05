@@ -1,6 +1,7 @@
 package systems.lupine.sheaf.ui.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -219,7 +220,13 @@ fun HomeScreen(
         SwitchFrontSheet(
             members = state.allMembers,
             selected = state.switchSelection,
+            endCurrent = state.switchEndCurrent,
+            groups = state.groups,
+            memberGroups = state.memberGroups,
+            activeGroupId = state.switchActiveGroupId,
             onToggle = { viewModel.toggleMemberSelection(it) },
+            onSetEndCurrent = { viewModel.setSwitchEndCurrent(it) },
+            onSetActiveGroup = { viewModel.setSwitchActiveGroup(it) },
             onConfirm = { viewModel.confirmSwitch() },
             onDismiss = { viewModel.closeSwitchSheet() },
             isSwitching = state.isSwitching,
@@ -358,24 +365,42 @@ private fun FrontingMemberCard(member: MemberRead, front: FrontRead?, onLongClic
 private fun SwitchFrontSheet(
     members: List<MemberRead>,
     selected: Set<String>,
+    endCurrent: Boolean,
+    groups: List<systems.lupine.sheaf.data.model.GroupRead>,
+    memberGroups: Map<String, Set<String>>,
+    activeGroupId: String?,
     onToggle: (String) -> Unit,
+    onSetEndCurrent: (Boolean) -> Unit,
+    onSetActiveGroup: (String?) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     isSwitching: Boolean,
 ) {
     var query by remember { mutableStateOf("") }
-    val filtered = remember(query, members) {
-        if (query.isBlank()) members
-        else members.filter { it.displayNameOrName.contains(query.trim(), ignoreCase = true) }
+    val filtered = remember(query, members, activeGroupId, memberGroups) {
+        members.filter { m ->
+            val groupOk = activeGroupId == null || (memberGroups[m.id]?.contains(activeGroupId) == true)
+            val queryOk = query.isBlank() || m.displayNameOrName.contains(query.trim(), ignoreCase = true)
+            groupOk && queryOk
+        }
     }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 "Select who's fronting",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
+            if (groups.isNotEmpty()) {
+                GroupFilterChips(
+                    groups = groups,
+                    activeGroupId = activeGroupId,
+                    onSelect = onSetActiveGroup,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+            }
             if (members.isNotEmpty()) {
                 MemberSearchField(
                     query = query,
@@ -420,6 +445,31 @@ private fun SwitchFrontSheet(
                 }
             }
             HorizontalDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSetEndCurrent(!endCurrent) }
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(
+                    checked = endCurrent,
+                    onCheckedChange = { onSetEndCurrent(it) },
+                )
+                Spacer(Modifier.width(4.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "End current fronts",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        if (endCurrent) "The new front replaces what's already active."
+                        else "The new front runs alongside existing ones.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             Button(
                 onClick = onConfirm,
                 enabled = !isSwitching && selected.isNotEmpty(),
