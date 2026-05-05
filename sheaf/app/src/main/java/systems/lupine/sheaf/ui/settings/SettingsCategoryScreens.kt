@@ -50,6 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import systems.lupine.sheaf.ui.components.StorageQuotaCard
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -358,6 +359,10 @@ fun DataSettingsScreen(
     }
 
     CategoryScaffold(title = "Data", onNavigateUp = onNavigateUp) {
+        StorageQuotaCard(
+            usage = state.fileUsage,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
         SettingItem(
             icon = Icons.Outlined.PhotoLibrary,
             title = "Uploaded files",
@@ -443,14 +448,15 @@ fun AccountSettingsScreen(
             )
         }
 
-        ListItem(
-            headlineContent = { Text("Email") },
-            supportingContent = { Text(state.user?.email ?: "...") },
-            leadingContent = {
-                Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
+        AccountInfoCard(
+            email = state.user?.email,
+            emailVerified = state.user?.emailVerified ?: false,
+            tier = state.user?.tier,
+            accountStatus = state.user?.accountStatus,
+            createdAt = state.user?.createdAt,
+            lastLoginAt = state.user?.lastLoginAt,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
 
         val totpEnabled = state.user?.totpEnabled == true
         ListItem(
@@ -560,6 +566,98 @@ fun AccountSettingsScreen(
             if (state.user?.totpEnabled == false) showDisableTotpDialog = false
         }
     }
+}
+
+@Composable
+private fun AccountInfoCard(
+    email: String?,
+    emailVerified: Boolean,
+    tier: String?,
+    accountStatus: String?,
+    createdAt: String?,
+    lastLoginAt: String?,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Email row with a small verification badge.
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Email", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        email ?: "...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (email != null) {
+                        AssistChip(
+                            onClick = {},
+                            enabled = false,
+                            colors = AssistChipDefaults.assistChipColors(
+                                disabledLabelColor = if (emailVerified) MaterialTheme.colorScheme.tertiary
+                                                    else MaterialTheme.colorScheme.error,
+                            ),
+                            label = {
+                                Text(
+                                    if (emailVerified) "verified" else "unverified",
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            // Tier + status side-by-side.
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Plan", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        tier?.takeIf { it.isNotBlank() }?.let { formatTier(it) } ?: "...",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        when (accountStatus) {
+                            "pending_deletion" -> "Pending deletion"
+                            "active", null -> "Active"
+                            else -> accountStatus.replaceFirstChar { it.uppercase() }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (accountStatus == "pending_deletion") MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+
+            HorizontalDivider()
+
+            // Member since + last login.
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Member since", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatIsoDate(createdAt) ?: "...", style = MaterialTheme.typography.bodyMedium)
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Last login", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formatIsoDate(lastLoginAt) ?: "...", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+    }
+}
+
+private val accountDateFormatter = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy")
+
+private fun formatIsoDate(iso: String?): String? = iso?.let {
+    runCatching { java.time.OffsetDateTime.parse(it).toLocalDate().format(accountDateFormatter) }.getOrNull()
 }
 
 @Composable

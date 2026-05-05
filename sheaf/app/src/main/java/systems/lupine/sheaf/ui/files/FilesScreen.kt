@@ -27,6 +27,7 @@ import systems.lupine.sheaf.data.model.FileRead
 import systems.lupine.sheaf.data.model.FileUsage
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import systems.lupine.sheaf.ui.components.StorageQuotaCard
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
@@ -107,37 +108,6 @@ fun FilesScreen(
             onConfirm = { p, t -> viewModel.confirmDelete(p, t) },
             onDismiss = { viewModel.closeDelete() },
         )
-    }
-}
-
-@Composable
-private fun StorageQuotaCard(usage: FileUsage?, modifier: Modifier = Modifier) {
-    val used = usage?.usedBytes ?: 0L
-    val quota = usage?.quotaBytes ?: 0L
-    val pct = if (quota > 0) (used.toFloat() / quota.toFloat()).coerceIn(0f, 1f) else 0f
-    val barColor = when {
-        pct >= 0.95f -> MaterialTheme.colorScheme.error
-        pct >= 0.80f -> Color(0xFFEAB308)
-        else -> MaterialTheme.colorScheme.primary
-    }
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Storage", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                if (usage == null) "..."
-                else "${formatBytes(used)} of ${formatBytes(quota)} used  ·  ${usage.fileCount} file${plural(usage.fileCount)}",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            LinearProgressIndicator(
-                progress = { pct },
-                color = barColor,
-                trackColor = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-            )
-        }
     }
 }
 

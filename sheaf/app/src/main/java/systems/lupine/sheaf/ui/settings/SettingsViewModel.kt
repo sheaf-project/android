@@ -64,6 +64,7 @@ data class SettingsUiState(
     val fileError: String? = null,
     val orphanDeleteSafety: OrphanFilesDeleteSafety = OrphanFilesDeleteSafety(),
     val orphanDeleteResultMessage: String? = null,
+    val fileUsage: systems.lupine.sheaf.data.model.FileUsage? = null,
 )
 
 private const val CLIENT_ID = "android"
@@ -131,6 +132,9 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
             }
+
+            runCatching { api.getFileUsage() }
+                .onSuccess { usage -> _state.update { it.copy(fileUsage = usage) } }
         }
     }
 
