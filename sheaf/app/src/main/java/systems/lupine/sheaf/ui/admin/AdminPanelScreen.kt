@@ -391,6 +391,7 @@ private fun StepUpSection(
                 onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) totpCode = it },
                 label = { Text("Authenticator Code") },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
