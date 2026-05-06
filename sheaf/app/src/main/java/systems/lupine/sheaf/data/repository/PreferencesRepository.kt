@@ -43,7 +43,7 @@ class PreferencesRepository @Inject constructor(
     val appLockEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_APP_LOCK] ?: false }
 
     suspend fun saveBaseUrl(url: String) {
-        context.dataStore.edit { it[KEY_BASE_URL] = url.trimEnd('/') }
+        context.dataStore.edit { it[KEY_BASE_URL] = normalizeBaseUrl(url) }
     }
 
     suspend fun saveFileCdnBase(url: String?) {
@@ -101,5 +101,20 @@ class PreferencesRepository @Inject constructor(
             it.remove(KEY_CF_CLIENT_ID)
             it.remove(KEY_CF_CLIENT_SECRET)
         }
+    }
+}
+
+// Normalize a user-typed server URL into something the OkHttp interceptor can
+// parse. Trims whitespace and a trailing slash. If the user didn't write a
+// scheme we default to https:// so a bare `app.sheaf.sh` or
+// `app.sheaf.sh:8080` works; opting into plaintext requires explicitly
+// typing `http://`.
+internal fun normalizeBaseUrl(input: String): String {
+    val trimmed = input.trim().trimEnd('/')
+    if (trimmed.isEmpty()) return trimmed
+    val lower = trimmed.lowercase()
+    return when {
+        lower.startsWith("http://") || lower.startsWith("https://") -> trimmed
+        else -> "https://$trimmed"
     }
 }

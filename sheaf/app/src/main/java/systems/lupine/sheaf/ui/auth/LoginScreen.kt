@@ -262,12 +262,17 @@ private fun ServerUrlStep(
         OutlinedTextField(
             value = urlDraft,
             onValueChange = onUrlChange,
-            label = { Text("Server URL") },
-            placeholder = { Text("https://app.sheaf.sh") },
+            label = { Text("Server URL or domain") },
+            placeholder = { Text("app.sheaf.sh") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { if (urlDraft.isNotBlank()) onContinue() }),
             modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "https:// is added automatically. Use http:// explicitly only for plaintext servers.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Button(onClick = onContinue, enabled = urlDraft.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) {
             Text("Continue")

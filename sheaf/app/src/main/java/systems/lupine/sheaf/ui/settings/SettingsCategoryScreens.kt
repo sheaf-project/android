@@ -262,14 +262,22 @@ fun ServerSettingsScreen(
             onDismissRequest = { showUrlDialog = false },
             title = { Text("API Server") },
             text = {
-                OutlinedTextField(
-                    value = urlDraft,
-                    onValueChange = { urlDraft = it },
-                    label = { Text("Base URL") },
-                    placeholder = { Text("https://app.sheaf.sh") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = urlDraft,
+                        onValueChange = { urlDraft = it },
+                        label = { Text("Base URL or domain") },
+                        placeholder = { Text("app.sheaf.sh") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        "https:// is added automatically. To use plaintext (e.g. a local dev server), " +
+                            "type the http:// prefix explicitly.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.saveBaseUrl(urlDraft.trim()); showUrlDialog = false }) {
