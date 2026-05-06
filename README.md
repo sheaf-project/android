@@ -26,6 +26,10 @@ Native Android client for [Sheaf](https://github.com/sheaf-project/sheaf), the o
 
 ## Install
 
+For end-to-end install instructions including Pixel Watch sideloading and the
+shared-`applicationId` gotchas around `adb install`, see
+[`docs/SIDELOADING.md`](docs/SIDELOADING.md).
+
 Latest dev build: <https://github.com/sheaf-project/android/releases/tag/dev>.
 
 The release contains:

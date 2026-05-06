@@ -9,14 +9,19 @@ android {
     compileSdk = 35
 
     defaultConfig {
+        // Shares the phone app's applicationId so the two ship as form-factor
+        // variants of one Play listing. Kotlin/Java package stays
+        // systems.lupine.sheaf.wear via the namespace above.
         applicationId = if (providers.gradleProperty("openBuild").orNull == "true") {
-            "systems.lupine.sheaf.open.wear"
+            "systems.lupine.sheaf.open"
         } else {
-            "systems.lupine.sheaf.wear"
+            "systems.lupine.sheaf"
         }
         minSdk = 26
         targetSdk = 35
-        versionCode = providers.gradleProperty("versionCode").orNull?.toInt() ?: 1
+        // Wear gets phone versionCode + 1 so phone and wear can co-exist in
+        // the same Play listing with distinct codes per APK/AAB.
+        versionCode = (providers.gradleProperty("versionCode").orNull?.toInt() ?: 1) + 1
         versionName = providers.gradleProperty("versionName").orNull ?: "0.1.0"
     }
 
