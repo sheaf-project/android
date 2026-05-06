@@ -54,6 +54,9 @@ data class HomeUiState(
     val pendingOpCount: Int = 0,
     val pendingSafetyActions: List<PendingActionRead> = emptyList(),
     val pendingSafetyChanges: List<SafetyChangeRequestRead> = emptyList(),
+    // Pending revision-retention trim notice from /v1/retention. Set when the
+    // server has a status="pending" notice (typically a tier downgrade).
+    val pendingTrimNotice: systems.lupine.sheaf.data.model.RetentionTrimNoticeRead? = null,
 ) {
     val visibleAnnouncements: List<AnnouncementPublic>
         get() = announcements.filter { it.id !in dismissedAnnouncementIds }
@@ -107,12 +110,14 @@ class HomeViewModel @Inject constructor(
                     val members = api.listMembers()
                     val announcements = runCatching { api.getAnnouncements() }.getOrDefault(emptyList())
                     val safety = runCatching { api.getSystemSafety() }.getOrNull()
+                    val retention = runCatching { api.getRetention() }.getOrNull()
                     // Persist to cache.
                     cache.saveSystem(system)
                     cache.saveMembers(members)
                     cache.saveFronts(fronts)
                     val frontingIds = fronts.flatMap { it.memberIds }.toSet()
                     val frontingMembers = members.filter { it.id in frontingIds }
+                    val trimNotice = retention?.trimNotice?.takeIf { it.status == "pending" }
                     _state.update {
                         it.copy(
                             user = user,
@@ -123,6 +128,7 @@ class HomeViewModel @Inject constructor(
                             announcements = announcements,
                             pendingSafetyActions = safety?.pendingActions ?: it.pendingSafetyActions,
                             pendingSafetyChanges = safety?.pendingChanges ?: it.pendingSafetyChanges,
+                            pendingTrimNotice = trimNotice,
                             isLoading = false,
                         )
                     }

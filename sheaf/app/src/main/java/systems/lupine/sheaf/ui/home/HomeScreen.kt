@@ -42,6 +42,7 @@ import java.time.format.DateTimeParseException
 fun HomeScreen(
     onNavigateToMembers: () -> Unit,
     onNavigateToSystemSafety: () -> Unit,
+    onNavigateToRetention: () -> Unit,
     onNavigateToSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
@@ -120,6 +121,13 @@ fun HomeScreen(
                     count = pendingChangesCount,
                     earliestFinalize = earliest,
                     onClick = onNavigateToSystemSafety,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            state.pendingTrimNotice?.let { notice ->
+                TrimNoticePendingBanner(
+                    notice = notice,
+                    onClick = onNavigateToRetention,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
@@ -566,6 +574,49 @@ private fun parseFinalize(iso: String): OffsetDateTime? = try {
     OffsetDateTime.parse(iso)
 } catch (_: DateTimeParseException) {
     null
+}
+
+// ── Retention trim-notice banner ──────────────────────────────────────────────
+
+@Composable
+private fun TrimNoticePendingBanner(
+    notice: systems.lupine.sheaf.data.model.RetentionTrimNoticeRead,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val effectiveAt = parseFinalize(notice.effectiveAt)
+    val critical = effectiveAt != null &&
+        Duration.between(OffsetDateTime.now(), effectiveAt).toHours() < 24
+    val containerColor = if (critical) MaterialTheme.colorScheme.errorContainer
+                         else LocalWarningColors.current.container
+    val onContainerColor = if (critical) MaterialTheme.colorScheme.onErrorContainer
+                           else LocalWarningColors.current.onContainer
+
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = onContainerColor,
+                modifier = Modifier.size(20.dp),
+            )
+            val time = effectiveAt?.let { formatRelativeFinalize(it) } ?: "soon"
+            Text(
+                "Plan downgrade trim pending: revisions over the new tier limits will be pruned $time. Tap to review.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = onContainerColor,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }
 
 // ── Pending deletion banner ───────────────────────────────────────────────────

@@ -190,6 +190,7 @@ fun SheafApp(
                 HomeScreen(
                     onNavigateToMembers = { navController.navigate(Routes.PEOPLE) },
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                    onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
