@@ -286,6 +286,19 @@ fun SettingsScreen(
                 )
             }
 
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            // About row. Stamps the actual binary identity onto the screen so
+            // "is this build the one I just built" is a glance away — no
+            // dumpsys, no aapt2, no guessing about whether Studio installed
+            // what you think it did.
+            SettingItem(
+                icon = Icons.Outlined.Info,
+                title = "About",
+                subtitle = "Sheaf ${BuildConfig.VERSION_NAME} · ${BuildConfig.GIT_COMMIT}" +
+                    if (BuildConfig.DEBUG) " · debug" else "",
+                onClick = {},
+            )
+
             Spacer(Modifier.height(24.dp))
         }
     }

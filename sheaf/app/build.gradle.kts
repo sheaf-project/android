@@ -6,6 +6,17 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Short git SHA of HEAD at configure time. Surfaced via BuildConfig so the
+// in-app About row can prove which build is actually running on the device,
+// independent of versionName. Falls back to "unknown" outside a git checkout
+// (e.g. release tarball builds).
+val gitCommitShort: String = runCatching {
+    ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+        .redirectErrorStream(true)
+        .start()
+        .inputStream.bufferedReader().readText().trim()
+}.getOrNull()?.takeIf { it.isNotBlank() } ?: "unknown"
+
 android {
     namespace = "systems.lupine.sheaf"
     compileSdk = 35
@@ -20,6 +31,7 @@ android {
         targetSdk = 35
         versionCode = providers.gradleProperty("versionCode").orNull?.toInt() ?: 1
         versionName = providers.gradleProperty("versionName").orNull ?: "0.1.0"
+        buildConfigField("String", "GIT_COMMIT", "\"$gitCommitShort\"")
     }
 
     buildTypes {

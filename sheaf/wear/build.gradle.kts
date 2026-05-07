@@ -5,6 +5,15 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Short git SHA of HEAD at configure time. Surfaced via BuildConfig so the
+// in-app About row can prove which build is actually running on the watch.
+val gitCommitShort: String = runCatching {
+    ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+        .redirectErrorStream(true)
+        .start()
+        .inputStream.bufferedReader().readText().trim()
+}.getOrNull()?.takeIf { it.isNotBlank() } ?: "unknown"
+
 android {
     namespace = "systems.lupine.sheaf.wear"
     compileSdk = 35
@@ -26,6 +35,7 @@ android {
         // fall back to 1+1=2, which never reaches Play.
         versionCode = (providers.gradleProperty("versionCode").orNull?.toInt() ?: 1) + 1
         versionName = providers.gradleProperty("versionName").orNull ?: "0.1.0"
+        buildConfigField("String", "GIT_COMMIT", "\"$gitCommitShort\"")
     }
 
     buildTypes {
@@ -49,6 +59,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

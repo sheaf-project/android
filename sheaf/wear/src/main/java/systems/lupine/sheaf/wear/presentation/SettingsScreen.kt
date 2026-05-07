@@ -20,6 +20,7 @@ import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
 import androidx.wear.compose.material.ToggleChipDefaults
+import systems.lupine.sheaf.wear.BuildConfig
 
 @Composable
 fun SettingsScreen(navController: NavController) {
@@ -118,6 +119,19 @@ fun SettingsScreen(navController: NavController) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+            }
+
+            // About row pinned at the bottom. Stamps the actual binary
+            // identity onto the screen so we can tell at a glance which
+            // build is running on the watch — independent of versionName,
+            // which can be the same across many local builds.
+            item {
+                Text(
+                    text = "Sheaf ${BuildConfig.VERSION_NAME} · ${BuildConfig.GIT_COMMIT}" +
+                        if (BuildConfig.DEBUG) " · debug" else "",
+                    style = MaterialTheme.typography.caption2,
+                    color = MaterialTheme.colors.onSurface.copy(alpha = 0.5f),
+                )
             }
         }
     }
