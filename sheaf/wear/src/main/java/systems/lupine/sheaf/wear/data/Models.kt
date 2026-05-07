@@ -1,7 +1,9 @@
 package systems.lupine.sheaf.wear.data
 
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 
+@JsonClass(generateAdapter = true)
 data class WearMember(
     val id: String,
     val name: String,
@@ -24,6 +26,7 @@ data class WearMember(
             .ifEmpty { "?" }
 }
 
+@JsonClass(generateAdapter = true)
 data class WearGroup(
     val id: String,
     val name: String,
@@ -31,6 +34,7 @@ data class WearGroup(
     val color: String?,
 )
 
+@JsonClass(generateAdapter = true)
 data class WearFront(
     val id: String,
     @Json(name = "member_ids") val memberIds: List<String>,
@@ -42,9 +46,28 @@ data class WearFront(
     @Json(name = "member_since_capped") val memberSinceCapped: List<String> = emptyList(),
 )
 
+@JsonClass(generateAdapter = true)
 internal data class TokenPair(
     @Json(name = "access_token") val accessToken: String,
     @Json(name = "refresh_token") val refreshToken: String,
+)
+
+// Request bodies. Top-level (not nested inside WearApiClient) so Moshi codegen
+// can generate adapters for them — KSP won't generate adapters for private
+// nested classes.
+@JsonClass(generateAdapter = true)
+internal data class LoginBody(val email: String, val password: String)
+
+@JsonClass(generateAdapter = true)
+internal data class MemberCreateBody(
+    val name: String,
+    @Json(name = "display_name") val displayName: String?,
+    val pronouns: String?,
+)
+
+@JsonClass(generateAdapter = true)
+internal data class GroupMembersBody(
+    @Json(name = "member_ids") val memberIds: List<String>,
 )
 
 class WearApiException(val code: Int, body: String? = null) : Exception(

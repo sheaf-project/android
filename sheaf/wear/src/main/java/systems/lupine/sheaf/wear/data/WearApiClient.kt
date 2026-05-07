@@ -1,9 +1,7 @@
 package systems.lupine.sheaf.wear.data
 
-import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -21,9 +19,10 @@ class WearApiClient(private val auth: WearAuthManager) {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    private val moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
+    // Codegen-only Moshi: every data class we round-trip is annotated
+    // @JsonClass(generateAdapter = true) and its adapter is generated at
+    // compile-time by KSP. No reflection required, so this survives R8.
+    private val moshi = Moshi.Builder().build()
 
     // Refresh tokens are one-shot server-side: a second /refresh with the same
     // jti trips reuse detection and kills the session. Serialize refreshes so
@@ -78,14 +77,6 @@ class WearApiClient(private val auth: WearAuthManager) {
             }
         }
     }
-
-    private data class LoginBody(val email: String, val password: String)
-    private data class MemberCreateBody(
-        val name: String,
-        @Json(name = "display_name") val displayName: String?,
-        val pronouns: String?,
-    )
-    private data class GroupMembersBody(@Json(name = "member_ids") val memberIds: List<String>)
 
     /**
      * Login with email + password against [baseUrl] and persist the returned tokens.

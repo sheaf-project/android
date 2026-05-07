@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -29,10 +30,7 @@ android {
 
     buildTypes {
         release {
-            // Off until wear is migrated to Moshi KSP codegen. R8 strips the
-            // Kotlin metadata that KotlinJsonAdapterFactory needs for reflective
-            // parsing, crashing /members on first network response.
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -79,6 +77,7 @@ dependencies {
     // Networking
     implementation(libs.okhttp.logging)
     implementation(libs.moshi.kotlin)
+    ksp(libs.moshi.kotlin.codegen)
 
     // Image loading
     implementation(libs.coil.compose)
