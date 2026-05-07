@@ -19,8 +19,10 @@ android {
         }
         minSdk = 26
         targetSdk = 35
-        // Wear gets phone versionCode + 1 so phone and wear can co-exist in
-        // the same Play listing with distinct codes per APK/AAB.
+        // Form-factor index appended to phone's base*10 versionCode: phone=0,
+        // wear=1. CI passes -PversionCode already multiplied by 10, so +1 here
+        // lands wear at base*10+1. Standalone dev builds (no -PversionCode)
+        // fall back to 1+1=2, which never reaches Play.
         versionCode = (providers.gradleProperty("versionCode").orNull?.toInt() ?: 1) + 1
         versionName = providers.gradleProperty("versionName").orNull ?: "0.1.0"
     }

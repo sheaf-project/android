@@ -31,13 +31,16 @@ jobs:
           MAJOR="${BASH_REMATCH[1]}"
           MINOR="${BASH_REMATCH[2]}"
           PATCH="${BASH_REMATCH[3]}"
-          # versionCode = M*10000 + m*100 + p (v0.1.0 -> 100, v1.0.0 -> 10000).
+          # versionCode = (M*10000 + m*100 + p) * 10, with the low digit reserved
+          # for form-factor index (phone=0, wear=1, future TV/Auto=2,3,...).
+          # v0.1.0 -> phone 1000 / wear 1001; v1.0.0 -> phone 100000 / wear 100001.
           # Caps minor/patch at 99 each. Bump the scheme before those caps bite.
           if [ "$MINOR" -gt 99 ] || [ "$PATCH" -gt 99 ]; then
             echo "ERROR: minor and patch must be <= 99 under current versionCode scheme"
             exit 1
           fi
-          VCODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          VCODE_BASE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          VCODE=$((VCODE_BASE * 10))
           VNAME="${MAJOR}.${MINOR}.${PATCH}"
           # 0.x is treated as pre-release for the public GitHub Release marker.
           if [ "$MAJOR" -eq 0 ]; then
