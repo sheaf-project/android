@@ -132,9 +132,10 @@ class WearApiClient(private val auth: WearAuthManager) {
         return moshi.adapter<List<WearFront>>(type).fromJson(body)!!
     }
 
-    suspend fun createFront(memberIds: List<String>) {
+    suspend fun createFront(memberIds: List<String>, replaceFronts: Boolean? = null) {
         val ids = memberIds.joinToString(",") { "\"$it\"" }
-        val json = """{"member_ids":[$ids]}"""
+        val replaceField = replaceFronts?.let { ""","replace_fronts":$it""" } ?: ""
+        val json = """{"member_ids":[$ids]$replaceField}"""
         execute {
             Request.Builder()
                 .url(url("/v1/fronts"))

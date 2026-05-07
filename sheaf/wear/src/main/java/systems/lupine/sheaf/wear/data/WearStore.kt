@@ -45,10 +45,10 @@ class WearStore(
         }
     }
 
-    suspend fun switchFront(memberIds: List<String>): Boolean {
+    suspend fun switchFront(memberIds: List<String>, replaceFronts: Boolean? = null): Boolean {
         error.value = null
         return try {
-            apiClient.createFront(memberIds)
+            apiClient.createFront(memberIds, replaceFronts)
             loadAll()
             true
         } catch (e: Exception) {

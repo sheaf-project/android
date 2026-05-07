@@ -27,10 +27,12 @@ import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import systems.lupine.sheaf.wear.R
 import systems.lupine.sheaf.wear.data.WearAuthManager
+import systems.lupine.sheaf.wear.data.WearSettingsStore
 import systems.lupine.sheaf.wear.data.WearStore
 
-val LocalWearStore = staticCompositionLocalOf<WearStore> { error("No WearStore") }
-val LocalWearAuth  = staticCompositionLocalOf<WearAuthManager> { error("No WearAuthManager") }
+val LocalWearStore    = staticCompositionLocalOf<WearStore> { error("No WearStore") }
+val LocalWearAuth     = staticCompositionLocalOf<WearAuthManager> { error("No WearAuthManager") }
+val LocalWearSettings = staticCompositionLocalOf<WearSettingsStore> { error("No WearSettingsStore") }
 
 const val NAV_MENU           = "menu"
 const val NAV_HOME           = "home"
@@ -43,7 +45,12 @@ const val NAV_MEMBER_PROFILE = "member_profile"
 const val NAV_ADD_MEMBER     = "add_member"
 
 @Composable
-fun WearNavigation(authManager: WearAuthManager, store: WearStore, onRequestSync: () -> Unit = {}) {
+fun WearNavigation(
+    authManager: WearAuthManager,
+    store: WearStore,
+    settings: WearSettingsStore,
+    onRequestSync: () -> Unit = {},
+) {
     val isAuthenticated by authManager.isAuthenticatedFlow.collectAsState()
 
     LaunchedEffect(isAuthenticated) {
@@ -96,8 +103,9 @@ fun WearNavigation(authManager: WearAuthManager, store: WearStore, onRequestSync
 
     val navController = rememberSwipeDismissableNavController()
     CompositionLocalProvider(
-        LocalWearStore provides store,
-        LocalWearAuth  provides authManager,
+        LocalWearStore    provides store,
+        LocalWearAuth     provides authManager,
+        LocalWearSettings provides settings,
     ) {
         SwipeDismissableNavHost(
             navController = navController,

@@ -15,15 +15,20 @@ import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
+import androidx.wear.compose.material.Switch
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
+import androidx.wear.compose.material.ToggleChip
+import androidx.wear.compose.material.ToggleChipDefaults
 
 @Composable
 fun SettingsScreen(navController: NavController) {
     val store = LocalWearStore.current
     val auth = LocalWearAuth.current
+    val settings = LocalWearSettings.current
     val members by store.members.collectAsState()
     val fronts by store.currentFronts.collectAsState()
+    val endExistingDefault by settings.endExistingFronts.collectAsState()
 
     var confirmSignOut by remember { mutableStateOf(false) }
 
@@ -54,6 +59,19 @@ fun SettingsScreen(navController: NavController) {
                     label = { Text("Refresh") },
                     onClick = { store.loadAll() },
                     colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                ToggleChip(
+                    checked = endExistingDefault,
+                    onCheckedChange = { settings.setEndExistingFronts(it) },
+                    label = { Text("End fronts on switch") },
+                    secondaryLabel = { Text("Default for the switch screen") },
+                    toggleControl = {
+                        Switch(checked = endExistingDefault, onCheckedChange = null)
+                    },
+                    colors = ToggleChipDefaults.toggleChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

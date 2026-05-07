@@ -1,8 +1,10 @@
 package systems.lupine.sheaf.wear.presentation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -24,19 +26,26 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
+import androidx.wear.compose.material.ToggleChip
+import androidx.wear.compose.material.ToggleChipDefaults
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun SwitchScreen(navController: NavController) {
     val store = LocalWearStore.current
+    val settings = LocalWearSettings.current
     val members by store.members.collectAsState()
     val fronts by store.currentFronts.collectAsState()
     val error by store.error.collectAsState()
+    val endExistingDefault by settings.endExistingFronts.collectAsState()
     val scope = rememberCoroutineScope()
 
     val frontingIds = fronts.flatMap { it.memberIds }.toSet()
     var selected by remember(frontingIds) { mutableStateOf(frontingIds) }
+    // Per-screen-entry copy of the user's default. Flipping it here is a
+    // one-shot override for this switch and doesn't change the saved default.
+    var endExisting by remember(endExistingDefault) { mutableStateOf(endExistingDefault) }
     var isSwitching by remember { mutableStateOf(false) }
     var switched by remember { mutableStateOf(false) }
 
@@ -64,59 +73,84 @@ fun SwitchScreen(navController: NavController) {
                 }
             }
             else -> {
-                ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
-                    item {
-                        Text(
-                            text = "Switch Front",
-                            style = MaterialTheme.typography.title3,
-                        )
-                    }
-
-                    if (error != null) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Bottom contentPadding leaves room for the pinned confirm
+                    // chip overlay; the list scrolls behind it so the confirm
+                    // is reachable no matter how long the member list is.
+                    ScalingLazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 56.dp),
+                    ) {
                         item {
                             Text(
-                                text = error!!,
-                                style = MaterialTheme.typography.caption1,
-                                color = MaterialTheme.colors.error,
+                                text = "Switch Front",
+                                style = MaterialTheme.typography.title3,
+                            )
+                        }
+
+                        if (error != null) {
+                            item {
+                                Text(
+                                    text = error!!,
+                                    style = MaterialTheme.typography.caption1,
+                                    color = MaterialTheme.colors.error,
+                                )
+                            }
+                        }
+
+                        item {
+                            ToggleChip(
+                                checked = endExisting,
+                                onCheckedChange = { endExisting = it },
+                                label = { Text("End existing fronts") },
+                                toggleControl = {
+                                    androidx.wear.compose.material.Switch(
+                                        checked = endExisting,
+                                        onCheckedChange = null,
+                                    )
+                                },
+                                colors = ToggleChipDefaults.toggleChipColors(),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+
+                        items(members) { member ->
+                            val isSelected = member.id in selected
+                            val emoji = member.emoji?.takeIf { it.isNotBlank() }
+                            Chip(
+                                label = {
+                                    Text(if (emoji != null) "$emoji ${member.displayNameOrName}" else member.displayNameOrName)
+                                },
+                                icon = { MemberAvatar(member = member, size = 28.dp) },
+                                onClick = {
+                                    selected = if (isSelected) selected - member.id
+                                               else selected + member.id
+                                },
+                                colors = if (isSelected) ChipDefaults.primaryChipColors()
+                                         else ChipDefaults.secondaryChipColors(),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
 
-                    items(members) { member ->
-                        val isSelected = member.id in selected
-                        val emoji = member.emoji?.takeIf { it.isNotBlank() }
-                        Chip(
-                            label = {
-                                Text(if (emoji != null) "$emoji ${member.displayNameOrName}" else member.displayNameOrName)
-                            },
-                            icon = { MemberAvatar(member = member, size = 28.dp) },
-                            onClick = {
-                                selected = if (isSelected) selected - member.id
-                                           else selected + member.id
-                            },
-                            colors = if (isSelected) ChipDefaults.primaryChipColors()
-                                     else ChipDefaults.secondaryChipColors(),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    item {
-                        Chip(
-                            label = {
-                                Text(if (selected.isEmpty()) "Clear Front" else "Switch (${selected.size})")
-                            },
-                            onClick = {
-                                isSwitching = true
-                                scope.launch {
-                                    val ok = store.switchFront(selected.toList())
-                                    isSwitching = false
-                                    if (ok) switched = true
-                                }
-                            },
-                            colors = ChipDefaults.primaryChipColors(),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
+                    Chip(
+                        label = {
+                            Text(if (selected.isEmpty()) "Clear Front" else "Switch (${selected.size})")
+                        },
+                        onClick = {
+                            isSwitching = true
+                            scope.launch {
+                                val ok = store.switchFront(selected.toList(), endExisting)
+                                isSwitching = false
+                                if (ok) switched = true
+                            }
+                        },
+                        colors = ChipDefaults.primaryChipColors(),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
                 }
             }
         }

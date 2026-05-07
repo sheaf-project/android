@@ -8,6 +8,7 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import systems.lupine.sheaf.wear.data.WearApiClient
 import systems.lupine.sheaf.wear.data.WearAuthManager
+import systems.lupine.sheaf.wear.data.WearSettingsStore
 import systems.lupine.sheaf.wear.data.WearStore
 import systems.lupine.sheaf.wear.datalayer.WearDataLayerService
 import systems.lupine.sheaf.wear.presentation.WearNavigation
@@ -17,12 +18,14 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var authManager: WearAuthManager
     private lateinit var store: WearStore
+    private lateinit var settings: WearSettingsStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         authManager = WearAuthManager(applicationContext)
         store = WearStore(WearApiClient(authManager), applicationContext)
+        settings = WearSettingsStore(applicationContext)
 
         // Try to load cached credentials from the Data Layer first, then fall
         // back to requesting a fresh push from the phone. The cached DataItem
@@ -36,6 +39,7 @@ class MainActivity : ComponentActivity() {
                 WearNavigation(
                     authManager = authManager,
                     store = store,
+                    settings = settings,
                     onRequestSync = ::loadCredentialsFromDataLayer,
                 )
             }
