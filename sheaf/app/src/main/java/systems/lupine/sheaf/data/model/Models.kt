@@ -32,6 +32,7 @@ data class UserLogin(
     val password: String,
     @Json(name = "totp_code") val totpCode: String? = null,
     val captcha: String? = null,
+    @Json(name = "remember_device") val rememberDevice: Boolean = false,
 )
 
 // ── Altcha v2 captcha ────────────────────────────────────────────────────────

@@ -131,12 +131,22 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun submitTotp(code: String) {
+    fun submitTotp(code: String, rememberDevice: Boolean = false) {
         val email = pendingEmail ?: return
         val password = pendingPassword ?: return
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
-            runCatching { api.login(UserLogin(email, password, totpCode = code, captcha = pendingCaptcha)) }
+            runCatching {
+                api.login(
+                    UserLogin(
+                        email = email,
+                        password = password,
+                        totpCode = code,
+                        captcha = pendingCaptcha,
+                        rememberDevice = rememberDevice,
+                    )
+                )
+            }
                 .onSuccess { tokens -> handleLoginSuccess(tokens) }
                 .onFailure { e ->
                     authInterceptor.pendingToken = null
@@ -237,6 +247,12 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.logout() }
             prefs.clearTokens()
+            // Clearing the trusted-device cookie locally is a UX nicety — it
+            // makes "log out, log back in" prompt for TOTP again on the same
+            // install. The server-side trusted-device record stays valid until
+            // it expires or the user revokes it from the trusted-devices
+            // settings screen.
+            prefs.clearTrustedDeviceCookie()
             clearPending()
             _pendingOnboarding.value = false
         }

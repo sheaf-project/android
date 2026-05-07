@@ -6,6 +6,7 @@ import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.api.TokenAuthenticator
+import systems.lupine.sheaf.data.api.TrustedDeviceCookieJar
 import systems.lupine.sheaf.data.api.UserAgentInterceptor
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
@@ -45,8 +46,10 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         baseUrlInterceptor: BaseUrlInterceptor,
         tokenAuthenticator: TokenAuthenticator,
+        cookieJar: TrustedDeviceCookieJar,
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
+            .cookieJar(cookieJar)
             .addInterceptor(baseUrlInterceptor)
             .addInterceptor(authInterceptor)
             .authenticator(tokenAuthenticator)

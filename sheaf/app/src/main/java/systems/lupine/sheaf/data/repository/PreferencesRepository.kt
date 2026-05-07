@@ -5,10 +5,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import javax.inject.Inject
@@ -30,6 +32,11 @@ class PreferencesRepository @Inject constructor(
         val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
         val KEY_FILE_CDN_BASE = stringPreferencesKey("file_cdn_base")
         val KEY_APP_LOCK = booleanPreferencesKey("app_lock")
+        // Mirrors the backend's sheaf_trusted_device cookie. We store it
+        // verbatim plus its expiry-millis so the CookieJar can drop it once
+        // expired without a server round-trip.
+        val KEY_TRUSTED_DEVICE_COOKIE = stringPreferencesKey("trusted_device_cookie")
+        val KEY_TRUSTED_DEVICE_EXPIRES_AT = longPreferencesKey("trusted_device_expires_at")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -101,6 +108,32 @@ class PreferencesRepository @Inject constructor(
             it.remove(KEY_CF_CLIENT_ID)
             it.remove(KEY_CF_CLIENT_SECRET)
         }
+    }
+
+    suspend fun saveTrustedDeviceCookie(value: String, expiresAtMs: Long) {
+        context.dataStore.edit {
+            it[KEY_TRUSTED_DEVICE_COOKIE] = value
+            it[KEY_TRUSTED_DEVICE_EXPIRES_AT] = expiresAtMs
+        }
+    }
+
+    suspend fun clearTrustedDeviceCookie() {
+        context.dataStore.edit {
+            it.remove(KEY_TRUSTED_DEVICE_COOKIE)
+            it.remove(KEY_TRUSTED_DEVICE_EXPIRES_AT)
+        }
+    }
+
+    /**
+     * Synchronous read for use from non-suspending contexts (the OkHttp
+     * [okhttp3.CookieJar] callbacks). Returns the stored cookie value if it
+     * hasn't expired, otherwise null.
+     */
+    fun trustedDeviceCookieBlocking(): String? = kotlinx.coroutines.runBlocking {
+        val prefs = context.dataStore.data.first()
+        val value = prefs[KEY_TRUSTED_DEVICE_COOKIE] ?: return@runBlocking null
+        val expiresAt = prefs[KEY_TRUSTED_DEVICE_EXPIRES_AT] ?: 0L
+        if (expiresAt > System.currentTimeMillis()) value else null
     }
 }
 

@@ -1,6 +1,7 @@
 package systems.lupine.sheaf.ui.auth
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -159,9 +160,9 @@ fun LoginScreen(
                 "totp" -> TotpStep(
                     isLoading = isLoading,
                     error = totpState?.error,
-                    onSubmit = { code ->
+                    onSubmit = { code, rememberDevice ->
                         focusManager.clearFocus()
-                        viewModel.submitTotp(code)
+                        viewModel.submitTotp(code, rememberDevice)
                     },
                     onCancel = { viewModel.cancelTotp() },
                 )
@@ -372,10 +373,11 @@ private fun AuthStep(
 private fun TotpStep(
     isLoading: Boolean,
     error: String?,
-    onSubmit: (String) -> Unit,
+    onSubmit: (code: String, rememberDevice: Boolean) -> Unit,
     onCancel: () -> Unit,
 ) {
     var code by remember { mutableStateOf("") }
+    var rememberDevice by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -413,7 +415,7 @@ private fun TotpStep(
                 val filtered = new.filter { it.isDigit() }.take(6)
                 code = filtered
                 // Auto-submit when 6 digits entered
-                if (filtered.length == 6) onSubmit(filtered)
+                if (filtered.length == 6) onSubmit(filtered, rememberDevice)
             },
             label = { Text("Authenticator code") },
             placeholder = { Text("000000") },
@@ -422,14 +424,31 @@ private fun TotpStep(
                 keyboardType = KeyboardType.NumberPassword,
                 imeAction = ImeAction.Done,
             ),
-            keyboardActions = KeyboardActions(onDone = { if (code.length == 6) onSubmit(code) }),
+            keyboardActions = KeyboardActions(onDone = { if (code.length == 6) onSubmit(code, rememberDevice) }),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester),
         )
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { rememberDevice = !rememberDevice },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = rememberDevice,
+                onCheckedChange = { rememberDevice = it },
+            )
+            Text(
+                "Remember this device for 30 days",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+
         Button(
-            onClick = { onSubmit(code) },
+            onClick = { onSubmit(code, rememberDevice) },
             enabled = !isLoading && code.length == 6,
             modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
