@@ -67,6 +67,13 @@
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="androidx.wear.watchface.complications.datasource.ComplicationDataSourceService" />
+                <!-- Legacy support-wearable action. Wear OS 6's complication
+                     picker (the RWF/WFF one on Pixel Watch 3) still discovers
+                     providers via the legacy action filter; declaring only
+                     the modern AndroidX one gets us into PackageManager but
+                     not into the watchface picker. SuspendingComplicationDataSourceService
+                     responds to both internally. -->
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
@@ -87,6 +94,13 @@
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="androidx.wear.watchface.complications.datasource.ComplicationDataSourceService" />
+                <!-- Legacy support-wearable action. Wear OS 6's complication
+                     picker (the RWF/WFF one on Pixel Watch 3) still discovers
+                     providers via the legacy action filter; declaring only
+                     the modern AndroidX one gets us into PackageManager but
+                     not into the watchface picker. SuspendingComplicationDataSourceService
+                     responds to both internally. -->
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
@@ -107,6 +121,13 @@
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="androidx.wear.watchface.complications.datasource.ComplicationDataSourceService" />
+                <!-- Legacy support-wearable action. Wear OS 6's complication
+                     picker (the RWF/WFF one on Pixel Watch 3) still discovers
+                     providers via the legacy action filter; declaring only
+                     the modern AndroidX one gets us into PackageManager but
+                     not into the watchface picker. SuspendingComplicationDataSourceService
+                     responds to both internally. -->
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
@@ -127,6 +148,13 @@
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="androidx.wear.watchface.complications.datasource.ComplicationDataSourceService" />
+                <!-- Legacy support-wearable action. Wear OS 6's complication
+                     picker (the RWF/WFF one on Pixel Watch 3) still discovers
+                     providers via the legacy action filter; declaring only
+                     the modern AndroidX one gets us into PackageManager but
+                     not into the watchface picker. SuspendingComplicationDataSourceService
+                     responds to both internally. -->
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
@@ -147,6 +175,13 @@
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="androidx.wear.watchface.complications.datasource.ComplicationDataSourceService" />
+                <!-- Legacy support-wearable action. Wear OS 6's complication
+                     picker (the RWF/WFF one on Pixel Watch 3) still discovers
+                     providers via the legacy action filter; declaring only
+                     the modern AndroidX one gets us into PackageManager but
+                     not into the watchface picker. SuspendingComplicationDataSourceService
+                     responds to both internally. -->
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
@@ -167,6 +202,13 @@
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="androidx.wear.watchface.complications.datasource.ComplicationDataSourceService" />
+                <!-- Legacy support-wearable action. Wear OS 6's complication
+                     picker (the RWF/WFF one on Pixel Watch 3) still discovers
+                     providers via the legacy action filter; declaring only
+                     the modern AndroidX one gets us into PackageManager but
+                     not into the watchface picker. SuspendingComplicationDataSourceService
+                     responds to both internally. -->
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
