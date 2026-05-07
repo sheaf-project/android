@@ -4,6 +4,57 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.4] - 2026-05-07
+
+Phone polish, wear OS substantive overhaul, and a couple of correctness
+fixes that affect both clients.
+
+### Added
+
+- "Remember this device" checkbox on the TOTP login prompt: when ticked,
+  successful TOTP earns a 30-day trusted-device cookie that lets future
+  logins skip TOTP from the same install. Mirrors the iOS flow. Manage
+  trusted devices server-side via the trusted-devices settings.
+- Real Sheaf logo on the phone launcher icon, the wear launcher icon,
+  and the login screen, replacing the placeholder vectors from initial
+  bootstrap.
+- Wear OS member rendering polish: circular member avatars in every
+  chip slot, member emoji surfaced as a label prefix and as the
+  fallback glyph in the avatar circle, markdown-stripping on member
+  descriptions so `![alt](url)` and `**bold**` no longer leak as raw
+  source.
+- Wear OS Home and Members screens gained a manual Refresh chip near
+  the top of each list.
+- Wear OS Switch screen has a sticky bottom commit chip in a distinct
+  mint-green tint, an "End existing fronts" ToggleChip at the top, and
+  a persisted default for the toggle (Settings → End fronts on switch).
+- Wear OS Currently Fronting tile actually renders now (an overlooked
+  `onTileResourcesRequest` override was causing it to draw blank).
+
+### Fixed
+
+- "Fronting since" timer no longer resets on phone or wear when one
+  fronter is added or removed. The remaining members keep their
+  effective fronting-since (per the backend's `member_since` field
+  introduced server-side, which walks each member's chain of
+  contiguous fronts back to its earliest start).
+- TOTP code field no longer auto-submits when the 6th digit is typed,
+  so the new "Remember this device" checkbox is actually tickable.
+- Trusted-device cookie persists across logout instead of being wiped,
+  matching browser and iOS behaviour. The cookie belongs to the
+  device, not the session.
+- Wear Members screen no longer crashes parsing API responses on the
+  release build. Wear is now on Moshi KSP codegen so R8 minification
+  is back on.
+
+### Build
+
+- Phone and wear `versionCode` are now derived from the tag as
+  `(M*10000 + m*100 + p) * 10 + form_factor_index`, where phone=0 and
+  wear=1. The previous scheme collided across releases (phone v0.1.N+1
+  shared a code with wear v0.1.N) and was the reason v0.1.2 phone
+  couldn't be uploaded to Play.
+
 ## [0.1.0] - 2026-05-06
 
 First public release. Phone + Wear OS, available via Google Play, GitHub
