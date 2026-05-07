@@ -28,6 +28,7 @@ fun HomeScreen(navController: NavController) {
     val store = LocalWearStore.current
     val fronts by store.currentFronts.collectAsState()
     val isLoading by store.isLoading.collectAsState()
+    val isRefreshing = isLoading && fronts.isNotEmpty()
 
     val error by store.error.collectAsState()
     val frontingMembers = store.frontingMembers
@@ -66,6 +67,15 @@ fun HomeScreen(navController: NavController) {
                     text = "Currently Fronting",
                     style = MaterialTheme.typography.caption1,
                     color = MaterialTheme.colors.onSurface.copy(alpha = 0.7f),
+                )
+            }
+
+            item {
+                Chip(
+                    label = { Text(if (isRefreshing) "Refreshing..." else "Refresh") },
+                    onClick = { if (!isRefreshing) store.loadAll() },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 

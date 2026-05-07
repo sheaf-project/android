@@ -29,6 +29,7 @@ fun MembersScreen(navController: NavController) {
 
     val error by store.error.collectAsState()
     val frontingIds = fronts.flatMap { it.memberIds }.toSet()
+    val isRefreshing = isLoading && members.isNotEmpty()
 
     Scaffold(timeText = { TimeText() }) {
         if (isLoading && members.isEmpty()) {
@@ -54,6 +55,15 @@ fun MembersScreen(navController: NavController) {
                         color = MaterialTheme.colors.error,
                     )
                 }
+            }
+
+            item {
+                Chip(
+                    label = { Text(if (isRefreshing) "Refreshing..." else "Refresh") },
+                    onClick = { if (!isRefreshing) store.loadAll() },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             item {
