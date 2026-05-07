@@ -414,6 +414,14 @@ data class FrontRead(
     @Json(name = "started_at") val startedAt: String,
     @Json(name = "ended_at") val endedAt: String?,
     @Json(name = "member_ids") val memberIds: List<String>,
+    // Per-member effective fronting-since (chain-aware) when the system has
+    // coalesce_contiguous_fronts enabled. Keys are member ids; values are
+    // ISO timestamps of the earliest started_at in each member's contiguous
+    // chain. Falls back to this.startedAt when absent.
+    @Json(name = "member_since") val memberSince: Map<String, String> = emptyMap(),
+    // Member ids whose member_since hit the server-side walk-back depth cap.
+    // Their timestamp is a lower bound; UI should prefix with "> ".
+    @Json(name = "member_since_capped") val memberSinceCapped: List<String> = emptyList(),
 )
 
 @JsonClass(generateAdapter = true)

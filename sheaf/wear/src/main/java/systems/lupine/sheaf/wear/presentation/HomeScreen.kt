@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,7 +35,26 @@ fun HomeScreen(navController: NavController) {
 
     val error by store.error.collectAsState()
     val frontingMembers = store.frontingMembers
-    val oldest = store.oldestFront
+
+    // Per-member effective fronting-since (chain-aware via member_since when
+    // the system has coalesce_contiguous_fronts enabled). Falls back to each
+    // front's started_at when absent, and uses the earliest across overlapping
+    // open fronts. Capped members render with a "> " prefix.
+    val (memberSinceMap, cappedSet) = remember(fronts) {
+        val out = mutableMapOf<String, String>()
+        val capped = mutableSetOf<String>()
+        fronts.forEach { f ->
+            f.memberIds.forEach { mid ->
+                val since = f.memberSince[mid] ?: f.startedAt
+                if (since != null) {
+                    val existing = out[mid]
+                    if (existing == null || since < existing) out[mid] = since
+                }
+                if (mid in f.memberSinceCapped) capped.add(mid)
+            }
+        }
+        out.toMap() to capped.toSet()
+    }
 
     Scaffold(timeText = { TimeText() }) {
         if (isLoading && frontingMembers.isEmpty()) {
@@ -72,9 +92,20 @@ fun HomeScreen(navController: NavController) {
                 }
             } else {
                 items(frontingMembers) { member ->
+                    val since = memberSinceMap[member.id]
+                    val isCapped = member.id in cappedSet
+                    val secondary = buildString {
+                        val parts = mutableListOf<String>()
+                        member.pronouns?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+                        since?.let {
+                            val ago = timeAgo(it)
+                            parts.add(if (isCapped) "> $ago" else ago)
+                        }
+                        append(parts.joinToString(" · "))
+                    }
                     Chip(
                         label = { Text(member.displayNameOrName) },
-                        secondaryLabel = member.pronouns?.let { { Text(it) } },
+                        secondaryLabel = secondary.takeIf { it.isNotEmpty() }?.let { { Text(it) } },
                         icon = {
                             Box(
                                 modifier = Modifier
@@ -86,16 +117,6 @@ fun HomeScreen(navController: NavController) {
                         colors = ChipDefaults.secondaryChipColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                }
-
-                oldest?.startedAt?.let { startedAt ->
-                    item {
-                        Text(
-                            text = "Fronting for ${timeAgo(startedAt)}",
-                            style = MaterialTheme.typography.caption2,
-                            color = MaterialTheme.colors.primary,
-                        )
-                    }
                 }
             }
 

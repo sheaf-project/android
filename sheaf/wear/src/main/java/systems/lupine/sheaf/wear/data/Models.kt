@@ -34,6 +34,11 @@ data class WearFront(
     val id: String,
     @Json(name = "member_ids") val memberIds: List<String>,
     @Json(name = "started_at") val startedAt: String?,
+    // Per-member chain-aware fronting-since, populated when the system has
+    // coalesce_contiguous_fronts enabled. Falls back to startedAt when absent.
+    @Json(name = "member_since") val memberSince: Map<String, String> = emptyMap(),
+    // Member ids whose member_since hit the server-side walk-back depth cap.
+    @Json(name = "member_since_capped") val memberSinceCapped: List<String> = emptyList(),
 )
 
 internal data class TokenPair(

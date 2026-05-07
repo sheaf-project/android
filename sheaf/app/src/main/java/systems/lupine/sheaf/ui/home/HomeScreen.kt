@@ -351,10 +351,12 @@ private fun FrontingMemberCard(member: MemberRead, front: FrontRead?, onLongClic
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (front?.startedAt != null) {
-                    val elapsed = remember(front.startedAt) { timeAgo(front.startedAt) }
+                val effectiveSince = front?.memberSince?.get(member.id) ?: front?.startedAt
+                if (effectiveSince != null) {
+                    val capped = front?.memberSinceCapped?.contains(member.id) == true
+                    val elapsed = remember(effectiveSince) { timeAgo(effectiveSince) }
                     Text(
-                        "Fronting for $elapsed",
+                        if (capped) "Fronting for > $elapsed" else "Fronting for $elapsed",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = 4.dp),
