@@ -24,44 +24,62 @@ import java.time.Instant
 class LastSwitchComplicationService : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? =
-        build(type, "2h 14m")
+        build(type, Duration.ofMinutes(134))
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val sp = getSharedPreferences("tile_data", Context.MODE_PRIVATE)
         val lastChangeMs = sp.getLong("last_front_change_at", 0L)
         if (lastChangeMs == 0L) return NoDataComplicationData()
-        val since = Instant.ofEpochMilli(lastChangeMs)
-        val ago = formatDuration(Duration.between(since, Instant.now())) ?: return NoDataComplicationData()
-        return build(request.complicationType, ago)
+        val d = Duration.between(Instant.ofEpochMilli(lastChangeMs), Instant.now())
+        return build(request.complicationType, d)
     }
 
-    private fun build(type: ComplicationType, ago: String): ComplicationData? {
+    private fun build(type: ComplicationType, d: Duration): ComplicationData? {
         val tap = openAppPendingIntent(this, REQUEST_CODE)
-        val description = PlainComplicationText.Builder("Last switch $ago ago").build()
+        // Two formattings: SHORT_TEXT collapses to "now" / "5m" / "1h 2m" so
+        // it fits in the watchface's narrow text slot ("just now" was 8
+        // chars and got clipped to "JUST N..."). LONG_TEXT keeps "Just now"
+        // and special-cases the "ago" suffix off it so the line doesn't
+        // read "Just now ago".
+        val short = formatShort(d) ?: return NoDataComplicationData()
+        val long = formatLong(d) ?: return NoDataComplicationData()
+        val description = PlainComplicationText.Builder("Last switch $long").build()
         return when (type) {
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
-                PlainComplicationText.Builder(ago).build(),
+                PlainComplicationText.Builder(short).build(),
                 description,
             )
                 .setTitle(PlainComplicationText.Builder("switch").build())
                 .setTapAction(tap)
                 .build()
 
-            ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(
-                PlainComplicationText.Builder("$ago ago").build(),
-                description,
-            )
-                .setTitle(PlainComplicationText.Builder("Last switch").build())
-                .setTapAction(tap)
-                .build()
+            ComplicationType.LONG_TEXT -> {
+                val text = if (long == "Just now") long else "$long ago"
+                LongTextComplicationData.Builder(
+                    PlainComplicationText.Builder(text).build(),
+                    description,
+                )
+                    .setTitle(PlainComplicationText.Builder("Last switch").build())
+                    .setTapAction(tap)
+                    .build()
+            }
 
             else -> null
         }
     }
 
-    private fun formatDuration(d: Duration): String? = runCatching {
+    private fun formatShort(d: Duration): String? = runCatching {
         when {
-            d.toMinutes() < 1 -> "just now"
+            d.toMinutes() < 1 -> "now"
+            d.toMinutes() < 60 -> "${d.toMinutes()}m"
+            d.toHours() < 24 -> "${d.toHours()}h ${d.toMinutes() % 60}m"
+            else -> "${d.toDays()}d"
+        }
+    }.getOrNull()
+
+    private fun formatLong(d: Duration): String? = runCatching {
+        when {
+            d.toMinutes() < 1 -> "Just now"
             d.toMinutes() < 60 -> "${d.toMinutes()}m"
             d.toHours() < 24 -> "${d.toHours()}h ${d.toMinutes() % 60}m"
             else -> "${d.toDays()}d"

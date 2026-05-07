@@ -35,9 +35,13 @@ class FrontingDurationComplicationService : SuspendingComplicationDataSourceServ
     private fun build(type: ComplicationType, name: String, since: String): ComplicationData? {
         val tap = openAppPendingIntent(this, REQUEST_CODE)
         val description = PlainComplicationText.Builder("$name fronting for $since").build()
+        // SHORT_TEXT slots clip ~7 chars; "just now" overflows to "just n…",
+        // so collapse to "now" for the SHORT_TEXT path. LONG_TEXT has room
+        // for the friendlier wording.
+        val shortSince = if (since == "just now") "now" else since
         return when (type) {
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
-                PlainComplicationText.Builder(since).build(),
+                PlainComplicationText.Builder(shortSince).build(),
                 description,
             )
                 .setTitle(PlainComplicationText.Builder(name.take(7)).build())
