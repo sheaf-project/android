@@ -11,8 +11,10 @@ import androidx.wear.protolayout.LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER
 import androidx.wear.protolayout.LayoutElementBuilders.Layout
 import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_CENTER
+import androidx.wear.protolayout.ResourceBuilders
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.protolayout.TimelineBuilders.TimelineEntry
+import androidx.wear.tiles.RequestBuilders.ResourcesRequest
 import androidx.wear.tiles.RequestBuilders.TileRequest
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
@@ -21,7 +23,17 @@ import systems.lupine.sheaf.wear.data.WearAuthManager
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 
+private const val RESOURCES_VERSION = "1"
+
 class FrontingTileService : TileService() {
+
+    override fun onTileResourcesRequest(
+        requestParams: ResourcesRequest,
+    ): ListenableFuture<ResourceBuilders.Resources> = immediateFuture(
+        ResourceBuilders.Resources.Builder()
+            .setVersion(RESOURCES_VERSION)
+            .build()
+    )
 
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<Tile> {
         val prefs = getSharedPreferences("tile_data", Context.MODE_PRIVATE)
@@ -36,7 +48,7 @@ class FrontingTileService : TileService() {
 
         return immediateFuture(
             Tile.Builder()
-                .setResourcesVersion("1")
+                .setResourcesVersion(RESOURCES_VERSION)
                 .setFreshnessIntervalMillis(15 * 60 * 1000L)
                 .setTileTimeline(
                     Timeline.Builder()
