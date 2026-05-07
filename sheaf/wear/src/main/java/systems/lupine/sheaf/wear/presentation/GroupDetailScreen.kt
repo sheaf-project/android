@@ -79,9 +79,13 @@ fun GroupDetailScreen(groupId: String, navController: NavController) {
 
             items(allMembers) { member ->
                 val isSelected = member.id in selectedIds
+                val emoji = member.emoji?.takeIf { it.isNotBlank() }
                 Chip(
-                    label = { Text(member.displayNameOrName) },
+                    label = {
+                        Text(if (emoji != null) "$emoji ${member.displayNameOrName}" else member.displayNameOrName)
+                    },
                     secondaryLabel = member.pronouns?.let { { Text(it) } },
+                    icon = { MemberAvatar(member = member, size = 28.dp) },
                     onClick = {
                         selectedIds = if (isSelected) selectedIds - member.id
                                       else selectedIds + member.id
