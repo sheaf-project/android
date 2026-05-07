@@ -101,6 +101,8 @@ fun MemberAvatar(
             contentScale = ContentScale.Crop,
         )
     } else {
+        // Prefer the member's emoji when set; falls back to initials.
+        val glyph = member.emoji?.takeIf { it.isNotBlank() } ?: member.initials
         Box(
             modifier = modifier
                 .size(size)
@@ -109,7 +111,7 @@ fun MemberAvatar(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = member.initials,
+                text = glyph,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (color.luminance() > 0.35f) Color.Black else Color.White,
             )

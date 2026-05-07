@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
@@ -83,8 +84,12 @@ fun SwitchScreen(navController: NavController) {
 
                     items(members) { member ->
                         val isSelected = member.id in selected
+                        val emoji = member.emoji?.takeIf { it.isNotBlank() }
                         Chip(
-                            label = { Text(member.displayNameOrName) },
+                            label = {
+                                Text(if (emoji != null) "$emoji ${member.displayNameOrName}" else member.displayNameOrName)
+                            },
+                            icon = { MemberAvatar(member = member, size = 28.dp) },
                             onClick = {
                                 selected = if (isSelected) selected - member.id
                                            else selected + member.id

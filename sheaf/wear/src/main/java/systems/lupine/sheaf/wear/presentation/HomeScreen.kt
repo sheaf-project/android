@@ -1,18 +1,14 @@
 package systems.lupine.sheaf.wear.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -94,6 +90,7 @@ fun HomeScreen(navController: NavController) {
                 items(frontingMembers) { member ->
                     val since = memberSinceMap[member.id]
                     val isCapped = member.id in cappedSet
+                    val emoji = member.emoji?.takeIf { it.isNotBlank() }
                     val secondary = buildString {
                         val parts = mutableListOf<String>()
                         member.pronouns?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
@@ -104,15 +101,11 @@ fun HomeScreen(navController: NavController) {
                         append(parts.joinToString(" · "))
                     }
                     Chip(
-                        label = { Text(member.displayNameOrName) },
-                        secondaryLabel = secondary.takeIf { it.isNotEmpty() }?.let { { Text(it) } },
-                        icon = {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(Color(0xFF1D9E75), CircleShape)
-                            )
+                        label = {
+                            Text(if (emoji != null) "$emoji ${member.displayNameOrName}" else member.displayNameOrName)
                         },
+                        secondaryLabel = secondary.takeIf { it.isNotEmpty() }?.let { { Text(it) } },
+                        icon = { MemberAvatar(member = member, size = 28.dp) },
                         onClick = {},
                         colors = ChipDefaults.secondaryChipColors(),
                         modifier = Modifier.fillMaxWidth(),

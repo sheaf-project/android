@@ -1,17 +1,13 @@
 package systems.lupine.sheaf.wear.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -74,16 +70,13 @@ fun MembersScreen(navController: NavController) {
             } else {
                 items(members) { member ->
                     val isFronting = member.id in frontingIds
+                    val emoji = member.emoji?.takeIf { it.isNotBlank() }
                     Chip(
-                        label = { Text(member.displayNameOrName) },
+                        label = {
+                            Text(if (emoji != null) "$emoji ${member.displayNameOrName}" else member.displayNameOrName)
+                        },
                         secondaryLabel = member.pronouns?.let { { Text(it) } },
-                        icon = if (isFronting) ({
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(Color(0xFF1D9E75), CircleShape)
-                            )
-                        }) else null,
+                        icon = { MemberAvatar(member = member, size = 28.dp) },
                         onClick = { navController.navigate("$NAV_MEMBER_PROFILE/${member.id}") },
                         colors = if (isFronting) ChipDefaults.primaryChipColors()
                                  else ChipDefaults.secondaryChipColors(),

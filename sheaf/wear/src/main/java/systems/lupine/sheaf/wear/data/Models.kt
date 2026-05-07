@@ -10,6 +10,7 @@ data class WearMember(
     val pronouns: String?,
     @Json(name = "avatar_url") val avatarUrl: String?,
     val color: String?,
+    val emoji: String? = null,
 ) {
     val displayNameOrName: String
         get() = displayName?.takeIf { it.isNotBlank() } ?: name

@@ -372,6 +372,7 @@ data class MemberRead(
     val privacy: String,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
+    val emoji: String? = null,
 ) {
     val displayNameOrName: String get() = displayName?.takeIf { it.isNotBlank() } ?: name
     val initials: String get() = displayNameOrName

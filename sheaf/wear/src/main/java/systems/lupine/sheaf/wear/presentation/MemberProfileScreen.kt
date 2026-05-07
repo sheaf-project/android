@@ -1,17 +1,13 @@
 package systems.lupine.sheaf.wear.presentation
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -21,6 +17,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
+import systems.lupine.sheaf.wear.util.stripMarkdown
 
 @Composable
 fun MemberProfileScreen(memberId: String, navController: NavController) {
@@ -30,6 +27,9 @@ fun MemberProfileScreen(memberId: String, navController: NavController) {
 
     val member = members.firstOrNull { it.id == memberId }
     val isFronting = fronts.any { it.memberIds.contains(memberId) }
+    val plainDescription = remember(member?.description) {
+        member?.description?.takeIf { it.isNotBlank() }?.let(::stripMarkdown)
+    }
 
     Scaffold(timeText = { TimeText() }) {
         ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -39,10 +39,15 @@ fun MemberProfileScreen(memberId: String, navController: NavController) {
             }
 
             item {
+                MemberAvatar(member = member, size = 56.dp)
+            }
+
+            item {
+                val emoji = member.emoji?.takeIf { it.isNotBlank() }
                 Text(
-                    text = member.displayNameOrName,
+                    text = if (emoji != null) "$emoji ${member.displayNameOrName}" else member.displayNameOrName,
                     style = MaterialTheme.typography.title3,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 )
             }
 
@@ -78,32 +83,14 @@ fun MemberProfileScreen(memberId: String, navController: NavController) {
                 }
             }
 
-            if (!member.description.isNullOrBlank()) {
+            if (!plainDescription.isNullOrBlank()) {
                 item {
                     Text(
-                        text = member.description,
+                        text = plainDescription,
                         style = MaterialTheme.typography.body2,
                         color = MaterialTheme.colors.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     )
-                }
-            }
-
-            if (!member.color.isNullOrBlank()) {
-                val colorInt = runCatching {
-                    android.graphics.Color.parseColor(
-                        if (member.color.startsWith("#")) member.color else "#${member.color}"
-                    )
-                }.getOrNull()
-                if (colorInt != null) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 8.dp)
-                                .size(24.dp)
-                                .background(Color(colorInt), CircleShape)
-                        )
-                    }
                 }
             }
 
