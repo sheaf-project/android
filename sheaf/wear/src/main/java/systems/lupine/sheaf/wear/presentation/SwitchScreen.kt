@@ -79,7 +79,7 @@ fun SwitchScreen(navController: NavController) {
                     // is reachable no matter how long the member list is.
                     ScalingLazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 56.dp),
+                        contentPadding = PaddingValues(bottom = 72.dp),
                     ) {
                         item {
                             Text(
@@ -135,7 +135,14 @@ fun SwitchScreen(navController: NavController) {
 
                     Chip(
                         label = {
-                            Text(if (selected.isEmpty()) "Clear Front" else "Switch (${selected.size})")
+                            // Box wrap centres the text inside the chip's full
+                            // width; default Chip alignment is start, which
+                            // looks off-balance for a commit-action chip.
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Text(
+                                    if (selected.isEmpty()) "Clear Front" else "Switch (${selected.size})",
+                                )
+                            }
                         },
                         onClick = {
                             isSwitching = true
@@ -145,11 +152,19 @@ fun SwitchScreen(navController: NavController) {
                                 if (ok) switched = true
                             }
                         },
-                        colors = ChipDefaults.primaryChipColors(),
+                        // Mint-green commit accent so the action chip reads
+                        // distinctly from the purple selected-member chips.
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = MaterialTheme.colors.secondary,
+                            contentColor = MaterialTheme.colors.onSecondary,
+                        ),
+                        // Narrower than the list chips and a bit further from
+                        // the bottom edge so the round bezel doesn't clip the
+                        // label on Pixel Watch.
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .fillMaxWidth(0.85f)
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
                     )
                 }
             }
