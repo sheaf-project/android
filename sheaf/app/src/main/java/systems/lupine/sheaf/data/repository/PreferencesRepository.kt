@@ -135,6 +135,11 @@ class PreferencesRepository @Inject constructor(
         val expiresAt = prefs[KEY_TRUSTED_DEVICE_EXPIRES_AT] ?: 0L
         if (expiresAt > System.currentTimeMillis()) value else null
     }
+
+    /** Synchronous theme-mode read for the icon coordinator. */
+    fun themeModeBlocking(): String = kotlinx.coroutines.runBlocking {
+        context.dataStore.data.first()[KEY_THEME] ?: "system"
+    }
 }
 
 // Normalize a user-typed server URL into something the OkHttp interceptor can
