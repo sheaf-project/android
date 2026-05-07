@@ -411,11 +411,9 @@ private fun TotpStep(
         OutlinedTextField(
             value = code,
             onValueChange = { new ->
-                // Only allow digits, max 6
-                val filtered = new.filter { it.isDigit() }.take(6)
-                code = filtered
-                // Auto-submit when 6 digits entered
-                if (filtered.length == 6) onSubmit(filtered, rememberDevice)
+                // Only allow digits, max 6. No auto-submit so the user has a
+                // chance to tick "Remember this device" before tapping Verify.
+                code = new.filter { it.isDigit() }.take(6)
             },
             label = { Text("Authenticator code") },
             placeholder = { Text("000000") },

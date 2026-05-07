@@ -247,12 +247,10 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { api.logout() }
             prefs.clearTokens()
-            // Clearing the trusted-device cookie locally is a UX nicety — it
-            // makes "log out, log back in" prompt for TOTP again on the same
-            // install. The server-side trusted-device record stays valid until
-            // it expires or the user revokes it from the trusted-devices
-            // settings screen.
-            prefs.clearTrustedDeviceCookie()
+            // Trusted-device cookie deliberately persists across logout, same
+            // as browser behaviour. It's a property of the device, not the
+            // session. Revoke from the trusted-devices settings screen if you
+            // need to force TOTP next login.
             clearPending()
             _pendingOnboarding.value = false
         }
