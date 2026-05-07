@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
+import systems.lupine.sheaf.wear.complications.EXTRA_INITIAL_ROUTE
 import systems.lupine.sheaf.wear.data.WearApiClient
 import systems.lupine.sheaf.wear.data.WearAuthManager
 import systems.lupine.sheaf.wear.data.WearSettingsStore
@@ -34,6 +35,12 @@ class MainActivity : ComponentActivity() {
             loadCredentialsFromDataLayer()
         }
 
+        // Complications can deep-link to a specific destination by passing
+        // EXTRA_INITIAL_ROUTE. WearNavigation always starts at the menu and
+        // navigates on top, so swipe-back from the deep-linked screen lands
+        // on the menu like any other entry.
+        val initialRoute = intent?.getStringExtra(EXTRA_INITIAL_ROUTE)
+
         setContent {
             SheafWearTheme {
                 WearNavigation(
@@ -41,6 +48,7 @@ class MainActivity : ComponentActivity() {
                     store = store,
                     settings = settings,
                     onRequestSync = ::loadCredentialsFromDataLayer,
+                    initialRoute = initialRoute,
                 )
             }
         }

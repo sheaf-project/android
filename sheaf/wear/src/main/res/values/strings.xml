@@ -2,4 +2,10 @@
 <resources>
     <string name="app_name">Sheaf</string>
     <string name="tile_label">Currently Fronting</string>
+    <string name="complication_open_app_label">Sheaf</string>
+    <string name="complication_quick_switch_label">Sheaf: Switch</string>
+    <string name="complication_fronters_oldest_label">Sheaf: Fronters (oldest first)</string>
+    <string name="complication_fronters_newest_label">Sheaf: Fronters (newest first)</string>
+    <string name="complication_fronting_duration_label">Sheaf: Fronting duration</string>
+    <string name="complication_last_switch_label">Sheaf: Last switch</string>
 </resources>

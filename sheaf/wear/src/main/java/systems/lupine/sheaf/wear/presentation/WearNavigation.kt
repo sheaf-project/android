@@ -50,6 +50,8 @@ fun WearNavigation(
     store: WearStore,
     settings: WearSettingsStore,
     onRequestSync: () -> Unit = {},
+    /** Optional deep-link target; when set, navigated to on top of NAV_MENU. */
+    initialRoute: String? = null,
 ) {
     val isAuthenticated by authManager.isAuthenticatedFlow.collectAsState()
 
@@ -102,6 +104,13 @@ fun WearNavigation(
     }
 
     val navController = rememberSwipeDismissableNavController()
+
+    LaunchedEffect(initialRoute) {
+        if (initialRoute != null && initialRoute != NAV_MENU) {
+            navController.navigate(initialRoute)
+        }
+    }
+
     CompositionLocalProvider(
         LocalWearStore    provides store,
         LocalWearAuth     provides authManager,

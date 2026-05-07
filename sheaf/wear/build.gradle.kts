@@ -70,6 +70,9 @@ dependencies {
     implementation(libs.wear.tiles.material)
     implementation(libs.concurrent.futures)
 
+    // Complications
+    implementation(libs.wear.complications.data.source.ktx)
+
     // Wearable Data Layer
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
