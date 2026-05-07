@@ -29,7 +29,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            // Off until wear is migrated to Moshi KSP codegen. R8 strips the
+            // Kotlin metadata that KotlinJsonAdapterFactory needs for reflective
+            // parsing, crashing /members on first network response.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
