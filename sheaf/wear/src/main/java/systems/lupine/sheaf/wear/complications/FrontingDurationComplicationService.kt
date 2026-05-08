@@ -12,7 +12,7 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
 /**
  * How long the oldest current fronter has been front. Updates naturally as
  * the day progresses so the watchface complication "ages" — useful glance
- * data ("oh, J's been front since this morning"). Ages off the watchface's
+ * data ("oh, Alice's been front since this morning"). Ages off the watchface's
  * own clock; the watch redraws minute-by-minute.
  *
  * SHORT_TEXT: just the duration ("9h 28m").
@@ -21,7 +21,7 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
 class FrontingDurationComplicationService : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? =
-        build(type, name = "J", since = "9h 28m")
+        build(type, name = "Alice", since = "9h 28m")
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val rows = readFrontersSnapshot(this) ?: return NoDataComplicationData()

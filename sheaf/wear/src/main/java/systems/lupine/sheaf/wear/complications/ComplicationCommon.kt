@@ -92,7 +92,7 @@ internal fun parseMembersJson(raw: String): List<MemberRow> {
 //
 // Each complication instance the user adds to a watchface gets a unique
 // Int instanceId. We persist the user's member-id selection per instance so
-// adding the complication twice — once for J, once for Zeyra — works.
+// adding the complication twice works.
 
 private const val MEMBER_PREFS = "complication_config"
 private fun memberKey(instanceId: Int) = "member_id:$instanceId"

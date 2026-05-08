@@ -59,6 +59,25 @@
             </intent-filter>
         </service>
 
+        <!-- Member-watch tile: per-instance multi-select. Tap on an
+             unconfigured tile launches the picker; tap on a configured
+             one opens the wear app. -->
+        <service
+            android:name=".tile.MemberFrontingTileService"
+            android:exported="true"
+            android:label="@string/tile_label_member_watch"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".tile.MemberSelectorTileConfigActivity"
+            android:exported="true"
+            android:label="@string/tile_member_picker_label"
+            android:theme="@android:style/Theme.DeviceDefault" />
+
         <service
             android:name=".datalayer.WearDataLayerService"
             android:exported="true">

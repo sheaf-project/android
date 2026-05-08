@@ -17,7 +17,7 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
 class FrontersOldestFirstComplicationService : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? =
-        buildFrontersComplication(type, listOf("J", "Zeyra"), tap = openAppPendingIntent(this, PREVIEW_REQUEST))
+        buildFrontersComplication(type, listOf("Alice", "Bob"), tap = openAppPendingIntent(this, PREVIEW_REQUEST))
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val rows = readFrontersSnapshot(this) ?: return NoDataComplicationData()
@@ -93,7 +93,7 @@ internal fun fitFrontersShortText(names: List<String>): String {
 private const val LONG_TEXT_BUDGET = 24
 
 // SHORT_TEXT slots typically fit ~7-8 chars across watchfaces; we go with
-// 8 so two short-name fronters render cleanly (e.g. "Zeyra +1") at the
+// 8 so two short-name fronters render cleanly (e.g. "Alice +1") at the
 // cost of occasional clipping on the narrowest faces. If that bites in
 // the field, expose this as a wear setting.
 private const val SHORT_TEXT_BUDGET = 8

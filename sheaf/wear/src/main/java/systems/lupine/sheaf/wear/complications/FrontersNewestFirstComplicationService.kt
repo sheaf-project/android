@@ -14,7 +14,7 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
 class FrontersNewestFirstComplicationService : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? =
-        buildFrontersComplication(type, listOf("Zeyra", "J"), tap = openAppPendingIntent(this, PREVIEW_REQUEST))
+        buildFrontersComplication(type, listOf("Alice", "Bob"), tap = openAppPendingIntent(this, PREVIEW_REQUEST))
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val rows = readFrontersSnapshot(this) ?: return NoDataComplicationData()

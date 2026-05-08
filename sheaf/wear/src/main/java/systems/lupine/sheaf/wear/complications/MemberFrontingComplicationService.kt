@@ -17,8 +17,8 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
  * instance id so two slots can track different members independently.
  *
  * Renders:
- * - SHORT_TEXT: "Zeyra ✓" / "Zeyra ✗" with title "front"
- * - LONG_TEXT: "Zeyra · 9h" / "Zeyra · off" with title "Member front"
+ * - SHORT_TEXT: "Alice ✓" / "Alice ✗" with title "front"
+ * - LONG_TEXT: "Alice · 9h" / "Alice · off" with title "Member front"
  *
  * Tap action opens MainActivity (which routes to the member's profile if
  * we ever wire deep-linking that far; for now lands on home).

@@ -47,12 +47,13 @@ class WearStore(
     }
 
     private suspend fun cacheTileAvatars() {
-        // Render only fronting members' avatars to keep the on-disk cache
-        // small. The avatar-bearing tiles only display fronters, so any
-        // wider rendering would be wasted IO. Run on Dispatchers.IO since
-        // this can hit the network for URL avatars.
+        // Render avatars for the full member roster. Fronting-only tiles
+        // could get away with a smaller set, but the member-watch tile
+        // shows arbitrary members regardless of whether they're fronting,
+        // so we cache the lot. Run on Dispatchers.IO since this can hit
+        // the network for URL avatars.
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            systems.lupine.sheaf.wear.tile.renderTileAvatars(context, frontingMembers)
+            systems.lupine.sheaf.wear.tile.renderTileAvatars(context, members.value)
         }
     }
 
@@ -160,6 +161,7 @@ class WearStore(
             systems.lupine.sheaf.wear.tile.FrontingTileService::class.java,
             systems.lupine.sheaf.wear.tile.FrontingWithAvatarsTileService::class.java,
             systems.lupine.sheaf.wear.tile.FrontingAvatarsOnlyTileService::class.java,
+            systems.lupine.sheaf.wear.tile.MemberFrontingTileService::class.java,
         )
     }
 
