@@ -36,6 +36,79 @@ internal fun readFrontersSnapshot(context: Context): List<FronterRow>? {
 }
 
 /**
+ * Lightweight projection of a member for the config-activity picker —
+ * just what's needed to display and select. The full WearMember is reachable
+ * via the API once a member id is committed to a complication.
+ */
+internal data class MemberRow(
+    val id: String,
+    val name: String,
+    val emoji: String,
+)
+
+/** Reads the full members list cached by WearStore. */
+internal fun readMembersSnapshot(context: Context): List<MemberRow>? {
+    val raw = context
+        .getSharedPreferences("tile_data", Context.MODE_PRIVATE)
+        .getString("members_full", null)
+        ?: return null
+    return parseMembersJson(raw)
+}
+
+internal fun parseMembersJson(raw: String): List<MemberRow> {
+    val trimmed = raw.trim()
+    if (trimmed == "[]" || trimmed.isEmpty()) return emptyList()
+    if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return emptyList()
+    val body = trimmed.substring(1, trimmed.length - 1)
+    val rows = mutableListOf<MemberRow>()
+    var i = 0
+    while (i < body.length) {
+        val start = body.indexOf('{', i)
+        if (start < 0) break
+        val end = body.indexOf('}', start)
+        if (end < 0) break
+        val obj = body.substring(start + 1, end)
+        var id = ""
+        var name = ""
+        var emoji = ""
+        obj.split(",").forEach { kv ->
+            val colon = kv.indexOf(':')
+            if (colon < 0) return@forEach
+            val key = kv.substring(0, colon).trim().trim('"')
+            val value = kv.substring(colon + 1).trim().trim('"').replace("\\\"", "\"").replace("\\\\", "\\")
+            when (key) {
+                "id" -> id = value
+                "name" -> name = value
+                "emoji" -> emoji = value
+            }
+        }
+        rows.add(MemberRow(id, name, emoji))
+        i = end + 1
+    }
+    return rows
+}
+
+// ── Per-instance config storage ───────────────────────────────────────────────
+//
+// Each complication instance the user adds to a watchface gets a unique
+// Int instanceId. We persist the user's member-id selection per instance so
+// adding the complication twice — once for J, once for Zeyra — works.
+
+private const val MEMBER_PREFS = "complication_config"
+private fun memberKey(instanceId: Int) = "member_id:$instanceId"
+
+internal fun saveMemberConfig(context: Context, instanceId: Int, memberId: String) {
+    context.getSharedPreferences(MEMBER_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putString(memberKey(instanceId), memberId)
+        .apply()
+}
+
+internal fun loadMemberConfig(context: Context, instanceId: Int): String? =
+    context.getSharedPreferences(MEMBER_PREFS, Context.MODE_PRIVATE)
+        .getString(memberKey(instanceId), null)
+
+/**
  * Tiny hand-written parser for the fronter-rows JSON array. Avoids dragging
  * Moshi into the complication services for one trivial structure. Tolerant
  * of empty / malformed input — returns empty list rather than throwing,
@@ -175,6 +248,7 @@ internal fun requestAllComplicationUpdates(context: Context) {
         QuickSwitchComplicationService::class.java,
         FrontingDurationComplicationService::class.java,
         LastSwitchComplicationService::class.java,
+        MemberFrontingComplicationService::class.java,
     )
     for (cls in classes) {
         runCatching {

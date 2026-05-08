@@ -221,6 +221,46 @@
                 android:value="60" />
         </service>
 
+        <!-- Configurable per-member complication. Picker launches
+             MemberPickerConfigActivity to ask the user which member this
+             slot represents; the activity persists the selection per
+             instance id and the service reads it back on each request. -->
+        <service
+            android:name=".complications.MemberFrontingComplicationService"
+            android:exported="true"
+            android:label="@string/complication_member_label"
+            android:icon="@mipmap/ic_launcher"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.watchface.complications.datasource.ComplicationDataSourceService" />
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,LONG_TEXT" />
+            <meta-data
+                android:name="androidx.wear.watchface.complications.SAFE_WATCH_FACE_SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,LONG_TEXT" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="60" />
+            <meta-data
+                android:name="android.support.wearable.complications.PROVIDER_CONFIG_ACTION"
+                android:value="systems.lupine.sheaf.wear.complications.action.PICK_MEMBER" />
+        </service>
+
+        <activity
+            android:name=".complications.MemberPickerConfigActivity"
+            android:exported="true"
+            android:label="@string/complication_member_picker_label"
+            android:theme="@android:style/Theme.DeviceDefault">
+            <intent-filter>
+                <action android:name="systems.lupine.sheaf.wear.complications.action.PICK_MEMBER" />
+                <category android:name="android.support.wearable.complications.category.PROVIDER_CONFIG" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>

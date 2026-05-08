@@ -100,6 +100,15 @@ class WearStore(
             "{\"id\":\"${jsonEscape(m.id)}\",\"name\":\"${jsonEscape(m.displayNameOrName)}\",\"since\":\"${jsonEscape(since)}\"}"
         }
 
+        // Full members list for the per-member config activity. Subset of
+        // WearMember (id, name, emoji) — anything else can be looked up by
+        // id when needed.
+        val allMembers = this.members.value
+        val membersJson = allMembers.joinToString(separator = ",", prefix = "[", postfix = "]") { m ->
+            val emoji = m.emoji?.takeIf { it.isNotBlank() }?.let { jsonEscape(it) } ?: ""
+            "{\"id\":\"${jsonEscape(m.id)}\",\"name\":\"${jsonEscape(m.displayNameOrName)}\",\"emoji\":\"$emoji\"}"
+        }
+
         // last_front_change_at advances only when the *set* of fronting member
         // ids changes, so the "Last switch" complication is decoupled from the
         // fronting-duration one (which uses started_at directly).
@@ -116,6 +125,7 @@ class WearStore(
             .putString("fronting_names", names)
             .putString("fronting_started_at", oldestFront?.startedAt)
             .putString("fronters", frontersJson)
+            .putString("members_full", membersJson)
             .putString("front_set_sig", newSetSig)
             .putLong("last_front_change_at", lastChange)
             .apply()

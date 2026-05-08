@@ -8,4 +8,6 @@
     <string name="complication_fronters_newest_label">Sheaf: Fronters (newest first)</string>
     <string name="complication_fronting_duration_label">Sheaf: Fronting duration</string>
     <string name="complication_last_switch_label">Sheaf: Last switch</string>
+    <string name="complication_member_label">Sheaf: Is X fronting?</string>
+    <string name="complication_member_picker_label">Pick a Sheaf member</string>
 </resources>
