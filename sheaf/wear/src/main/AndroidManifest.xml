@@ -101,6 +101,19 @@
              — but worth replacing with a tighter mechanism eventually
              (e.g., a LoadAction-based state machine for the toggles +
              a separate API-backed receiver for commits). -->
+        <!-- Recent-fronts timeline tile: read-only display of the
+             client-side history ring buffer. Tap opens the history
+             viewer screen via MainActivity deep-link. -->
+        <service
+            android:name=".tile.FrontHistoryTileService"
+            android:exported="true"
+            android:label="@string/tile_label_history"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".tile.QuickSwitchTrampolineActivity"
             android:exported="true"

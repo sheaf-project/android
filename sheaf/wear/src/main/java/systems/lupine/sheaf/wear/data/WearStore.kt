@@ -14,6 +14,7 @@ class WearStore(
 ) {
     val members       = MutableStateFlow<List<WearMember>>(emptyList())
     val currentFronts = MutableStateFlow<List<WearFront>>(emptyList())
+    val recentFronts  = MutableStateFlow<List<WearFront>>(emptyList())
     val groups        = MutableStateFlow<List<WearGroup>>(emptyList())
     val isLoading     = MutableStateFlow(false)
     val error         = MutableStateFlow<String?>(null)
@@ -35,6 +36,14 @@ class WearStore(
                 members.value = apiClient.getMembers()
                 currentFronts.value = apiClient.getCurrentFronts()
                 groups.value = apiClient.getGroups()
+                // Recent-fronts list isn't critical for the home screen, so
+                // surface a load failure on the surface that uses it (history
+                // screen / timeline tile) rather than blocking the rest of
+                // the sync. Empty list means "API unreachable", which the
+                // history surfaces show as "no history yet" — same as a
+                // genuinely empty system.
+                recentFronts.value = runCatching { apiClient.getRecentFronts() }
+                    .getOrElse { emptyList() }
                 cacheTileData()
                 cacheTileAvatars()
                 requestTileUpdate()
@@ -149,6 +158,30 @@ class WearStore(
             .putString("front_set_sig", newSetSig)
             .putLong("last_front_change_at", lastChange)
             .apply()
+
+        // Cache the recent-fronts list as a tile-readable snapshot. The
+        // history viewer screen reads recentFronts directly from the
+        // StateFlow, but tiles run cross-process so they consume the SP
+        // snapshot. Convert started_at ISO strings to ms epoch up front
+        // so the tile rendering doesn't repeat the parse on every refresh.
+        val historyEntries = recentFronts.value.mapNotNull { f ->
+            val ms = f.startedAt?.let {
+                runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
+            } ?: return@mapNotNull null
+            FrontHistoryEntry(
+                timestamp = ms,
+                memberIds = f.memberIds.sorted(),
+                ongoing = f.endedAt.isNullOrBlank(),
+            )
+        }
+        // Server returns newest-first; the rest of the codebase assumes
+        // oldest-first ring order, so reverse before persisting. Cap to
+        // the same MAX_HISTORY budget the client buffer used so the JSON
+        // stays small. Skip the write when the entries are empty so a
+        // transient API failure doesn't wipe a previously-good cache.
+        if (historyEntries.isNotEmpty()) {
+            writeFrontHistory(context, historyEntries.reversed().takeLast(MAX_HISTORY))
+        }
     }
 
     private fun requestTileUpdate() {
@@ -171,6 +204,7 @@ class WearStore(
             systems.lupine.sheaf.wear.tile.FrontingAvatarsOnlyTileService::class.java,
             systems.lupine.sheaf.wear.tile.MemberFrontingTileService::class.java,
             systems.lupine.sheaf.wear.tile.QuickSwitchTileService::class.java,
+            systems.lupine.sheaf.wear.tile.FrontHistoryTileService::class.java,
         )
     }
 

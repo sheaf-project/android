@@ -123,6 +123,22 @@ class WearApiClient(private val auth: WearAuthManager) {
         return moshi.adapter<List<WearFront>>(type).fromJson(body)!!
     }
 
+    /**
+     * Recent fronts in started_at-desc order. Used to populate the history
+     * viewer screen and timeline tile with the same data the phone history
+     * surface uses.
+     */
+    suspend fun getRecentFronts(limit: Int = 20): List<WearFront> {
+        val body = execute {
+            Request.Builder()
+                .url(url("/v1/fronts?limit=$limit"))
+                .header("Authorization", "Bearer ${auth.accessToken}")
+                .build()
+        }
+        val type = Types.newParameterizedType(List::class.java, WearFront::class.java)
+        return moshi.adapter<List<WearFront>>(type).fromJson(body)!!
+    }
+
     suspend fun createFront(memberIds: List<String>, replaceFronts: Boolean? = null) {
         val ids = memberIds.joinToString(",") { "\"$it\"" }
         val replaceField = replaceFronts?.let { ""","replace_fronts":$it""" } ?: ""

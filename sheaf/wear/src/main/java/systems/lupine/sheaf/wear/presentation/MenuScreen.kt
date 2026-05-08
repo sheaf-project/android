@@ -61,6 +61,14 @@ fun MenuScreen(navController: NavController) {
             }
             item {
                 Chip(
+                    label = { Text("History") },
+                    onClick = { navController.navigate(NAV_HISTORY) },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Chip(
                     label = { Text("Settings") },
                     onClick = { navController.navigate(NAV_SETTINGS) },
                     colors = ChipDefaults.secondaryChipColors(),

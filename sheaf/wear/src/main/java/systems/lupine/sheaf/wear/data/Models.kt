@@ -39,6 +39,10 @@ data class WearFront(
     val id: String,
     @Json(name = "member_ids") val memberIds: List<String>,
     @Json(name = "started_at") val startedAt: String?,
+    // Null when the front is still ongoing; ISO timestamp once the entry
+    // has been ended. Used by the history viewer to mark live entries
+    // with a "+" suffix.
+    @Json(name = "ended_at") val endedAt: String? = null,
     // Per-member chain-aware fronting-since, populated when the system has
     // coalesce_contiguous_fronts enabled. Falls back to startedAt when absent.
     @Json(name = "member_since") val memberSince: Map<String, String> = emptyMap(),

@@ -41,6 +41,7 @@ const val NAV_SWITCH         = "switch"
 const val NAV_SETTINGS       = "settings"
 const val NAV_GROUPS         = "groups"
 const val NAV_GROUP_DETAIL   = "group_detail"
+const val NAV_HISTORY        = "history"
 const val NAV_MEMBER_PROFILE = "member_profile"
 const val NAV_ADD_MEMBER     = "add_member"
 
@@ -126,6 +127,7 @@ fun WearNavigation(
             composable(NAV_SWITCH)   { SwitchScreen(navController) }
             composable(NAV_SETTINGS) { SettingsScreen(navController) }
             composable(NAV_GROUPS)   { GroupsScreen(navController) }
+            composable(NAV_HISTORY)  { FrontHistoryScreen(navController) }
             composable(NAV_ADD_MEMBER) { AddMemberScreen(navController) }
             composable(
                 route = "$NAV_MEMBER_PROFILE/{memberId}",
