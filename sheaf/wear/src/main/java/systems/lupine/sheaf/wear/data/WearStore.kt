@@ -124,13 +124,21 @@ class WearStore(
         // last_front_change_at advances only when the *set* of fronting member
         // ids changes, so the "Last switch" complication is decoupled from the
         // fronting-duration one (which uses started_at directly).
+        //
+        // On first sync (no cached signature yet) we derive the last-change
+        // timestamp from the freshest startedAt across current fronts rather
+        // than assuming "we just learned about this set means the set is
+        // brand new". Without that, a watch that pairs into an established
+        // long-running front would show "1m ago" right after sync and count
+        // up from there, rather than reflecting the actual switch time.
         val newSetSig = members.map { it.id }.toSortedSet().joinToString(",")
         val sp = context.getSharedPreferences("tile_data", Context.MODE_PRIVATE)
         val previousSig = sp.getString("front_set_sig", null)
-        val lastChange = if (previousSig != newSetSig) {
-            System.currentTimeMillis()
-        } else {
-            sp.getLong("last_front_change_at", 0L)
+        val previousLastChange = sp.getLong("last_front_change_at", 0L)
+        val lastChange = when {
+            previousSig == null -> deriveLastChangeFromFronts(fronts) ?: System.currentTimeMillis()
+            previousSig != newSetSig -> System.currentTimeMillis()
+            else -> previousLastChange
         }
 
         sp.edit()
@@ -167,4 +175,18 @@ class WearStore(
 
     private fun jsonEscape(s: String): String =
         s.replace("\\", "\\\\").replace("\"", "\\\"")
+
+    /**
+     * Best-effort "when did this front composition last change?" using only
+     * the data the API gave us. The newest startedAt across current fronts
+     * is when the most recent member joined; for shrink-only changes
+     * (member ended out, no new entry) it's still our best estimate without
+     * a history endpoint.
+     */
+    private fun deriveLastChangeFromFronts(fronts: List<WearFront>): Long? =
+        fronts.mapNotNull { f ->
+            f.startedAt?.let {
+                runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
+            }
+        }.maxOrNull()
 }
