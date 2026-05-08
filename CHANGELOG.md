@@ -4,6 +4,10 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.6] - 2026-05-07
+
+Play developer console is full of footguns and very easy to burn a version code. Kick off a new build again /headdesk
+
 ## [0.1.5] - 2026-05-07
 
 Watchface complications and a build-info surface in Settings.
