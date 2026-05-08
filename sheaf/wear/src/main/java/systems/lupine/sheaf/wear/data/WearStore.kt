@@ -36,12 +36,23 @@ class WearStore(
                 currentFronts.value = apiClient.getCurrentFronts()
                 groups.value = apiClient.getGroups()
                 cacheTileData()
+                cacheTileAvatars()
                 requestTileUpdate()
             } catch (e: Exception) {
                 error.value = e.message ?: "Failed to load"
             } finally {
                 isLoading.value = false
             }
+        }
+    }
+
+    private suspend fun cacheTileAvatars() {
+        // Render only fronting members' avatars to keep the on-disk cache
+        // small. The avatar-bearing tiles only display fronters, so any
+        // wider rendering would be wasted IO. Run on Dispatchers.IO since
+        // this can hit the network for URL avatars.
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            systems.lupine.sheaf.wear.tile.renderTileAvatars(context, frontingMembers)
         }
     }
 
@@ -132,14 +143,24 @@ class WearStore(
     }
 
     private fun requestTileUpdate() {
-        try {
+        val updater = runCatching {
             androidx.wear.tiles.TileService.getUpdater(context)
-                .requestUpdate(systems.lupine.sheaf.wear.tile.FrontingTileService::class.java)
-        } catch (_: Exception) {}
+        }.getOrNull() ?: return
+        for (cls in tileServices) {
+            runCatching { updater.requestUpdate(cls) }
+        }
         // Complications managed in the same package; their update requests
-        // share the same fire-and-forget shape — if the watch isn't paired
+        // share the same fire-and-forget shape: if the watch isn't paired
         // or the complications aren't currently in use, no harm done.
         systems.lupine.sheaf.wear.complications.requestAllComplicationUpdates(context)
+    }
+
+    private companion object {
+        val tileServices = listOf(
+            systems.lupine.sheaf.wear.tile.FrontingTileService::class.java,
+            systems.lupine.sheaf.wear.tile.FrontingWithAvatarsTileService::class.java,
+            systems.lupine.sheaf.wear.tile.FrontingAvatarsOnlyTileService::class.java,
+        )
     }
 
     private fun jsonEscape(s: String): String =

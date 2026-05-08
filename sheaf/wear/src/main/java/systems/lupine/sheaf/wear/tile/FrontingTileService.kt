@@ -20,8 +20,6 @@ import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.ListenableFuture
 import systems.lupine.sheaf.wear.data.WearAuthManager
-import java.util.concurrent.Executor
-import java.util.concurrent.TimeUnit
 
 private const val RESOURCES_VERSION = "1"
 
@@ -29,7 +27,7 @@ class FrontingTileService : TileService() {
 
     override fun onTileResourcesRequest(
         requestParams: ResourcesRequest,
-    ): ListenableFuture<ResourceBuilders.Resources> = immediateFuture(
+    ): ListenableFuture<ResourceBuilders.Resources> = immediateTileFuture(
         ResourceBuilders.Resources.Builder()
             .setVersion(RESOURCES_VERSION)
             .build()
@@ -46,7 +44,7 @@ class FrontingTileService : TileService() {
             else                  -> names
         }
 
-        return immediateFuture(
+        return immediateTileFuture(
             Tile.Builder()
                 .setResourcesVersion(RESOURCES_VERSION)
                 .setFreshnessIntervalMillis(15 * 60 * 1000L)
@@ -105,13 +103,3 @@ class FrontingTileService : TileService() {
     }
 }
 
-private class ImmediateFuture<T>(private val value: T) : ListenableFuture<T> {
-    override fun addListener(r: Runnable, e: Executor) = e.execute(r)
-    override fun isDone() = true
-    override fun isCancelled() = false
-    override fun cancel(b: Boolean) = false
-    override fun get(): T = value
-    override fun get(t: Long, u: TimeUnit): T = value
-}
-
-private fun <T> immediateFuture(value: T): ListenableFuture<T> = ImmediateFuture(value)

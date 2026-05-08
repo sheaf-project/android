@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">Sheaf</string>
     <string name="tile_label">Currently Fronting</string>
+    <string name="tile_label_with_avatars">Currently Fronting (with avatars)</string>
+    <string name="tile_label_avatars_only">Currently Fronting (avatars only)</string>
     <string name="complication_open_app_label">Sheaf</string>
     <string name="complication_quick_switch_label">Sheaf: Switch</string>
     <string name="complication_fronters_oldest_label">Sheaf: Fronters (oldest first)</string>

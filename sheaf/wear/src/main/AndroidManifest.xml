@@ -40,6 +40,26 @@
         </service>
 
         <service
+            android:name=".tile.FrontingWithAvatarsTileService"
+            android:exported="true"
+            android:label="@string/tile_label_with_avatars"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tile.FrontingAvatarsOnlyTileService"
+            android:exported="true"
+            android:label="@string/tile_label_avatars_only"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+        </service>
+
+        <service
             android:name=".datalayer.WearDataLayerService"
             android:exported="true">
             <intent-filter>
