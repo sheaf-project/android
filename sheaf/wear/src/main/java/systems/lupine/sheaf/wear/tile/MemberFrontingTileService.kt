@@ -51,7 +51,7 @@ class MemberFrontingTileService : TileService() {
         requestParams: ResourcesRequest,
     ): ListenableFuture<ResourceBuilders.Resources> {
         val builder = ResourceBuilders.Resources.Builder()
-            .setVersion(currentResourcesVersion(this))
+            .setVersion(requestParams.version)
         for (id in loadTileMemberSet(this, requestParams.tileId)) {
             tileAvatarResource(this, id)?.let { res ->
                 builder.addIdToImageMapping(tileAvatarResourceId(id), res)
@@ -329,6 +329,12 @@ class MemberFrontingTileService : TileService() {
                         .addKeyToExtraMapping(
                             EXTRA_TILE_ID,
                             ActionBuilders.AndroidIntExtra.Builder().setValue(tileId).build(),
+                        )
+                        .addKeyToExtraMapping(
+                            EXTRA_TILE_SERVICE_CLASS,
+                            ActionBuilders.AndroidStringExtra.Builder()
+                                .setValue(MemberFrontingTileService::class.java.name)
+                                .build(),
                         )
                         .build()
                 )

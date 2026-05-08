@@ -5,6 +5,7 @@
     <string name="tile_label_with_avatars">Fronters + faces</string>
     <string name="tile_label_avatars_only">Fronter faces</string>
     <string name="tile_label_member_watch">Member tracker</string>
+    <string name="tile_label_quick_switch">Quick switch</string>
     <string name="tile_member_picker_label">Pick members for tile</string>
     <string name="complication_open_app_label">Sheaf</string>
     <string name="complication_quick_switch_label">Sheaf: Switch</string>

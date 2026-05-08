@@ -37,6 +37,7 @@ class MemberSelectorTileConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val tileId = intent.getIntExtra(EXTRA_TILE_ID, -1)
+        val tileClassName = intent.getStringExtra(EXTRA_TILE_SERVICE_CLASS)
         if (tileId == -1) {
             setResult(Activity.RESULT_CANCELED)
             finish()
@@ -53,10 +54,7 @@ class MemberSelectorTileConfigActivity : ComponentActivity() {
                     initialSelection = initial,
                     onSave = { selected ->
                         saveTileMemberSet(this, tileId, selected.toList())
-                        runCatching {
-                            androidx.wear.tiles.TileService.getUpdater(this)
-                                .requestUpdate(MemberFrontingTileService::class.java)
-                        }
+                        refreshLaunchingTile(tileClassName)
                         setResult(Activity.RESULT_OK)
                         finish()
                     },
@@ -66,6 +64,25 @@ class MemberSelectorTileConfigActivity : ComponentActivity() {
                     },
                 )
             }
+        }
+    }
+
+    private fun refreshLaunchingTile(tileClassName: String?) {
+        val updater = runCatching {
+            androidx.wear.tiles.TileService.getUpdater(this)
+        }.getOrNull() ?: return
+        val cls: Class<out androidx.wear.tiles.TileService>? = tileClassName
+            ?.let { runCatching {
+                @Suppress("UNCHECKED_CAST")
+                Class.forName(it) as Class<out androidx.wear.tiles.TileService>
+            }.getOrNull() }
+        if (cls != null) {
+            runCatching { updater.requestUpdate(cls) }
+        } else {
+            // No class hint: fall back to refreshing all member-set tiles so
+            // whichever tile launched the picker picks up the new selection.
+            runCatching { updater.requestUpdate(MemberFrontingTileService::class.java) }
+            runCatching { updater.requestUpdate(QuickSwitchTileService::class.java) }
         }
     }
 }

@@ -42,7 +42,7 @@ class FrontingAvatarsOnlyTileService : TileService() {
         requestParams: ResourcesRequest,
     ): ListenableFuture<ResourceBuilders.Resources> {
         val builder = ResourceBuilders.Resources.Builder()
-            .setVersion(currentResourcesVersion(this))
+            .setVersion(requestParams.version)
         for (m in orderedFronters(this)) {
             tileAvatarResource(this, m.id)?.let { res ->
                 builder.addIdToImageMapping(tileAvatarResourceId(m.id), res)

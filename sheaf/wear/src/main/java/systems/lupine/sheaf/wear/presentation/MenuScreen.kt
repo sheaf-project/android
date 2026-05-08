@@ -37,6 +37,14 @@ fun MenuScreen(navController: NavController) {
             }
             item {
                 Chip(
+                    label = { Text("Switch Front") },
+                    onClick = { navController.navigate(NAV_SWITCH) },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Chip(
                     label = { Text("Members") },
                     onClick = { navController.navigate(NAV_MEMBERS) },
                     colors = ChipDefaults.secondaryChipColors(),
@@ -47,14 +55,6 @@ fun MenuScreen(navController: NavController) {
                 Chip(
                     label = { Text("Groups") },
                     onClick = { navController.navigate(NAV_GROUPS) },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                Chip(
-                    label = { Text("Switch Front") },
-                    onClick = { navController.navigate(NAV_SWITCH) },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )

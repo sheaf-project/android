@@ -125,7 +125,11 @@ fun HomeScreen(navController: NavController) {
 
             item {
                 Chip(
-                    label = { Text("Switch Front") },
+                    label = {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("Switch Front")
+                        }
+                    },
                     onClick = { navController.navigate(NAV_SWITCH) },
                     colors = ChipDefaults.primaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),

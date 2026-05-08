@@ -170,6 +170,7 @@ class WearStore(
             systems.lupine.sheaf.wear.tile.FrontingWithAvatarsTileService::class.java,
             systems.lupine.sheaf.wear.tile.FrontingAvatarsOnlyTileService::class.java,
             systems.lupine.sheaf.wear.tile.MemberFrontingTileService::class.java,
+            systems.lupine.sheaf.wear.tile.QuickSwitchTileService::class.java,
         )
     }
 

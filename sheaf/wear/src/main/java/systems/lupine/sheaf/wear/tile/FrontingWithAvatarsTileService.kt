@@ -38,8 +38,12 @@ class FrontingWithAvatarsTileService : TileService() {
     override fun onTileResourcesRequest(
         requestParams: ResourcesRequest,
     ): ListenableFuture<ResourceBuilders.Resources> {
+        // Resource version must echo the version the system asked for, not
+        // the current state, otherwise a render in flight against version X
+        // ends up trying to resolve image ids from version Y, which the
+        // tile cache flags as a mismatch and renders blank.
         val builder = ResourceBuilders.Resources.Builder()
-            .setVersion(currentResourcesVersion(this))
+            .setVersion(requestParams.version)
         for (id in frontingMemberIds()) {
             tileAvatarResource(this, id)?.let { res ->
                 builder.addIdToImageMapping(tileAvatarResourceId(id), res)
@@ -190,11 +194,20 @@ internal fun orderedFronters(context: Context): List<MemberRow> {
 /**
  * Resources version doubles as a cache key for the tile resource graph.
  * Bumping it forces the tile renderer to re-fetch the avatar PNG bytes
- * from this service. We tie it to `last_front_change_at` so the resource
- * graph rotates with the fronter set rather than drifting forever.
+ * from this service. We tie it to two counters:
+ *
+ * - `last_front_change_at` rotates the cache when the fronter set
+ *   changes, so the avatar-bearing fronting tiles get fresh images
+ *   when someone joins or leaves the front.
+ * - `tile_config_version` rotates the cache when *any* tile's per-
+ *   instance member set changes via the picker, so configurable tiles
+ *   like quick-switch and member-tracker pick up their new roster
+ *   without the cache feeding them an empty pre-pick state.
  */
 internal fun currentResourcesVersion(context: Context): String {
     val sp = context.getSharedPreferences("tile_data", Context.MODE_PRIVATE)
-    return sp.getLong("last_front_change_at", 0L).toString()
+    val lastChange = sp.getLong("last_front_change_at", 0L)
+    val configVersion = tileConfigVersion(context)
+    return "$lastChange:$configVersion"
 }
 

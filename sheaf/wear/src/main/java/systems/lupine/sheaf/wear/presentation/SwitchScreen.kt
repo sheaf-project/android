@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -158,13 +159,17 @@ fun SwitchScreen(navController: NavController) {
                             backgroundColor = MaterialTheme.colors.secondary,
                             contentColor = MaterialTheme.colors.onSecondary,
                         ),
-                        // Narrower than the list chips and a bit further from
-                        // the bottom edge so the round bezel doesn't clip the
-                        // label on Pixel Watch.
+                        // Narrower than the list chips so the round bezel
+                        // doesn't clip the label on Pixel Watch. Height is
+                        // shorter than the default Chip (~52dp) to free more
+                        // list real-estate above; bottom padding is small so
+                        // the chip sits low enough to feel attached to the
+                        // bezel rather than floating in dark space.
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth(0.85f)
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                            .height(40.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
             }
