@@ -4,6 +4,26 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.5] - 2026-05-07
+
+Watchface complications and a build-info surface in Settings.
+
+### Added
+
+- Wear OS complications (phase 1): six static slots for users to drop
+  on their watchface. Open-app shortcut, quick switch, fronters
+  (oldest-fronting first), fronters (newest-fronting first), current
+  fronting duration, and last switch time. Each picks SHORT_TEXT or
+  LONG_TEXT depending on the slot.
+- Wear OS configurable per-member complication ("Is X fronting?"). On
+  add, the watchface picker launches a member chooser; selection is
+  stored per complication instance, so the same complication can fill
+  multiple slots, each tracking a different member.
+- About row at the bottom of phone Settings and wear Settings showing
+  the app version, short git commit hash, and a "debug" suffix on
+  debug builds. Useful for telling which build is actually installed
+  on a device.
+
 ## [0.1.4] - 2026-05-07
 
 Phone polish, wear OS substantive overhaul, and a couple of correctness
