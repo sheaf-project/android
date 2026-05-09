@@ -13,6 +13,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.data.repository.WatchSessionRepository
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -22,7 +23,12 @@ class PhoneDataLayerService : WearableListenerService() {
         const val PATH_CREDENTIALS = "/sheaf/credentials"
         const val PATH_CREDENTIALS_REQUEST = "/sheaf/credentials/request"
 
-        fun pushCredentials(
+        /**
+         * Push raw credentials to the watch. The watch always gets the
+         * companion-session creds (its own session), never the phone's
+         * primary tokens — see [pushWatchCredentials].
+         */
+        private fun putCredentialsItem(
             context: Context,
             baseUrl: String,
             accessToken: String,
@@ -37,19 +43,35 @@ class PhoneDataLayerService : WearableListenerService() {
             Wearable.getDataClient(context)
                 .putDataItem(request.asPutDataRequest().setUrgent())
         }
+
+        /**
+         * Sends the watch's companion-session credentials. Provisioning
+         * (minting via /v1/auth/sessions/secondary) happens here on demand
+         * if no credentials have been minted yet — typical trigger paths
+         * are post-login and watch-side credential requests.
+         */
+        suspend fun pushWatchCredentials(
+            context: Context,
+            prefs: PreferencesRepository,
+            watchSession: WatchSessionRepository,
+        ) {
+            val baseUrl = prefs.baseUrl.first()?.takeIf { it.isNotBlank() } ?: return
+            if (!watchSession.ensureWatchSession()) return
+            val access = prefs.watchAccessToken.first() ?: return
+            val refresh = prefs.watchRefreshToken.first() ?: return
+            putCredentialsItem(context, baseUrl, access, refresh)
+        }
     }
 
     @Inject lateinit var prefs: PreferencesRepository
+    @Inject lateinit var watchSession: WatchSessionRepository
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override fun onMessageReceived(event: MessageEvent) {
         if (event.path == PATH_CREDENTIALS_REQUEST) {
             scope.launch {
-                val baseUrl = prefs.baseUrl.first() ?: return@launch
-                val access = prefs.accessToken.first() ?: return@launch
-                val refresh = prefs.refreshToken.first() ?: return@launch
-                pushCredentials(applicationContext, baseUrl, access, refresh)
+                pushWatchCredentials(applicationContext, prefs, watchSession)
             }
         }
     }

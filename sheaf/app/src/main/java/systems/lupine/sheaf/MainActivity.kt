@@ -11,8 +11,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.data.repository.WatchSessionRepository
+import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import systems.lupine.sheaf.lock.AppLockManager
 import systems.lupine.sheaf.lock.LockState
 import systems.lupine.sheaf.ui.SheafApp
@@ -25,10 +30,26 @@ class MainActivity : FragmentActivity() {
 
     @Inject lateinit var prefs: PreferencesRepository
     @Inject lateinit var lockManager: AppLockManager
+    @Inject lateinit var watchSession: WatchSessionRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Belt-and-suspenders: provision and push the wear app's
+        // companion-session credentials whenever the phone app launches
+        // while logged in. Handles the upgrade case where an existing
+        // user's wear app is still running with stale phone primary
+        // tokens — we want it switched to its own child session before
+        // either device's next refresh attempt.
+        lifecycleScope.launch {
+            if (prefs.accessToken.first() != null) {
+                runCatching {
+                    PhoneDataLayerService.pushWatchCredentials(
+                        applicationContext, prefs, watchSession,
+                    )
+                }
+            }
+        }
         setContent {
             val themeMode by prefs.themeMode.collectAsState(initial = "system")
             SheafTheme(themeMode = themeMode) {

@@ -10,7 +10,11 @@ import systems.lupine.sheaf.data.model.TokenResponse
 import systems.lupine.sheaf.data.model.UserLogin
 import systems.lupine.sheaf.data.model.UserRegister
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.data.repository.WatchSessionRepository
+import systems.lupine.sheaf.datalayer.PhoneDataLayerService
+import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -37,6 +41,8 @@ class AuthViewModel @Inject constructor(
     private val prefs: PreferencesRepository,
     private val authInterceptor: AuthInterceptor,
     private val altchaSolver: AltchaSolver,
+    private val watchSession: WatchSessionRepository,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     val isLoggedIn: StateFlow<Boolean> = prefs.accessToken
@@ -199,6 +205,11 @@ class AuthViewModel @Inject constructor(
                         _uiState.value = AuthUiState.AwaitingEmailVerification
                     } else {
                         prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
+                        runCatching {
+                            PhoneDataLayerService.pushWatchCredentials(
+                                appContext, prefs, watchSession
+                            )
+                        }
                         _uiState.value = AuthUiState.Idle
                     }
                 }
@@ -279,6 +290,12 @@ class AuthViewModel @Inject constructor(
         val access = pendingAccessToken ?: return
         val refresh = pendingRefreshToken ?: return
         prefs.saveTokens(access, refresh)
+        // Provision the wear app's companion session and push to the
+        // watch. Best-effort: a wear-side error here doesn't block the
+        // user from logging in on the phone.
+        runCatching {
+            PhoneDataLayerService.pushWatchCredentials(appContext, prefs, watchSession)
+        }
         clearPending()
         _uiState.value = AuthUiState.Idle
     }

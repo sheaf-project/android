@@ -85,6 +85,23 @@ data class TokenRefresh(
     @Json(name = "refresh_token") val refreshToken: String,
 )
 
+/**
+ * Returned by `POST /v1/auth/sessions/secondary`. Identical shape to
+ * [TokenResponse] but with the child session id surfaced so the caller can
+ * track the wearable's session for revocation/cascade purposes.
+ */
+@JsonClass(generateAdapter = true)
+data class SecondarySessionResponse(
+    @Json(name = "access_token") val accessToken: String,
+    @Json(name = "refresh_token") val refreshToken: String,
+    @Json(name = "session_id") val sessionId: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class SecondarySessionRequest(
+    @Json(name = "client_name") val clientName: String? = null,
+)
+
 @JsonClass(generateAdapter = true)
 data class TOTPVerify(
     val code: String,

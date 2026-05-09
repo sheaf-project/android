@@ -12,7 +12,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,12 +36,22 @@ class PreferencesRepository @Inject constructor(
         // expired without a server round-trip.
         val KEY_TRUSTED_DEVICE_COOKIE = stringPreferencesKey("trusted_device_cookie")
         val KEY_TRUSTED_DEVICE_EXPIRES_AT = longPreferencesKey("trusted_device_expires_at")
+        // Wear companion-session credentials, distinct from the phone's
+        // primary tokens so the watch can rotate its own one-shot refresh
+        // JWT without colliding with the phone's rotation. Provisioned
+        // via POST /v1/auth/sessions/secondary after login.
+        val KEY_WATCH_ACCESS_TOKEN = stringPreferencesKey("watch_access_token")
+        val KEY_WATCH_REFRESH_TOKEN = stringPreferencesKey("watch_refresh_token")
+        val KEY_WATCH_SESSION_ID = stringPreferencesKey("watch_session_id")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
     val fileCdnBase: Flow<String?> = context.dataStore.data.map { it[KEY_FILE_CDN_BASE] }
     val accessToken: Flow<String?> = context.dataStore.data.map { it[KEY_ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[KEY_REFRESH_TOKEN] }
+    val watchAccessToken: Flow<String?> = context.dataStore.data.map { it[KEY_WATCH_ACCESS_TOKEN] }
+    val watchRefreshToken: Flow<String?> = context.dataStore.data.map { it[KEY_WATCH_REFRESH_TOKEN] }
+    val watchSessionId: Flow<String?> = context.dataStore.data.map { it[KEY_WATCH_SESSION_ID] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[KEY_THEME] ?: "system" }
     val frontNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_FRONT_NOTIFICATION] ?: false }
     val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
@@ -61,19 +70,29 @@ class PreferencesRepository @Inject constructor(
     }
 
     suspend fun saveTokens(access: String, refresh: String) {
-        val updated = context.dataStore.edit {
+        context.dataStore.edit {
             it[KEY_ACCESS_TOKEN] = access
             it[KEY_REFRESH_TOKEN] = refresh
         }
-        // Backend treats refresh tokens as one-shot (jti consumed on /refresh).
-        // Push the new pair to the wear app immediately so it doesn't hold a
-        // stale token that would trip reuse detection and kill the session.
-        // Best-effort: fire-and-forget, no-op if the watch isn't paired.
-        val baseUrl = updated[KEY_BASE_URL]
-        if (baseUrl != null) {
-            runCatching {
-                PhoneDataLayerService.pushCredentials(context, baseUrl, access, refresh)
-            }
+        // The watch no longer rides on the phone's primary refresh token —
+        // it gets its own companion session via /v1/auth/sessions/secondary
+        // so each device can rotate independently. Wear credentials are
+        // pushed via PhoneDataLayerService once provisioned.
+    }
+
+    suspend fun saveWatchTokens(access: String, refresh: String, sessionId: String) {
+        context.dataStore.edit {
+            it[KEY_WATCH_ACCESS_TOKEN] = access
+            it[KEY_WATCH_REFRESH_TOKEN] = refresh
+            it[KEY_WATCH_SESSION_ID] = sessionId
+        }
+    }
+
+    suspend fun clearWatchTokens() {
+        context.dataStore.edit {
+            it.remove(KEY_WATCH_ACCESS_TOKEN)
+            it.remove(KEY_WATCH_REFRESH_TOKEN)
+            it.remove(KEY_WATCH_SESSION_ID)
         }
     }
 
@@ -93,6 +112,13 @@ class PreferencesRepository @Inject constructor(
         context.dataStore.edit {
             it.remove(KEY_ACCESS_TOKEN)
             it.remove(KEY_REFRESH_TOKEN)
+            // Watch session is a server-side child of the phone's session;
+            // when the phone's tokens go, the watch's are about to follow
+            // via cascade revocation anyway. Drop them locally so a new
+            // login mints a fresh pair.
+            it.remove(KEY_WATCH_ACCESS_TOKEN)
+            it.remove(KEY_WATCH_REFRESH_TOKEN)
+            it.remove(KEY_WATCH_SESSION_ID)
         }
     }
 

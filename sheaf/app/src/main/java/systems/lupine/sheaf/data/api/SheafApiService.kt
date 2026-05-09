@@ -88,6 +88,16 @@ interface SheafApiService {
     @POST("/v1/auth/sessions/revoke-others")
     suspend fun revokeOtherSessions(@Body body: TokenRefresh)
 
+    /**
+     * Mint a child session + independent refresh token for a paired
+     * companion device (the wear app). Lets the watch rotate its own
+     * one-shot refresh JWT without colliding with the phone's rotation.
+     * On parent revocation (logout, /sessions DELETE, change-password)
+     * the child is cascaded automatically server-side.
+     */
+    @POST("/v1/auth/sessions/secondary")
+    suspend fun createSecondarySession(@Body body: SecondarySessionRequest): SecondarySessionResponse
+
     // ── System ────────────────────────────────────────────────────────────────
 
     @GET("/v1/systems/me")
