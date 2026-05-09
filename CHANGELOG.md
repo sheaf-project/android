@@ -4,6 +4,57 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.7] - 2026-05-09
+
+Major wear OS expansion (six fronting tiles, history viewer screen) and
+a long-standing phone auth bug fixed.
+
+### Added
+
+- Wear OS tiles, big haul:
+  - **Currently Fronting (with avatars)**: row of fronter avatars over
+    a comma-joined name list, "+N" overflow when more than four are
+    fronting.
+  - **Currently Fronting (avatars only)**: glanceable face arrangement
+    with no text — solo (1), row (2-3), or 2x2 grid (4) with overflow
+    badge.
+  - **Member tracker**: pick a roster of members at tile-add time;
+    each shows a fronting (✓) / not (✗) indicator. Layout adapts to
+    count: solo big-avatar through 4x2 compact grid for 7+.
+  - **Quick switch**: pre-pick a roster, tap avatars to toggle their
+    selection in-place (✓ marker), tap the "End existing" toggle, hit
+    the mint-green Switch button to commit. Shortcut for the in-app
+    Switch screen with the same mental model.
+  - **Recent fronts**: timeline of the last few front transitions
+    with avatars + relative time, "+" suffix on ongoing entries. Tap
+    opens the new history viewer screen.
+- Wear OS front history viewer screen, accessed from the main menu's
+  new History chip or by tapping the Recent fronts tile. Shows recent
+  fronting-set entries, newest first, each row with avatars + names +
+  relative time.
+- Main menu reorder: Currently Fronting / Switch Front / Members /
+  Groups / History / Settings. Switch is the most-used action so it's
+  in the second slot now.
+- Avatar caching pipeline for tiles: members' avatars are downloaded
+  + cropped to circles + cached as 80x80 PNGs on each sync, so tiles
+  can render them without re-fetching.
+
+### Fixed
+
+- Phone app no longer gets silently logged out when the wear app is
+  in active use. The watch now provisions its own companion session
+  via `POST /v1/auth/sessions/secondary` and rotates an independent
+  refresh JWT, so refreshes on either device can't trip the other's
+  reuse-detection path.
+- Last-switch complication shows the actual switch time on first sync
+  instead of "1m ago" right after install. Derives the timestamp from
+  the freshest `started_at` across current fronts when no cached
+  signature is present.
+- Switch screen's floating commit chip moved closer to the bottom
+  edge and shortened so the round bezel doesn't waste space below it.
+- Home screen's Switch Front chip text now centred to match the in-
+  page commit chip on Switch.
+
 ## [0.1.6] - 2026-05-07
 
 Play developer console is full of footguns and very easy to burn a version code. Kick off a new build again /headdesk
