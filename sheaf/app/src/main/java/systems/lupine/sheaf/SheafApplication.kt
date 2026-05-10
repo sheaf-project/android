@@ -8,12 +8,14 @@ import coil.ImageLoaderFactory
 import dagger.hilt.android.HiltAndroidApp
 import systems.lupine.sheaf.lock.AppLockManager
 import systems.lupine.sheaf.notification.FrontNotificationHelper
+import systems.lupine.sheaf.push.PushNotificationChannels
 import javax.inject.Inject
 
 @HiltAndroidApp
 class SheafApplication : Application(), ImageLoaderFactory, Configuration.Provider {
 
     @Inject lateinit var notificationHelper: FrontNotificationHelper
+    @Inject lateinit var pushChannels: PushNotificationChannels
     @Inject lateinit var imageLoader: ImageLoader
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var lockManager: AppLockManager
@@ -24,6 +26,7 @@ class SheafApplication : Application(), ImageLoaderFactory, Configuration.Provid
     override fun onCreate() {
         super.onCreate()
         notificationHelper.createChannel()
+        pushChannels.register()
         lockManager.start()
     }
 

@@ -43,6 +43,12 @@ class PreferencesRepository @Inject constructor(
         val KEY_WATCH_ACCESS_TOKEN = stringPreferencesKey("watch_access_token")
         val KEY_WATCH_REFRESH_TOKEN = stringPreferencesKey("watch_refresh_token")
         val KEY_WATCH_SESSION_ID = stringPreferencesKey("watch_session_id")
+        // Stable opaque per-install id. Lets the server distinguish a
+        // push-token rotation on the same install (update-in-place) from
+        // a fresh install with a new token (insert). Cleared on logout
+        // so account-switching on one device looks like a fresh install
+        // to the server.
+        val KEY_PUSH_INSTALL_ID = stringPreferencesKey("push_install_id")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -96,6 +102,19 @@ class PreferencesRepository @Inject constructor(
         }
     }
 
+    /**
+     * Returns the existing install id, or generates one (UUID) and persists
+     * it on first call. Stable across token rotations and app restarts;
+     * cleared on logout via [clearTokens].
+     */
+    suspend fun getOrCreatePushInstallId(): String {
+        val existing = context.dataStore.data.first()[KEY_PUSH_INSTALL_ID]
+        if (existing != null) return existing
+        val fresh = java.util.UUID.randomUUID().toString()
+        context.dataStore.edit { it[KEY_PUSH_INSTALL_ID] = fresh }
+        return fresh
+    }
+
     suspend fun saveTheme(mode: String) {
         context.dataStore.edit { it[KEY_THEME] = mode }
     }
@@ -119,6 +138,9 @@ class PreferencesRepository @Inject constructor(
             it.remove(KEY_WATCH_ACCESS_TOKEN)
             it.remove(KEY_WATCH_REFRESH_TOKEN)
             it.remove(KEY_WATCH_SESSION_ID)
+            // Per the mobile push design: install id is logout-scoped so
+            // account-switching looks like a fresh install to the server.
+            it.remove(KEY_PUSH_INSTALL_ID)
         }
     }
 

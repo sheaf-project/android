@@ -11,3 +11,6 @@ local.properties
 sheaf/app/build
 /gradle/wrapper/gradle-wrapper.jar
 /sheaf/wear/build/
+# Firebase config: per-environment, fetched from Firebase console rather
+# than committed. Place at sheaf/app/src/play/google-services.json.
+sheaf/app/src/play/google-services.json

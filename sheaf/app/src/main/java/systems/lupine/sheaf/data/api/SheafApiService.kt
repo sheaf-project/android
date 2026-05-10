@@ -463,6 +463,20 @@ interface SheafApiService {
 
     @POST("/v1/admin/users/{id}/cancel-deletion")
     suspend fun adminCancelDeletion(@Path("id") id: String)
+
+    // ── Mobile push device registration ────────────────────────────────────
+    // Phase A: client-side stubs only. Endpoints aren't live until the
+    // backend mobile-push work lands; calls will 404 until then. Design
+    // doc: mobile-push-architecture.md in sheaf-design-docs.
+
+    @POST("/v1/devices/push")
+    suspend fun registerPushDevice(@Body body: PushDeviceRegistration)
+
+    @HTTP(method = "DELETE", path = "/v1/devices/push", hasBody = true)
+    suspend fun unregisterPushDevice(@Body body: PushDeviceUnregister)
+
+    @GET("/v1/devices/push")
+    suspend fun listPushDevices(): List<PushDeviceListEntry>
 }
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */

@@ -4,6 +4,27 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services) apply false
+}
+
+// FCM is .play-only. The google-services plugin requires google-services.json
+// at configure time, so we only apply it when the file is present in the play
+// source set. A fresh checkout without Firebase set up still builds: the
+// play APK just won't have working push until the dev drops the JSON in
+// place. The .open flavour never has push regardless.
+val playFirebaseJson: java.io.File = layout.projectDirectory.file("src/play/google-services.json").asFile
+if (playFirebaseJson.exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+
+    // Once applied, the plugin auto-registers a process<Variant>GoogleServices
+    // task for every variant, including the open ones, and fails if
+    // src/open/google-services.json doesn't exist. Disable the open-flavour
+    // tasks so the open build keeps working without a (pointless) stub JSON.
+    afterEvaluate {
+        tasks.matching {
+            it.name.startsWith("processOpen") && it.name.endsWith("GoogleServices")
+        }.configureEach { enabled = false }
+    }
 }
 
 // Short git SHA of HEAD at configure time. Surfaced via BuildConfig so the
@@ -129,6 +150,15 @@ dependencies {
 
     // Wearable Data Layer
     implementation(libs.play.services.wearable)
+
+    // Firebase Cloud Messaging: .play flavour only. FCM requires Google
+    // Play Services and is paired with the google-services Gradle plugin
+    // applied above when google-services.json is present. The .open
+    // flavour ships without it; UnifiedPush is the planned alternative.
+    "playImplementation"(platform(libs.firebase.bom))
+    "playImplementation"(libs.firebase.messaging.ktx)
+    // For Task<T>.await() on FirebaseMessaging.getInstance().token.
+    "playImplementation"(libs.kotlinx.coroutines.play.services)
 
     debugImplementation(libs.androidx.ui.tooling)
 
