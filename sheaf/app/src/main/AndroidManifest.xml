@@ -29,11 +29,28 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Magic-link redemption from outside the app (email, IM, etc.).
+                 The web fallback at <base_url>/notifications/redeem... lives
+                 on whatever instance the recipient's account uses; we don't
+                 wire App Links here because that'd need per-instance domain
+                 verification (problematic for self-hosted users). The web
+                 redeem page is expected to surface an "Open in Sheaf" CTA
+                 that fires the sheaf:// URL. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="sheaf"
+                    android:host="notifications"
+                    android:path="/redeem" />
             </intent-filter>
         </activity>
 

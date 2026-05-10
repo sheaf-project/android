@@ -477,6 +477,13 @@ interface SheafApiService {
 
     @GET("/v1/devices/push")
     suspend fun listPushDevices(): List<PushDeviceListEntry>
+
+    // ── Notification subscription redemption ──────────────────────────────
+    // Public endpoint: anonymous redemption is allowed for web push, but
+    // mobile-push channels (FCM/APNS_*) require a logged-in session.
+
+    @POST("/v1/notifications/redeem")
+    suspend fun redeemActivationCode(@Body body: RedeemRequest): RedeemResponse
 }
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */

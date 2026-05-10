@@ -29,6 +29,8 @@ import systems.lupine.sheaf.ui.home.HomeScreen
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
+import systems.lupine.sheaf.ui.notifications.PendingRedemptionHolder
+import systems.lupine.sheaf.ui.notifications.RedeemNotificationScreen
 import systems.lupine.sheaf.ui.people.PeopleScreen
 import systems.lupine.sheaf.ui.importsp.ImportScreen
 import systems.lupine.sheaf.ui.sheafimport.SheafImportScreen
@@ -77,6 +79,7 @@ object Routes {
     const val SETTINGS_DANGER        = "settings/danger"
     const val SETTINGS_TAGS          = "settings/tags"
     const val SETTINGS_RETENTION     = "settings/retention"
+    const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -99,9 +102,11 @@ val topLevelDestinations = listOf(
 
 @Composable
 fun SheafApp(
+    pendingRedemption: PendingRedemptionHolder,
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
+    val pendingRedeemCode by pendingRedemption.code.collectAsState()
     val navController = rememberNavController()
 
     // React to login state changes
@@ -118,6 +123,18 @@ fun SheafApp(
             navController.navigate(Routes.LOGIN) {
                 popUpTo(0) { inclusive = true }
             }
+        }
+    }
+
+    // Drain a pending redemption code as soon as the user is logged in.
+    // Fires after the isLoggedIn → home navigation above, so the redeem
+    // screen sits on top of HOME in the back stack and "Done" returns
+    // the user to home rather than dropping out of the app.
+    LaunchedEffect(isLoggedIn, pendingRedeemCode) {
+        val code = pendingRedeemCode
+        if (isLoggedIn && code != null) {
+            pendingRedemption.clear()
+            navController.navigate("notifications/redeem/$code")
         }
     }
 
@@ -254,6 +271,13 @@ fun SheafApp(
             composable(Routes.HISTORY) {
                 HistoryScreen(
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                )
+            }
+            composable(Routes.NOTIFICATIONS_REDEEM) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                RedeemNotificationScreen(
+                    activationCode = code,
+                    onDone = { navController.popBackStack() },
                 )
             }
             composable(Routes.SETTINGS) {
