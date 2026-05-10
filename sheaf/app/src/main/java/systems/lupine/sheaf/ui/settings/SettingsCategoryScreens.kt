@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteForever
@@ -138,6 +139,7 @@ fun NotificationSettingsScreen(
     onNavigateToReceiving: () -> Unit,
     onNavigateToYourDevices: () -> Unit,
     onNavigateToChannelsYouOwn: () -> Unit,
+    onNavigateToReminders: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val frontNotificationEnabled by viewModel.frontNotificationEnabled.collectAsState()
@@ -165,6 +167,13 @@ fun NotificationSettingsScreen(
             title = "Channels you own",
             subtitle = "Invite people to receive notifications from your system",
             onClick = onNavigateToChannelsYouOwn,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Alarm,
+            title = "Reminders",
+            subtitle = "Schedule pings or send pings on front changes",
+            onClick = onNavigateToReminders,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(

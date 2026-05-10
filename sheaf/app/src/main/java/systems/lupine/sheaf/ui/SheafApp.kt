@@ -32,6 +32,8 @@ import systems.lupine.sheaf.ui.members.MembersScreen
 import systems.lupine.sheaf.ui.notifications.ChannelDetailScreen
 import systems.lupine.sheaf.ui.notifications.ChannelsYouOwnScreen
 import systems.lupine.sheaf.ui.notifications.CreateChannelScreen
+import systems.lupine.sheaf.ui.notifications.reminders.ReminderEditorScreen
+import systems.lupine.sheaf.ui.notifications.reminders.RemindersScreen
 import systems.lupine.sheaf.ui.notifications.PendingRedemptionHolder
 import systems.lupine.sheaf.ui.notifications.ReceivingScreen
 import systems.lupine.sheaf.ui.notifications.RedeemNotificationScreen
@@ -90,6 +92,9 @@ object Routes {
     const val NOTIFICATIONS_OWNED     = "settings/notifications/owned"
     const val NOTIFICATIONS_CREATE    = "settings/notifications/owned/new"
     const val NOTIFICATIONS_CHANNEL_DETAIL = "settings/notifications/owned/{channelId}"
+    const val NOTIFICATIONS_REMINDERS  = "settings/notifications/reminders"
+    const val NOTIFICATIONS_REMINDER_NEW  = "settings/notifications/reminders/new"
+    const val NOTIFICATIONS_REMINDER_EDIT = "settings/notifications/reminders/{id}"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -324,6 +329,7 @@ fun SheafApp(
                     onNavigateToReceiving = { navController.navigate(Routes.NOTIFICATIONS_RECEIVING) },
                     onNavigateToYourDevices = { navController.navigate(Routes.NOTIFICATIONS_DEVICES) },
                     onNavigateToChannelsYouOwn = { navController.navigate(Routes.NOTIFICATIONS_OWNED) },
+                    onNavigateToReminders = { navController.navigate(Routes.NOTIFICATIONS_REMINDERS) },
                 )
             }
             composable(Routes.NOTIFICATIONS_RECEIVING) {
@@ -352,6 +358,30 @@ fun SheafApp(
                 ChannelDetailScreen(
                     channelId = id,
                     onNavigateUp = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.NOTIFICATIONS_REMINDERS) {
+                RemindersScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onCreateNew = { navController.navigate(Routes.NOTIFICATIONS_REMINDER_NEW) },
+                    onEdit = { id ->
+                        navController.navigate("settings/notifications/reminders/$id")
+                    },
+                )
+            }
+            composable(Routes.NOTIFICATIONS_REMINDER_NEW) {
+                ReminderEditorScreen(
+                    reminderId = null,
+                    onNavigateUp = { navController.navigateUp() },
+                    onSaved = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.NOTIFICATIONS_REMINDER_EDIT) { backStack ->
+                val id = backStack.arguments?.getString("id") ?: return@composable
+                ReminderEditorScreen(
+                    reminderId = id,
+                    onNavigateUp = { navController.navigateUp() },
+                    onSaved = { navController.popBackStack() },
                 )
             }
             composable(Routes.SETTINGS_SERVER) {

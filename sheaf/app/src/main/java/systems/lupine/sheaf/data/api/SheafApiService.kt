@@ -527,6 +527,23 @@ interface SheafApiService {
 
     @POST("/v1/channels/{channelId}/reissue-activation")
     suspend fun reissueChannelActivation(@Path("channelId") channelId: String): ReissueActivationResponse
+
+    // ── Reminders ──────────────────────────────────────────────────────────
+
+    @GET("/v1/reminders")
+    suspend fun listReminders(): List<ReminderRead>
+
+    @POST("/v1/reminders")
+    suspend fun createReminder(@Body body: ReminderWrite): ReminderRead
+
+    @GET("/v1/reminders/{id}")
+    suspend fun getReminder(@Path("id") id: String): ReminderRead
+
+    @PATCH("/v1/reminders/{id}")
+    suspend fun updateReminder(@Path("id") id: String, @Body body: ReminderWrite): ReminderRead
+
+    @DELETE("/v1/reminders/{id}")
+    suspend fun deleteReminder(@Path("id") id: String)
 }
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
