@@ -22,16 +22,27 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = if (providers.gradleProperty("openBuild").orNull == "true") {
-            "systems.lupine.sheaf.open"
-        } else {
-            "systems.lupine.sheaf"
-        }
         minSdk = 26
         targetSdk = 35
         versionCode = providers.gradleProperty("versionCode").orNull?.toInt() ?: 1
         versionName = providers.gradleProperty("versionName").orNull ?: "0.1.0"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommitShort\"")
+    }
+
+    // Distribution split: `.play` ships to Google Play (Firebase / FCM, prod
+    // signing); `.open` ships to GitHub Releases + IzzyOnDroid (no Google
+    // proprietary deps, CI signing). Each lands as its own applicationId so
+    // both can coexist on the same device for side-by-side testing.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            applicationId = "systems.lupine.sheaf"
+        }
+        create("open") {
+            dimension = "distribution"
+            applicationId = "systems.lupine.sheaf.open"
+        }
     }
 
     buildTypes {
@@ -41,6 +52,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

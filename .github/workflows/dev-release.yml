@@ -80,8 +80,7 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
-            ./gradlew :app:assembleRelease :wear:assembleRelease \
-              -PopenBuild=true \
+            ./gradlew :app:assembleOpenRelease :wear:assembleOpenRelease \
               -PversionCode="$VCODE" \
               -PversionName="$VNAME" \
               -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
@@ -90,8 +89,7 @@ jobs:
               -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
             rm -f keystore.jks
           else
-            ./gradlew :app:assembleDebug :wear:assembleDebug \
-              -PopenBuild=true \
+            ./gradlew :app:assembleOpenDebug :wear:assembleOpenDebug \
               -PversionCode="$VCODE" \
               -PversionName="$VNAME"
           fi

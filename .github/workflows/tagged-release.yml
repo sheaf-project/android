@@ -99,8 +99,7 @@ jobs:
             exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
-          ./gradlew :app:assembleRelease :wear:assembleRelease \
-            -PopenBuild=true \
+          ./gradlew :app:assembleOpenRelease :wear:assembleOpenRelease \
             -PversionCode="$VCODE" \
             -PversionName="$VNAME" \
             -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
@@ -114,8 +113,8 @@ jobs:
           set -euo pipefail
           mkdir -p artefacts/open
           VNAME="${{ steps.version.outputs.version_name }}"
-          APP_APK=$(find sheaf/app/build/outputs/apk/release -name "*.apk" | head -1)
-          WEAR_APK=$(find sheaf/wear/build/outputs/apk/release -name "*.apk" | head -1)
+          APP_APK=$(find sheaf/app/build/outputs/apk/open/release -name "*.apk" | head -1)
+          WEAR_APK=$(find sheaf/wear/build/outputs/apk/open/release -name "*.apk" | head -1)
           [ -n "$APP_APK" ] || { echo "ERROR: no app APK found"; exit 1; }
           [ -n "$WEAR_APK" ] || { echo "ERROR: no wear APK found"; exit 1; }
           cp "$APP_APK"  "artefacts/open/sheaf-${VNAME}-open.apk"
@@ -133,8 +132,8 @@ jobs:
           VNAME: ${{ steps.version.outputs.version_name }}
         run: |
           ./gradlew \
-            :app:assembleRelease :app:bundleRelease \
-            :wear:assembleRelease :wear:bundleRelease \
+            :app:assemblePlayRelease :app:bundlePlayRelease \
+            :wear:assemblePlayRelease :wear:bundlePlayRelease \
             -PversionCode="$VCODE" \
             -PversionName="$VNAME"
 
@@ -143,10 +142,10 @@ jobs:
           set -euo pipefail
           mkdir -p artefacts/prod
           VNAME="${{ steps.version.outputs.version_name }}"
-          APP_APK=$(find sheaf/app/build/outputs/apk/release -name "*.apk" | head -1)
-          APP_AAB=$(find sheaf/app/build/outputs/bundle/release -name "*.aab" | head -1)
-          WEAR_APK=$(find sheaf/wear/build/outputs/apk/release -name "*.apk" | head -1)
-          WEAR_AAB=$(find sheaf/wear/build/outputs/bundle/release -name "*.aab" | head -1)
+          APP_APK=$(find sheaf/app/build/outputs/apk/play/release -name "*.apk" | head -1)
+          APP_AAB=$(find sheaf/app/build/outputs/bundle/playRelease -name "*.aab" | head -1)
+          WEAR_APK=$(find sheaf/wear/build/outputs/apk/play/release -name "*.apk" | head -1)
+          WEAR_AAB=$(find sheaf/wear/build/outputs/bundle/playRelease -name "*.aab" | head -1)
           [ -n "$APP_APK" ] || { echo "ERROR: no app APK found"; exit 1; }
           [ -n "$APP_AAB" ] || { echo "ERROR: no app AAB found"; exit 1; }
           [ -n "$WEAR_APK" ] || { echo "ERROR: no wear APK found"; exit 1; }
