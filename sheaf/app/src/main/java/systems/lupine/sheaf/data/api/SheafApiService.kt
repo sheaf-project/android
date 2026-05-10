@@ -490,6 +490,43 @@ interface SheafApiService {
 
     @POST("/v1/notifications/receiving/{channelId}/unsubscribe")
     suspend fun unsubscribeReceiving(@Path("channelId") channelId: String)
+
+    // ── Watch tokens (owner-side) ──────────────────────────────────────────
+
+    @POST("/v1/systems/{systemId}/watch-tokens")
+    suspend fun createWatchToken(
+        @Path("systemId") systemId: String,
+        @Body body: WatchTokenCreate,
+    ): WatchTokenRead
+
+    @GET("/v1/systems/{systemId}/watch-tokens")
+    suspend fun listWatchTokens(@Path("systemId") systemId: String): List<WatchTokenRead>
+
+    @DELETE("/v1/watch-tokens/{tokenId}")
+    suspend fun revokeWatchToken(@Path("tokenId") tokenId: String)
+
+    // ── Notification channels (owner-side) ─────────────────────────────────
+
+    @POST("/v1/watch-tokens/{tokenId}/channels")
+    suspend fun createChannel(
+        @Path("tokenId") tokenId: String,
+        @Body body: NotificationChannelCreate,
+    ): NotificationChannelCreateResponse
+
+    @GET("/v1/channels")
+    suspend fun listOwnedChannels(): List<NotificationChannelRead>
+
+    @DELETE("/v1/channels/{channelId}")
+    suspend fun deleteChannel(@Path("channelId") channelId: String)
+
+    @POST("/v1/channels/{channelId}/disable")
+    suspend fun disableChannel(@Path("channelId") channelId: String)
+
+    @POST("/v1/channels/{channelId}/enable")
+    suspend fun enableChannel(@Path("channelId") channelId: String)
+
+    @POST("/v1/channels/{channelId}/reissue-activation")
+    suspend fun reissueChannelActivation(@Path("channelId") channelId: String): ReissueActivationResponse
 }
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */

@@ -29,6 +29,8 @@ import systems.lupine.sheaf.ui.home.HomeScreen
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
+import systems.lupine.sheaf.ui.notifications.ChannelsYouOwnScreen
+import systems.lupine.sheaf.ui.notifications.CreateChannelScreen
 import systems.lupine.sheaf.ui.notifications.PendingRedemptionHolder
 import systems.lupine.sheaf.ui.notifications.ReceivingScreen
 import systems.lupine.sheaf.ui.notifications.RedeemNotificationScreen
@@ -84,6 +86,8 @@ object Routes {
     const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}"
     const val NOTIFICATIONS_RECEIVING = "settings/notifications/receiving"
     const val NOTIFICATIONS_DEVICES   = "settings/notifications/devices"
+    const val NOTIFICATIONS_OWNED     = "settings/notifications/owned"
+    const val NOTIFICATIONS_CREATE    = "settings/notifications/owned/new"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -317,6 +321,7 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToReceiving = { navController.navigate(Routes.NOTIFICATIONS_RECEIVING) },
                     onNavigateToYourDevices = { navController.navigate(Routes.NOTIFICATIONS_DEVICES) },
+                    onNavigateToChannelsYouOwn = { navController.navigate(Routes.NOTIFICATIONS_OWNED) },
                 )
             }
             composable(Routes.NOTIFICATIONS_RECEIVING) {
@@ -324,6 +329,18 @@ fun SheafApp(
             }
             composable(Routes.NOTIFICATIONS_DEVICES) {
                 YourDevicesScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.NOTIFICATIONS_OWNED) {
+                ChannelsYouOwnScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onCreateNew = { navController.navigate(Routes.NOTIFICATIONS_CREATE) },
+                )
+            }
+            composable(Routes.NOTIFICATIONS_CREATE) {
+                CreateChannelScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onCreated = { navController.popBackStack() },
+                )
             }
             composable(Routes.SETTINGS_SERVER) {
                 systems.lupine.sheaf.ui.settings.ServerSettingsScreen(

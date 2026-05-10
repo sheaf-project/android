@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.BrightnessAuto
@@ -136,6 +137,7 @@ fun NotificationSettingsScreen(
     onNavigateUp: () -> Unit,
     onNavigateToReceiving: () -> Unit,
     onNavigateToYourDevices: () -> Unit,
+    onNavigateToChannelsYouOwn: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val frontNotificationEnabled by viewModel.frontNotificationEnabled.collectAsState()
@@ -156,6 +158,13 @@ fun NotificationSettingsScreen(
             title = "Receiving",
             subtitle = "Subscriptions delivering to this account",
             onClick = onNavigateToReceiving,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.AutoMirrored.Outlined.Send,
+            title = "Channels you own",
+            subtitle = "Invite people to receive notifications from your system",
+            onClick = onNavigateToChannelsYouOwn,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
