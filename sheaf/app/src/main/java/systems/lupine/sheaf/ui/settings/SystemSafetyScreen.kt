@@ -297,43 +297,62 @@ private fun GracePeriodCard(
     }
 }
 
+// Split into per-row composable: the previous fused implementation tripped
+// the Kotlin codegen's RedundantCheckCastElimination pass on CI (GC overhead
+// limit exceeded inside ASM's Frame analysis). The conditional
+// supportingContent lambda + forEachIndexed + nested Surface/ListItem in one
+// function body pushed the per-method dataflow state into a quadratic
+// blowup. Top-level composables per row are cheap and side-step the issue.
 @Composable
 private fun AuthTierSelector(
     selected: String,
     totpEnabled: Boolean,
     onSelect: (String) -> Unit,
 ) {
-    val options = listOf(
-        "none" to "None",
-        "password" to "Password",
-        "totp" to "Authenticator code",
-        "both" to "Password + authenticator code",
-    )
     Column {
-        options.forEachIndexed { index, (value, label) ->
-            val needsTotp = value == "totp" || value == "both"
-            val enabled = !needsTotp || totpEnabled
-            Surface(
-                onClick = { if (enabled) onSelect(value) },
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                ListItem(
-                    headlineContent = { Text(label) },
-                    supportingContent = if (needsTotp && !totpEnabled) {
-                        { Text("Enable 2FA in Security to use this option") }
-                    } else null,
-                    leadingContent = {
-                        RadioButton(
-                            selected = selected == value,
-                            onClick = { if (enabled) onSelect(value) },
-                            enabled = enabled,
-                        )
-                    },
+        AuthTierRow("none", "None", selected, totpEnabled, onSelect)
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        AuthTierRow("password", "Password", selected, totpEnabled, onSelect)
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        AuthTierRow("totp", "Authenticator code", selected, totpEnabled, onSelect)
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        AuthTierRow("both", "Password + authenticator code", selected, totpEnabled, onSelect)
+    }
+}
+
+@Composable
+private fun AuthTierRow(
+    value: String,
+    label: String,
+    selected: String,
+    totpEnabled: Boolean,
+    onSelect: (String) -> Unit,
+) {
+    val needsTotp = value == "totp" || value == "both"
+    val enabled = !needsTotp || totpEnabled
+    Surface(
+        onClick = { if (enabled) onSelect(value) },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        ListItem(
+            headlineContent = { Text(label) },
+            supportingContent = { AuthTierRowSupportingText(needsTotp, totpEnabled) },
+            leadingContent = {
+                RadioButton(
+                    selected = selected == value,
+                    onClick = { if (enabled) onSelect(value) },
+                    enabled = enabled,
                 )
-            }
-            if (index != options.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        }
+            },
+        )
+    }
+}
+
+@Composable
+private fun AuthTierRowSupportingText(needsTotp: Boolean, totpEnabled: Boolean) {
+    if (needsTotp && !totpEnabled) {
+        Text("Enable 2FA in Security to use this option")
     }
 }
 
