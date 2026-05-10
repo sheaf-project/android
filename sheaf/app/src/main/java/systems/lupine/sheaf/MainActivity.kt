@@ -20,6 +20,7 @@ import systems.lupine.sheaf.data.repository.WatchSessionRepository
 import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import systems.lupine.sheaf.lock.AppLockManager
 import systems.lupine.sheaf.lock.LockState
+import systems.lupine.sheaf.push.PushDeviceRegistrar
 import systems.lupine.sheaf.ui.SheafApp
 import systems.lupine.sheaf.ui.lock.AppLockScreen
 import systems.lupine.sheaf.ui.theme.SheafTheme
@@ -31,6 +32,7 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var prefs: PreferencesRepository
     @Inject lateinit var lockManager: AppLockManager
     @Inject lateinit var watchSession: WatchSessionRepository
+    @Inject lateinit var pushRegistrar: PushDeviceRegistrar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +50,10 @@ class MainActivity : FragmentActivity() {
                         applicationContext, prefs, watchSession,
                     )
                 }
+                // Backstop the FCM-registration call in case onNewToken
+                // fired before login (token cached, account swapped) or
+                // an earlier registration failed and never retried.
+                runCatching { pushRegistrar.registerCurrentToken() }
             }
         }
         setContent {

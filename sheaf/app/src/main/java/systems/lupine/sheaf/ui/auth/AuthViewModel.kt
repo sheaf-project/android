@@ -12,6 +12,7 @@ import systems.lupine.sheaf.data.model.UserRegister
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.data.repository.WatchSessionRepository
 import systems.lupine.sheaf.datalayer.PhoneDataLayerService
+import systems.lupine.sheaf.push.PushDeviceRegistrar
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,6 +43,7 @@ class AuthViewModel @Inject constructor(
     private val authInterceptor: AuthInterceptor,
     private val altchaSolver: AltchaSolver,
     private val watchSession: WatchSessionRepository,
+    private val pushRegistrar: PushDeviceRegistrar,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -210,6 +212,7 @@ class AuthViewModel @Inject constructor(
                                 appContext, prefs, watchSession
                             )
                         }
+                        runCatching { pushRegistrar.registerCurrentToken() }
                         _uiState.value = AuthUiState.Idle
                     }
                 }
@@ -256,6 +259,12 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            // Drop the push device row server-side before the session goes
+            // away. Best-effort: the DELETE endpoint requires auth, so this
+            // has to run before prefs.clearTokens(). If it fails (network,
+            // etc.) the row gets reaped lazily on the next delivery via the
+            // 410 / Unregistered path.
+            runCatching { pushRegistrar.unregisterCurrent() }
             runCatching { api.logout() }
             prefs.clearTokens()
             // Trusted-device cookie deliberately persists across logout, same
@@ -296,6 +305,9 @@ class AuthViewModel @Inject constructor(
         runCatching {
             PhoneDataLayerService.pushWatchCredentials(appContext, prefs, watchSession)
         }
+        // Register the current FCM token against this account so the
+        // server has somewhere to deliver pushes to. Best-effort.
+        runCatching { pushRegistrar.registerCurrentToken() }
         clearPending()
         _uiState.value = AuthUiState.Idle
     }
