@@ -28,14 +28,14 @@ class PushNotificationChannels @Inject constructor(
                 NotificationChannel(
                     CHANNEL_FRONT_CHANGE,
                     "Front change",
-                    NotificationManager.IMPORTANCE_DEFAULT,
+                    NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = "Front-change events from systems you watch"
                 },
                 NotificationChannel(
                     CHANNEL_REMINDERS,
                     "Reminders",
-                    NotificationManager.IMPORTANCE_DEFAULT,
+                    NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = "Reminders triggered by your system or watched systems"
                 },

@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.R
 import javax.inject.Inject
 
@@ -42,9 +43,22 @@ class SheafMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                TAG,
+                "onMessageReceived: data=${message.data} " +
+                    "notification.title=${message.notification?.title} " +
+                    "notification.body=${message.notification?.body} " +
+                    "notificationsEnabled=${NotificationManagerCompat.from(this).areNotificationsEnabled()}",
+            )
+        }
         val data = message.data
-        val title = data["title"] ?: return
-        val body = data["body"].orEmpty()
+        // Backend ships pure-data payloads with title/body inline. Fall
+        // back to message.notification fields so Firebase Console "Send
+        // test message" (which uses the legacy notification payload
+        // shape) and any future notification-style traffic still render.
+        val title = data["title"] ?: message.notification?.title ?: return
+        val body = data["body"] ?: message.notification?.body.orEmpty()
         val eventId = data["event_id"]
 
         // Stable per-event id keeps duplicate deliveries from stacking, but
@@ -63,7 +77,7 @@ class SheafMessagingService : FirebaseMessagingService() {
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
         try {

@@ -9,6 +9,17 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Default Android notification channel for FCM auto-displayed
+             notifications (i.e. when the payload is a `notification`
+             payload and the app is killed/backgrounded). Our backend
+             sends pure-data payloads which take a different path through
+             SheafMessagingService.onMessageReceived, but this default
+             also covers Firebase Console test messages and any future
+             `notification`-style traffic. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="sheaf_front_change" />
     </application>
 
 </manifest>
