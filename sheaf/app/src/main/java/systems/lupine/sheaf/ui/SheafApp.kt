@@ -29,6 +29,7 @@ import systems.lupine.sheaf.ui.home.HomeScreen
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
+import systems.lupine.sheaf.ui.notifications.ChannelDetailScreen
 import systems.lupine.sheaf.ui.notifications.ChannelsYouOwnScreen
 import systems.lupine.sheaf.ui.notifications.CreateChannelScreen
 import systems.lupine.sheaf.ui.notifications.PendingRedemptionHolder
@@ -88,6 +89,7 @@ object Routes {
     const val NOTIFICATIONS_DEVICES   = "settings/notifications/devices"
     const val NOTIFICATIONS_OWNED     = "settings/notifications/owned"
     const val NOTIFICATIONS_CREATE    = "settings/notifications/owned/new"
+    const val NOTIFICATIONS_CHANNEL_DETAIL = "settings/notifications/owned/{channelId}"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -334,12 +336,22 @@ fun SheafApp(
                 ChannelsYouOwnScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onCreateNew = { navController.navigate(Routes.NOTIFICATIONS_CREATE) },
+                    onChannelClick = { id ->
+                        navController.navigate("settings/notifications/owned/$id")
+                    },
                 )
             }
             composable(Routes.NOTIFICATIONS_CREATE) {
                 CreateChannelScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onCreated = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.NOTIFICATIONS_CHANNEL_DETAIL) { backStack ->
+                val id = backStack.arguments?.getString("channelId") ?: return@composable
+                ChannelDetailScreen(
+                    channelId = id,
+                    onNavigateUp = { navController.popBackStack() },
                 )
             }
             composable(Routes.SETTINGS_SERVER) {

@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.ui.notifications
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,7 @@ import systems.lupine.sheaf.ui.components.SheafTopAppBar
 fun ChannelsYouOwnScreen(
     onNavigateUp: () -> Unit,
     onCreateNew: () -> Unit,
+    onChannelClick: (String) -> Unit,
     viewModel: ChannelsYouOwnViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -103,6 +105,7 @@ fun ChannelsYouOwnScreen(
                     state.channels.forEach { channel ->
                         ChannelRow(
                             channel = channel,
+                            onClick = { onChannelClick(channel.id) },
                             onToggle = { viewModel.toggleEnabled(channel) },
                             onDelete = { deleteTarget = channel },
                         )
@@ -143,12 +146,14 @@ fun ChannelsYouOwnScreen(
 @Composable
 private fun ChannelRow(
     channel: NotificationChannelRead,
+    onClick: () -> Unit,
     onToggle: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val isPending = channel.destinationState.equals("pending_registration", ignoreCase = true)
     val isDisabled = channel.destinationState.equals("disabled", ignoreCase = true)
     ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
         headlineContent = { Text(channel.name) },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

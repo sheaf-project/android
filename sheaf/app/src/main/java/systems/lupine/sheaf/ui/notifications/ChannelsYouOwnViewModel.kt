@@ -72,6 +72,104 @@ class ChannelsYouOwnViewModel @Inject constructor(
     }
 }
 
+data class ChannelDetailUiState(
+    val isLoading: Boolean = false,
+    val channel: NotificationChannelRead? = null,
+    val reissuedActivationUrl: String? = null,
+    val reissuedExpiresAt: String? = null,
+    val isReissuing: Boolean = false,
+    val error: String? = null,
+)
+
+@HiltViewModel
+class ChannelDetailViewModel @Inject constructor(
+    private val api: SheafApiService,
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(ChannelDetailUiState(isLoading = true))
+    val state: StateFlow<ChannelDetailUiState> = _state.asStateFlow()
+
+    fun load(channelId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
+            // Channel list is small; just filter from the same endpoint
+            // rather than wiring a single-channel GET. Saves one route on
+            // the client side and stays consistent with whatever the
+            // list view is showing.
+            runCatching { api.listOwnedChannels() }
+                .onSuccess { rows ->
+                    val match = rows.firstOrNull { it.id == channelId }
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            channel = match,
+                            error = if (match == null) "Channel not found" else null,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(isLoading = false, error = e.toUserMessage("Couldn't load channel"))
+                    }
+                }
+        }
+    }
+
+    fun reissueActivation(channelId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(isReissuing = true, error = null) }
+            runCatching { api.reissueChannelActivation(channelId) }
+                .onSuccess { resp ->
+                    _state.update {
+                        it.copy(
+                            isReissuing = false,
+                            reissuedActivationUrl = resp.activationUrl,
+                            reissuedExpiresAt = resp.activationExpiresAt,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            isReissuing = false,
+                            error = e.toUserMessage("Couldn't reissue activation"),
+                        )
+                    }
+                }
+        }
+    }
+
+    fun toggleEnabled() {
+        val channel = _state.value.channel ?: return
+        viewModelScope.launch {
+            val call = if (channel.destinationState.equals("disabled", ignoreCase = true)) {
+                suspend { api.enableChannel(channel.id) }
+            } else {
+                suspend { api.disableChannel(channel.id) }
+            }
+            runCatching { call() }
+                .onSuccess { load(channel.id) }
+                .onFailure { e ->
+                    _state.update { it.copy(error = e.toUserMessage("Couldn't update channel")) }
+                }
+        }
+    }
+
+    fun delete(channelId: String, onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            runCatching { api.deleteChannel(channelId) }
+                .onSuccess { onDeleted() }
+                .onFailure { e ->
+                    _state.update { it.copy(error = e.toUserMessage("Couldn't delete channel")) }
+                }
+        }
+    }
+
+    fun dismissReissuedUrl() {
+        _state.update { it.copy(reissuedActivationUrl = null, reissuedExpiresAt = null) }
+    }
+}
+
 data class CreateChannelUiState(
     val isSubmitting: Boolean = false,
     val createdChannelName: String? = null,
