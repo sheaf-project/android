@@ -484,6 +484,12 @@ interface SheafApiService {
 
     @POST("/v1/notifications/redeem")
     suspend fun redeemActivationCode(@Body body: RedeemRequest): RedeemResponse
+
+    @GET("/v1/notifications/receiving")
+    suspend fun listReceivingChannels(): List<ReceivingChannelView>
+
+    @POST("/v1/notifications/receiving/{channelId}/unsubscribe")
+    suspend fun unsubscribeReceiving(@Path("channelId") channelId: String)
 }
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */

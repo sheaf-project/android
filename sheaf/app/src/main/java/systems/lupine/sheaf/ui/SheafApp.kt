@@ -30,7 +30,9 @@ import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
 import systems.lupine.sheaf.ui.notifications.PendingRedemptionHolder
+import systems.lupine.sheaf.ui.notifications.ReceivingScreen
 import systems.lupine.sheaf.ui.notifications.RedeemNotificationScreen
+import systems.lupine.sheaf.ui.notifications.YourDevicesScreen
 import systems.lupine.sheaf.ui.people.PeopleScreen
 import systems.lupine.sheaf.ui.importsp.ImportScreen
 import systems.lupine.sheaf.ui.sheafimport.SheafImportScreen
@@ -80,6 +82,8 @@ object Routes {
     const val SETTINGS_TAGS          = "settings/tags"
     const val SETTINGS_RETENTION     = "settings/retention"
     const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}"
+    const val NOTIFICATIONS_RECEIVING = "settings/notifications/receiving"
+    const val NOTIFICATIONS_DEVICES   = "settings/notifications/devices"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -311,7 +315,15 @@ fun SheafApp(
             composable(Routes.SETTINGS_NOTIFICATIONS) {
                 systems.lupine.sheaf.ui.settings.NotificationSettingsScreen(
                     onNavigateUp = { navController.navigateUp() },
+                    onNavigateToReceiving = { navController.navigate(Routes.NOTIFICATIONS_RECEIVING) },
+                    onNavigateToYourDevices = { navController.navigate(Routes.NOTIFICATIONS_DEVICES) },
                 )
+            }
+            composable(Routes.NOTIFICATIONS_RECEIVING) {
+                ReceivingScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.NOTIFICATIONS_DEVICES) {
+                YourDevicesScreen(onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.SETTINGS_SERVER) {
                 systems.lupine.sheaf.ui.settings.ServerSettingsScreen(

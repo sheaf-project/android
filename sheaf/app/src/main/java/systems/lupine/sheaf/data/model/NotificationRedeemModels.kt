@@ -31,3 +31,19 @@ data class RedeemResponse(
     @Json(name = "channel_name") val channelName: String,
     @Json(name = "system_label") val systemLabel: String? = null,
 )
+
+/**
+ * Account-bound channel from the recipient's perspective; returned by
+ * `GET /v1/notifications/receiving`. Lists every channel where the
+ * authenticated user is the redeemer.
+ */
+@JsonClass(generateAdapter = true)
+data class ReceivingChannelView(
+    @Json(name = "channel_id") val channelId: String,
+    @Json(name = "channel_name") val channelName: String,
+    @Json(name = "system_label") val systemLabel: String? = null,
+    @Json(name = "destination_type") val destinationType: String,
+    @Json(name = "destination_state") val destinationState: String,
+    @Json(name = "redeemed_at") val redeemedAt: String? = null,
+    @Json(name = "last_delivered_at") val lastDeliveredAt: String? = null,
+)

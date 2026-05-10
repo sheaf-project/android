@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.DevicesOther
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.History
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
@@ -132,6 +134,8 @@ fun AppearanceSettingsScreen(
 @Composable
 fun NotificationSettingsScreen(
     onNavigateUp: () -> Unit,
+    onNavigateToReceiving: () -> Unit,
+    onNavigateToYourDevices: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val frontNotificationEnabled by viewModel.frontNotificationEnabled.collectAsState()
@@ -147,6 +151,20 @@ fun NotificationSettingsScreen(
     }
 
     CategoryScaffold(title = "Notifications & Lock", onNavigateUp = onNavigateUp) {
+        SettingItem(
+            icon = Icons.Outlined.NotificationsActive,
+            title = "Receiving",
+            subtitle = "Subscriptions delivering to this account",
+            onClick = onNavigateToReceiving,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.DevicesOther,
+            title = "Your devices",
+            subtitle = "Phones and tablets registered to receive push",
+            onClick = onNavigateToYourDevices,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         ListItem(
             headlineContent = { Text("Fronting Notification") },
             supportingContent = { Text("Persistent silent notification showing who's fronting") },
