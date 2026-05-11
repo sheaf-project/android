@@ -26,6 +26,86 @@
                 android:resource="@xml/front_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.FrontingWithAvatarsWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/front_with_avatars_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.FrontingAvatarsOnlyWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/front_avatars_only_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.MemberTrackerWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/front_member_tracker_widget_info" />
+        </receiver>
+
+        <activity
+            android:name=".widget.MemberTrackerConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Sheaf">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".widget.QuickSwitchWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/front_quick_switch_widget_info" />
+        </receiver>
+
+        <activity
+            android:name=".widget.QuickSwitchConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Sheaf">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".widget.QuickSwitchTrampolineActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Sheaf.Transparent"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask" />
+
+        <receiver
+            android:name=".widget.RecentFrontsWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/front_recent_widget_info" />
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

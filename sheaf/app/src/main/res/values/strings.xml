@@ -2,4 +2,9 @@
 <resources>
     <string name="app_name">Sheaf</string>
     <string name="widget_description">Shows who is currently fronting</string>
+    <string name="widget_avatars_description">Currently fronting members with avatars</string>
+    <string name="widget_avatars_only_description">Currently fronting (avatars only)</string>
+    <string name="widget_member_tracker_description">Track specific members and see if they\'re fronting</string>
+    <string name="widget_quick_switch_description">Tap a tile to switch front to that member</string>
+    <string name="widget_recent_fronts_description">A ledger of recent front switches</string>
 </resources>

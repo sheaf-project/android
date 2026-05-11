@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Sheaf" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <!-- Transparent host for the quick-switch trampoline: the activity is
+         only a confirmation dialog overlaid on whatever was behind it. -->
+    <style name="Theme.Sheaf.Transparent" parent="Theme.Sheaf">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
 </resources>
