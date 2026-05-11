@@ -764,6 +764,15 @@ fun SystemEditScreen(
             )
 
             OutlinedTextField(
+                value = form.note,
+                onValueChange = { viewModel.updateForm { copy(note = it) } },
+                label = { Text("Scratchpad notes") },
+                placeholder = { Text("Anything you want to keep handy about your system") },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
                 value = form.tag,
                 onValueChange = { viewModel.updateForm { copy(tag = it) } },
                 label = { Text("Tag") },

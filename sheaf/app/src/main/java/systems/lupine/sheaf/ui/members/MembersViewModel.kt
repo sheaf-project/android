@@ -222,6 +222,7 @@ data class MemberFormState(
     val displayName: String = "",
     val pronouns: String = "",
     val description: String = "",
+    val note: String = "",
     val color: String = "#7F77DD",
     val birthday: String = "",
     val privacy: String = "private",
@@ -278,6 +279,7 @@ class MemberDetailViewModel @Inject constructor(
                         displayName = m.displayName ?: "",
                         pronouns    = m.pronouns ?: "",
                         description = m.description ?: "",
+                        note        = m.note ?: "",
                         color       = m.color ?: "#7F77DD",
                         birthday    = m.birthday ?: "",
                         privacy     = m.privacy,
@@ -310,6 +312,7 @@ class MemberDetailViewModel @Inject constructor(
                         color       = f.color.takeIf { it.isNotBlank() },
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
+                        note        = f.note.takeIf { it.isNotBlank() },
                     ))
                 } else {
                     val update = MemberUpdate(
@@ -321,6 +324,9 @@ class MemberDetailViewModel @Inject constructor(
                         color       = f.color.takeIf { it.isNotBlank() },
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
+                        // Empty string clears the column server-side; this lets
+                        // a user wipe a note that was previously set.
+                        note        = f.note,
                     )
                     val body = moshi.adapter(MemberUpdate::class.java).serializeNulls()
                         .toJson(update)

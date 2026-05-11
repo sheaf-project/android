@@ -19,6 +19,7 @@ import javax.inject.Inject
 data class SystemEditForm(
     val name: String = "",
     val description: String = "",
+    val note: String = "",
     val tag: String = "",
     val avatarUrl: String = "",
     val color: String = "",
@@ -59,6 +60,7 @@ class SystemEditViewModel @Inject constructor(
                     _form.value = SystemEditForm(
                         name = system.name,
                         description = system.description ?: "",
+                        note = system.note ?: "",
                         tag = system.tag ?: "",
                         avatarUrl = system.avatarUrl ?: "",
                         color = system.color ?: "",
@@ -82,6 +84,9 @@ class SystemEditViewModel @Inject constructor(
                 api.updateOwnSystem(SystemUpdate(
                     name = f.name.takeIf { it.isNotBlank() },
                     description = f.description.takeIf { it.isNotBlank() },
+                    // Send empty string as-is so the backend's "empty clears"
+                    // contract lets a user wipe a note that was previously set.
+                    note = f.note,
                     tag = f.tag.takeIf { it.isNotBlank() },
                     avatarUrl = f.avatarUrl.takeIf { it.isNotBlank() },
                     color = f.color.takeIf { it.isNotBlank() },

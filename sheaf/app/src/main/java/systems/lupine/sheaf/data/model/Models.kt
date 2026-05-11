@@ -233,6 +233,9 @@ data class SystemRead(
     // Default to true if the field is missing (older cached payloads); matches
     // the backend default for replace_fronts_default and web's `?? true` fallback.
     @Json(name = "replace_fronts_default") val replaceFrontsDefault: Boolean = true,
+    // Free-form scratchpad. Lightweight counterpart to journals: no versioning,
+    // no destructive-auth on edits. Max 5000 chars server-side.
+    val note: String? = null,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
 )
@@ -245,6 +248,7 @@ data class SystemUpdate(
     @Json(name = "avatar_url") val avatarUrl: String? = null,
     val color: String? = null,
     val privacy: String? = null,
+    val note: String? = null,
 )
 
 // ── System Safety ─────────────────────────────────────────────────────────────
@@ -387,6 +391,10 @@ data class MemberRead(
     val color: String?,
     val birthday: String?,
     val privacy: String,
+    // Free-form scratchpad. Lightweight, no versioning, no destructive-auth.
+    // Use the description for the "bio" with revision history; this is for
+    // running notes like trigger lists, fav drinks, current meds. Max 5000.
+    val note: String? = null,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val emoji: String? = null,
@@ -410,6 +418,7 @@ data class MemberCreate(
     val color: String? = null,
     val birthday: String? = null,
     val privacy: String = "private",
+    val note: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -422,6 +431,7 @@ data class MemberUpdate(
     val color: String? = null,
     val birthday: String? = null,
     val privacy: String? = null,
+    val note: String? = null,
 )
 
 // ── Fronts ────────────────────────────────────────────────────────────────────

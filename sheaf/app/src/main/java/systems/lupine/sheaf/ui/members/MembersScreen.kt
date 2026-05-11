@@ -471,6 +471,15 @@ fun MemberDetailScreen(
             )
 
             OutlinedTextField(
+                value = form.note,
+                onValueChange = { viewModel.updateForm { copy(note = it) } },
+                label = { Text("Scratchpad notes") },
+                placeholder = { Text("Triggers, current meds, favourites, anything you want to keep handy") },
+                minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
                 value = if (form.avatarUrl?.contains("/v1/files/") == true) "" else form.avatarUrl ?: "",
                 onValueChange = { viewModel.updateForm { copy(avatarUrl = it.ifBlank { null }) } },
                 label = { Text("Avatar URL") },
@@ -634,6 +643,28 @@ fun MemberProfileScreen(
                                 ),
                                 modifier = Modifier.padding(16.dp),
                             )
+                        }
+                    }
+
+                    // Scratchpad note (Markdown). Sits below description in
+                    // the profile order; same renderer, distinct card.
+                    if (!member.note.isNullOrBlank()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    "Notes",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                SheafMarkdownText(
+                                    markdown = member.note,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
                         }
                     }
 
