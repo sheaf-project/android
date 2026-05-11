@@ -73,7 +73,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // No signingConfig here. CI's openRelease gets signed via
+            // -Pandroid.injected.signing.* properties; CI's playRelease is
+            // intentionally unsigned so it can be signed offline by the
+            // YubiKey-resident production key. For local "run release"
+            // workflows, use the debug buildType (assemblePlayDebug etc.)
+            // which is auto-signed with the Android debug keystore.
         }
     }
 
