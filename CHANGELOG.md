@@ -4,6 +4,47 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.9] - 2026-05-11
+
+Catches up the phone client to the backend features that landed between
+0.1.7 and now: scratchpad notes, polls, board messages.
+
+### Added
+
+- **Scratchpad notes on members and on the system.** Free-form text
+  (max 5000 chars) for the running-thought stuff that doesn't want
+  the bio's revision-history machinery: trigger lists, current meds,
+  favourites, system-level reference info. Edit field on the member
+  edit screen and on the system edit screen, Markdown-rendered card
+  on the member profile.
+- **Polls** under the Home top app bar HowToVote icon. Lists open
+  and closed polls; create with single-choice or multi-choice, live
+  or hidden-until-close results, configurable close date (default
+  one week out, quick chips for 1 day / 1 week / 1 month). Vote
+  detail screen lets the user pick which member of their system is
+  casting the vote (pluralism affordance), pre-fills the option set
+  from any existing vote so amending feels like editing, and offers
+  withdraw. Closed and live-tally polls show a per-option progress
+  bar tally; end-only polls show a "hidden until close" notice
+  while open.
+- **Board messages** under the Home top app bar Forum icon. Lists
+  the system board plus every member's wall in one place, ordered
+  by most-recent message, with unread badges from the currently-
+  fronting member's perspective. Per-board view shows the message
+  history bottom-up with a sticky composer; "Posting as" dropdown
+  attributes the post to a specific member of the system. Auto-marks
+  the board seen on load for the caller member.
+
+### Notes
+
+- Owner-side message edit/delete and the front-start-prompt
+  auto-prompt are deliberately deferred to a future slice. Replies
+  render the parent-message backlink but don't yet have a "reply"
+  CTA on each row.
+- Polls audit log, retention-days customisation, and the
+  include_custom_fronts toggle are also follow-up polish — the
+  basic create/vote/results loop is in.
+
 ## [0.1.8] - 2026-05-10
 
 Push notifications land. Subscribe to other systems' front changes,
