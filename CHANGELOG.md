@@ -4,6 +4,66 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.8] - 2026-05-10
+
+Push notifications land. Subscribe to other systems' front changes,
+get pinged on your phone. Set up reminders that fire on a schedule or
+in response to fronting events. Create channels from the phone to
+share with people you want to keep in the loop.
+
+### Added
+
+- **Push notifications (.play flavour only).** Front-change events
+  from systems you're watching land as native Android notifications.
+  Built on the backend's mobile-push pipeline (FCM) with the
+  per-account device-token model so token rotations stay invisible to
+  the user.
+- **Settings → Notifications hub.** Five entries:
+  - **Receiving**: subscriptions delivering to this account, with
+    per-row unsubscribe.
+  - **Channels you own**: notification channels for sharing your
+    system's front updates. Create a channel, copy/share the magic
+    link, recipient redeems on their device. Channel detail screen
+    lets you re-issue the activation link if you lose it, enable
+    or disable a channel, and delete.
+  - **Reminders**: full CRUD for scheduled or front-event-triggered
+    reminders. Automated: pick a member + event + delay. Scheduled:
+    daily / weekly / monthly with time and day pickers.
+  - **Your devices**: registered push devices for this account, with
+    current-device marker.
+  - The existing Fronting Notification and App Lock toggles stay
+    where they were.
+- **Magic-link redemption deep link**: `sheaf://notifications/redeem`
+  opens the app, redeems the activation code against the server, and
+  prompts for POST_NOTIFICATIONS permission at the moment the user is
+  opting in (Android 13+).
+- Three Android notification channels for incoming push: Front change,
+  Reminders, System. Default importance HIGH for the first two so
+  they heads-up by default.
+
+### Changed
+
+- **Build system**: migrated from a `-PopenBuild=true` gradle property
+  to product flavours `play` and `open`. New build commands are
+  `./gradlew :app:assemblePlayRelease` and `:app:assembleOpenRelease`
+  (or the wear equivalents). Both flavours can coexist on the same
+  device side-by-side now.
+- AuthTierSelector in System Safety split into per-row composables to
+  side-step a Compose-compiler pathological case that GC-thrashed on
+  CI even at 4 GB Kotlin daemon heap.
+- Gradle daemon bumped to 4 GB, Kotlin daemon to 4 GB explicit.
+
+### Notes
+
+- The .open flavour ships without Firebase / FCM. UnifiedPush
+  integration is tracked as future work so the .open distribution can
+  still receive pushes via a user-installed distributor like ntfy.
+- iOS push (APNS) is wired on the backend with `apns_dev` / `apns_prod`
+  variants so iOS clients can land the same channel infrastructure
+  when their messaging service catches up. The Android client surfaces
+  iOS-targeted channels in the Receiving list as "iOS push" for
+  cross-platform awareness.
+
 ## [0.1.7] - 2026-05-09
 
 Major wear OS expansion (six fronting tiles, history viewer screen) and

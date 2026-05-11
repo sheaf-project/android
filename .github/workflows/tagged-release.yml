@@ -125,6 +125,17 @@ jobs:
         working-directory: sheaf
         run: ./gradlew :app:clean :wear:clean
 
+      - name: Drop Firebase config for the play flavour
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "ERROR: GOOGLE_SERVICES_JSON_BASE64 secret missing — play AAB would ship without FCM working"
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode \
+            > sheaf/app/src/play/google-services.json
+
       - name: Build prod unsigned APK + AAB
         working-directory: sheaf
         env:
@@ -136,6 +147,10 @@ jobs:
             :wear:assemblePlayRelease :wear:bundlePlayRelease \
             -PversionCode="$VCODE" \
             -PversionName="$VNAME"
+
+      - name: Remove Firebase config
+        if: always()
+        run: rm -f sheaf/app/src/play/google-services.json
 
       - name: Stage prod unsigned artefacts
         run: |
