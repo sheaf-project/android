@@ -34,6 +34,9 @@ import systems.lupine.sheaf.ui.notifications.ChannelsYouOwnScreen
 import systems.lupine.sheaf.ui.notifications.CreateChannelScreen
 import systems.lupine.sheaf.ui.notifications.reminders.ReminderEditorScreen
 import systems.lupine.sheaf.ui.notifications.reminders.RemindersScreen
+import systems.lupine.sheaf.ui.polls.PollDetailScreen
+import systems.lupine.sheaf.ui.polls.PollEditorScreen
+import systems.lupine.sheaf.ui.polls.PollsScreen
 import systems.lupine.sheaf.ui.notifications.PendingRedemptionHolder
 import systems.lupine.sheaf.ui.notifications.ReceivingScreen
 import systems.lupine.sheaf.ui.notifications.RedeemNotificationScreen
@@ -95,6 +98,9 @@ object Routes {
     const val NOTIFICATIONS_REMINDERS  = "settings/notifications/reminders"
     const val NOTIFICATIONS_REMINDER_NEW  = "settings/notifications/reminders/new"
     const val NOTIFICATIONS_REMINDER_EDIT = "settings/notifications/reminders/{id}"
+    const val POLLS                = "polls"
+    const val POLL_DETAIL          = "polls/{pollId}"
+    const val POLL_NEW             = "polls/new"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -224,6 +230,7 @@ fun SheafApp(
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
                     onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                    onNavigateToPolls = { navController.navigate(Routes.POLLS) },
                 )
             }
             composable(Routes.PEOPLE) {
@@ -383,6 +390,22 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onSaved = { navController.popBackStack() },
                 )
+            }
+            composable(Routes.POLLS) {
+                PollsScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onPollClick = { id -> navController.navigate("polls/$id") },
+                    onCreateNew = { navController.navigate(Routes.POLL_NEW) },
+                )
+            }
+            composable(Routes.POLL_NEW) {
+                PollEditorScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onSaved = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.POLL_DETAIL) {
+                PollDetailScreen(onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.SETTINGS_SERVER) {
                 systems.lupine.sheaf.ui.settings.ServerSettingsScreen(

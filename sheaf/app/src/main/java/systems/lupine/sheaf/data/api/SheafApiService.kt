@@ -544,6 +544,29 @@ interface SheafApiService {
 
     @DELETE("/v1/reminders/{id}")
     suspend fun deleteReminder(@Path("id") id: String)
+
+    // ── Polls ──────────────────────────────────────────────────────────────
+
+    @GET("/v1/polls")
+    suspend fun listPolls(): List<PollRead>
+
+    @POST("/v1/polls")
+    suspend fun createPoll(@Body body: PollCreate): PollRead
+
+    @GET("/v1/polls/{id}")
+    suspend fun getPoll(@Path("id") id: String): PollRead
+
+    @DELETE("/v1/polls/{id}")
+    suspend fun deletePoll(@Path("id") id: String)
+
+    @POST("/v1/polls/{pollId}/votes")
+    suspend fun castVote(@Path("pollId") pollId: String, @Body body: VoteCast): PollVoteRead
+
+    @DELETE("/v1/polls/{pollId}/votes/{memberId}")
+    suspend fun withdrawVote(
+        @Path("pollId") pollId: String,
+        @Path("memberId") memberId: String,
+    )
 }
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
