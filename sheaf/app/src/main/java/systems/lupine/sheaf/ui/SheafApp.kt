@@ -34,6 +34,8 @@ import systems.lupine.sheaf.ui.notifications.ChannelsYouOwnScreen
 import systems.lupine.sheaf.ui.notifications.CreateChannelScreen
 import systems.lupine.sheaf.ui.notifications.reminders.ReminderEditorScreen
 import systems.lupine.sheaf.ui.notifications.reminders.RemindersScreen
+import systems.lupine.sheaf.ui.messages.BoardDetailScreen
+import systems.lupine.sheaf.ui.messages.BoardsListScreen
 import systems.lupine.sheaf.ui.polls.PollDetailScreen
 import systems.lupine.sheaf.ui.polls.PollEditorScreen
 import systems.lupine.sheaf.ui.polls.PollsScreen
@@ -101,6 +103,8 @@ object Routes {
     const val POLLS                = "polls"
     const val POLL_DETAIL          = "polls/{pollId}"
     const val POLL_NEW             = "polls/new"
+    const val MESSAGES             = "messages"
+    const val MESSAGES_BOARD       = "messages/board/{kind}/{memberId}"
 }
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
@@ -231,6 +235,7 @@ fun SheafApp(
                     onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                     onNavigateToPolls = { navController.navigate(Routes.POLLS) },
+                    onNavigateToMessages = { navController.navigate(Routes.MESSAGES) },
                 )
             }
             composable(Routes.PEOPLE) {
@@ -406,6 +411,18 @@ fun SheafApp(
             }
             composable(Routes.POLL_DETAIL) {
                 PollDetailScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.MESSAGES) {
+                BoardsListScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onBoardClick = { kind, memberId ->
+                        val mid = memberId ?: "_"
+                        navController.navigate("messages/board/$kind/$mid")
+                    },
+                )
+            }
+            composable(Routes.MESSAGES_BOARD) {
+                BoardDetailScreen(onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.SETTINGS_SERVER) {
                 systems.lupine.sheaf.ui.settings.ServerSettingsScreen(

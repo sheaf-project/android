@@ -567,6 +567,34 @@ interface SheafApiService {
         @Path("pollId") pollId: String,
         @Path("memberId") memberId: String,
     )
+
+    // ── Board messages ─────────────────────────────────────────────────────
+
+    @GET("/v1/messages/boards")
+    suspend fun listBoards(
+        @Query("caller_member_id") callerMemberId: String? = null,
+    ): List<BoardSummary>
+
+    @GET("/v1/messages")
+    suspend fun getBoardMessages(
+        @Query("board_kind") boardKind: String,
+        @Query("board_member_id") boardMemberId: String? = null,
+        @Query("caller_member_id") callerMemberId: String? = null,
+        @Query("limit") limit: Int = 100,
+        @Query("before") before: String? = null,
+    ): MessagesPage
+
+    @POST("/v1/messages")
+    suspend fun createMessage(@Body body: MessageCreate): MessageRead
+
+    @PATCH("/v1/messages/{id}")
+    suspend fun updateMessage(@Path("id") id: String, @Body body: MessageUpdate): MessageRead
+
+    @DELETE("/v1/messages/{id}")
+    suspend fun deleteMessage(@Path("id") id: String)
+
+    @POST("/v1/messages/mark-seen")
+    suspend fun markBoardSeen(@Body body: MarkSeenRequest)
 }
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
