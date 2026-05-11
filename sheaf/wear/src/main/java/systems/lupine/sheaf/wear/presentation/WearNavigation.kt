@@ -25,6 +25,7 @@ import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import systems.lupine.sheaf.wear.BuildConfig
 import systems.lupine.sheaf.wear.R
 import systems.lupine.sheaf.wear.data.WearAuthManager
 import systems.lupine.sheaf.wear.data.WearSettingsStore
@@ -96,6 +97,16 @@ fun WearNavigation(
                             onClick = { showLogin = true },
                             colors = ChipDefaults.secondaryChipColors(),
                             modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    // Build stamp so users can sanity-check whether a
+                    // stale wear install is the cause of pairing trouble.
+                    item {
+                        Text(
+                            text = "Sheaf ${BuildConfig.VERSION_NAME} · ${BuildConfig.GIT_COMMIT}" +
+                                if (BuildConfig.DEBUG) " · debug" else "",
+                            style = MaterialTheme.typography.caption2,
+                            color = MaterialTheme.colors.onSurface.copy(alpha = 0.5f),
                         )
                     }
                 }
