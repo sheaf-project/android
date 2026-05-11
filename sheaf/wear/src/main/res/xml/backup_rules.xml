@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Watch-side counterpart to the phone backup rules. wear_auth.xml holds
+  the companion-session tokens pushed down from the phone; if those are
+  restored after a reinstall they'll be revoked and just trigger an
+  endless 401 loop. wear_settings.xml is the user's pref store — also
+  excluded so we don't have to special-case mixed-stale states.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="wear_auth.xml" />
+    <exclude domain="sharedpref" path="wear_settings.xml" />
+</full-backup-content>

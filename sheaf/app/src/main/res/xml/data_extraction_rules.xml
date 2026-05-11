@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup + device-transfer rules for API 31+. Same intent as
+  backup_rules.xml: keep auth state out of the cloud snapshot AND the
+  D2D transfer, so a reinstall (or new device) never lands with a
+  revoked token that the local fast-path treats as valid.
+
+  Device-transfer is excluded too on purpose: re-login is the right
+  behaviour when moving phones, both for security and so the new
+  device's install gets a fresh secondary session for its paired
+  watch.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/" />
+    </device-transfer>
+</data-extraction-rules>

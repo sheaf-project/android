@@ -2,6 +2,7 @@ package systems.lupine.sheaf.wear
 
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.google.android.gms.wearable.DataMapItem
@@ -14,6 +15,8 @@ import systems.lupine.sheaf.wear.data.WearStore
 import systems.lupine.sheaf.wear.datalayer.WearDataLayerService
 import systems.lupine.sheaf.wear.presentation.WearNavigation
 import systems.lupine.sheaf.wear.theme.SheafWearTheme
+
+private const val TAG = "SheafPairing"
 
 class MainActivity : ComponentActivity() {
 
@@ -68,6 +71,7 @@ class MainActivity : ComponentActivity() {
      * if no cached item is found.
      */
     private fun loadCredentialsFromDataLayer() {
+        Log.i(TAG, "loadCredentialsFromDataLayer: querying cached DataItem")
         val uri = Uri.Builder()
             .scheme("wear")
             .path(WearDataLayerService.PATH_CREDENTIALS)
@@ -81,24 +85,44 @@ class MainActivity : ComponentActivity() {
                         val baseUrl      = dataMap.getString("base_url") ?: continue
                         val accessToken  = dataMap.getString("access_token") ?: continue
                         val refreshToken = dataMap.getString("refresh_token") ?: continue
+                        Log.i(TAG, "loadCredentialsFromDataLayer: found cached creds, saving")
                         authManager.saveCredentials(baseUrl, accessToken, refreshToken)
                         found = true
                         break
                     }
                 }
                 dataItems.release()
-                if (!found) requestCredentialsFromPhone()
+                if (!found) {
+                    Log.i(TAG, "loadCredentialsFromDataLayer: no cached item, asking phone")
+                    requestCredentialsFromPhone()
+                }
             }
-            .addOnFailureListener { requestCredentialsFromPhone() }
+            .addOnFailureListener {
+                Log.w(TAG, "loadCredentialsFromDataLayer: getDataItems failed", it)
+                requestCredentialsFromPhone()
+            }
     }
 
     private fun requestCredentialsFromPhone() {
         Wearable.getNodeClient(this).connectedNodes
             .addOnSuccessListener { nodes ->
-                nodes.firstOrNull()?.id?.let { nodeId ->
-                    Wearable.getMessageClient(this)
-                        .sendMessage(nodeId, "/sheaf/credentials/request", null)
+                val nodeId = nodes.firstOrNull()?.id
+                if (nodeId == null) {
+                    Log.w(TAG, "requestCredentialsFromPhone: no connected nodes")
+                    return@addOnSuccessListener
                 }
+                Log.i(TAG, "requestCredentialsFromPhone: sending /sheaf/credentials/request to $nodeId")
+                Wearable.getMessageClient(this)
+                    .sendMessage(nodeId, "/sheaf/credentials/request", null)
+                    .addOnSuccessListener {
+                        Log.i(TAG, "requestCredentialsFromPhone: send succeeded")
+                    }
+                    .addOnFailureListener {
+                        Log.w(TAG, "requestCredentialsFromPhone: send failed", it)
+                    }
+            }
+            .addOnFailureListener {
+                Log.w(TAG, "requestCredentialsFromPhone: connectedNodes failed", it)
             }
     }
 }
