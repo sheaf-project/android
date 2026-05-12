@@ -25,6 +25,9 @@ import systems.lupine.sheaf.notification.FrontNotificationHelper
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -57,6 +60,11 @@ data class HomeUiState(
     // Pending revision-retention trim notice from /v1/retention. Set when the
     // server has a status="pending" notice (typically a tier downgrade).
     val pendingTrimNotice: systems.lupine.sheaf.data.model.RetentionTrimNoticeRead? = null,
+    // Set when the most recent online refresh failed for one of the critical
+    // display calls (fronts / members / system) while we *did* have cached
+    // data to fall back on. The UI surfaces this so the user knows what
+    // they're looking at may be stale.
+    val refreshFailed: Boolean = false,
 ) {
     val visibleAnnouncements: List<AnnouncementPublic>
         get() = announcements.filter { it.id !in dismissedAnnouncementIds }
@@ -100,54 +108,119 @@ class HomeViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = it.allMembers.isEmpty(), error = null) }
+            // Cache-first paint: if we have nothing in state yet, immediately
+            // hydrate from disk so the screen isn't blank while we wait for
+            // the network. Subsequent refreshes (state already populated)
+            // skip this — the in-memory state is already at least as fresh
+            // as the cache.
+            if (_state.value.allMembers.isEmpty()) {
+                loadFromCache()
+            }
+            _state.update {
+                it.copy(
+                    isLoading = it.allMembers.isEmpty(),
+                    error = null,
+                    refreshFailed = false,
+                )
+            }
+
             val online = networkMonitor.isOnline.first()
-            if (online) {
-                runCatching {
-                    val user = runCatching { api.getMe() }.getOrNull()
-                    val system = api.getOwnSystem()
-                    val fronts = api.getCurrentFronts()
-                    val members = api.listMembers()
-                    val announcements = runCatching { api.getAnnouncements() }.getOrDefault(emptyList())
-                    val safety = runCatching { api.getSystemSafety() }.getOrNull()
-                    val retention = runCatching { api.getRetention() }.getOrNull()
-                    // Persist to cache.
-                    cache.saveSystem(system)
-                    cache.saveMembers(members)
-                    cache.saveFronts(fronts)
-                    val frontingIds = fronts.flatMap { it.memberIds }.toSet()
-                    val frontingMembers = members.filter { it.id in frontingIds }
-                    val trimNotice = retention?.trimNotice?.takeIf { it.status == "pending" }
+            if (!online) {
+                // Already painted from cache above (or had state already).
+                // Nothing more to do; the offline banner is already up.
+                _state.update { it.copy(isLoading = false) }
+                return@launch
+            }
+
+            // Fan out the seven calls in parallel. Order matters only for the
+            // wire dispatch sequence — getCurrentFronts is started first so
+            // the most user-visible piece of data is the earliest packet on
+            // the connection. listMembers next because the front display
+            // needs it to resolve names. Everything else trails.
+            coroutineScope {
+                val frontsD        = async { runCatching { api.getCurrentFronts() } }
+                val membersD       = async { runCatching { api.listMembers() } }
+                val systemD        = async { runCatching { api.getOwnSystem() } }
+                val announcementsD = async { runCatching { api.getAnnouncements() } }
+                val safetyD        = async { runCatching { api.getSystemSafety() } }
+                val retentionD     = async { runCatching { api.getRetention() } }
+                val userD          = async { runCatching { api.getMe() } }
+
+                val fronts        = frontsD.await()
+                val members       = membersD.await()
+                val system        = systemD.await()
+                val announcements = announcementsD.await()
+                val safety        = safetyD.await()
+                val retention     = retentionD.await()
+                val user          = userD.await()
+
+                val criticalFailures = listOf(fronts, members, system).count { it.isFailure }
+                val anyCriticalFailed = criticalFailures > 0
+
+                // Persist whatever did come back. On partial failure we
+                // still want disk to hold the freshest version of each
+                // slice rather than tying success to a single all-or-nothing
+                // commit.
+                fronts.getOrNull()?.let { cache.saveFronts(it) }
+                members.getOrNull()?.let { cache.saveMembers(it) }
+                system.getOrNull()?.let { cache.saveSystem(it) }
+
+                if (anyCriticalFailed && _state.value.allMembers.isEmpty()) {
+                    // No cache + a critical call failed: there's nothing to
+                    // paint, so surface the network error in the empty-state
+                    // view (the Retry button there reruns load()).
+                    val firstError = listOf(fronts, members, system)
+                        .firstNotNullOfOrNull { it.exceptionOrNull() }
                     _state.update {
                         it.copy(
-                            user = user,
-                            system = system,
-                            currentFronts = fronts,
-                            frontingMembers = frontingMembers,
-                            allMembers = members,
-                            announcements = announcements,
-                            pendingSafetyActions = safety?.pendingActions ?: it.pendingSafetyActions,
-                            pendingSafetyChanges = safety?.pendingChanges ?: it.pendingSafetyChanges,
-                            pendingTrimNotice = trimNotice,
                             isLoading = false,
+                            error = firstError?.toUserMessage() ?: "Couldn't load",
+                            refreshFailed = false,
                         )
                     }
-                    if (prefs.frontNotification.first()) {
-                        try {
-                            notificationHelper.post(frontingMembers.map { it.displayNameOrName })
-                        } catch (_: SecurityException) {}
-                    }
-                }.onFailure { e ->
-                    // Network call failed even though we thought we were online — fall back to cache.
-                    loadFromCache(error = if (_state.value.allMembers.isEmpty()) e.toUserMessage() else null)
+                    return@coroutineScope
                 }
-            } else {
-                loadFromCache()
+
+                val newFronts        = fronts.getOrNull()        ?: _state.value.currentFronts
+                val newMembers       = members.getOrNull()       ?: _state.value.allMembers
+                val newSystem        = system.getOrNull()        ?: _state.value.system
+                val newAnnouncements = announcements.getOrNull() ?: _state.value.announcements
+                val newUser          = user.getOrNull()          ?: _state.value.user
+                val frontingIds = newFronts.flatMap { it.memberIds }.toSet()
+                val frontingMembers = newMembers.filter { it.id in frontingIds }
+                val safetyResp = safety.getOrNull()
+                val trimNotice = if (retention.isSuccess) {
+                    retention.getOrNull()?.trimNotice?.takeIf { it.status == "pending" }
+                } else {
+                    _state.value.pendingTrimNotice
+                }
+
+                _state.update {
+                    it.copy(
+                        user = newUser,
+                        system = newSystem,
+                        currentFronts = newFronts,
+                        frontingMembers = frontingMembers,
+                        allMembers = newMembers,
+                        announcements = newAnnouncements,
+                        pendingSafetyActions = safetyResp?.pendingActions ?: it.pendingSafetyActions,
+                        pendingSafetyChanges = safetyResp?.pendingChanges ?: it.pendingSafetyChanges,
+                        pendingTrimNotice = trimNotice,
+                        isLoading = false,
+                        refreshFailed = anyCriticalFailed,
+                        error = null,
+                    )
+                }
+                if (prefs.frontNotification.first()) {
+                    try {
+                        notificationHelper.post(frontingMembers.map { it.displayNameOrName })
+                    } catch (_: SecurityException) {}
+                }
             }
         }
     }
 
-    private suspend fun loadFromCache(error: String? = null) {
+    private suspend fun loadFromCache() {
         val members = cache.getMembers() ?: emptyList()
         val fronts = cache.getFronts() ?: emptyList()
         val system = cache.getSystem()
@@ -159,8 +232,6 @@ class HomeViewModel @Inject constructor(
                 currentFronts = fronts,
                 frontingMembers = frontingMembers,
                 allMembers = members,
-                isLoading = false,
-                error = error ?: if (members.isEmpty()) s.error else null,
             )
         }
     }
@@ -196,17 +267,23 @@ class HomeViewModel @Inject constructor(
             runCatching { api.listGroups() }
                 .onSuccess { groups ->
                     _state.update { it.copy(groups = groups) }
-                    // Build the memberId -> groupIds map by fetching each group's
-                    // members. N+1 queries; acceptable for the typical 5-30 groups
-                    // and matches web's useAllGroupMembers pattern.
-                    val map = mutableMapOf<String, MutableSet<String>>()
-                    groups.forEach { g ->
-                        runCatching { api.getGroupMembers(g.id) }
-                            .onSuccess { members ->
-                                members.forEach { m ->
-                                    map.getOrPut(m.id) { mutableSetOf() }.add(g.id)
-                                }
+                    // Build the memberId -> groupIds map. N is small (5-30
+                    // groups typical) but issuing them sequentially used to
+                    // be the visible bottleneck for the switch sheet — fan
+                    // out and awaitAll.
+                    val perGroup = coroutineScope {
+                        groups.map { g ->
+                            async {
+                                g.id to runCatching { api.getGroupMembers(g.id) }
+                                    .getOrDefault(emptyList())
                             }
+                        }.awaitAll()
+                    }
+                    val map = mutableMapOf<String, MutableSet<String>>()
+                    perGroup.forEach { (groupId, members) ->
+                        members.forEach { m ->
+                            map.getOrPut(m.id) { mutableSetOf() }.add(groupId)
+                        }
                     }
                     _state.update { it.copy(memberGroups = map.mapValues { (_, v) -> v.toSet() }) }
                 }

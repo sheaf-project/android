@@ -144,6 +144,8 @@ fun HomeScreen(
             OfflineSyncChip(
                 isOnline = state.isOnline,
                 pendingOpCount = state.pendingOpCount,
+                refreshFailed = state.refreshFailed,
+                onRetry = { viewModel.load() },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
             PullToRefreshBox(
@@ -258,6 +260,8 @@ fun HomeScreen(
 private fun OfflineSyncChip(
     isOnline: Boolean,
     pendingOpCount: Int,
+    refreshFailed: Boolean,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val warningColors = LocalWarningColors.current
@@ -265,6 +269,15 @@ private fun OfflineSyncChip(
         !isOnline -> SuggestionChip(
             onClick = {},
             label = { Text("Offline — changes will sync when back online") },
+            colors = SuggestionChipDefaults.suggestionChipColors(
+                containerColor = warningColors.container,
+                labelColor = warningColors.onContainer,
+            ),
+            modifier = modifier,
+        )
+        refreshFailed -> SuggestionChip(
+            onClick = onRetry,
+            label = { Text("Showing cached data — tap to retry") },
             colors = SuggestionChipDefaults.suggestionChipColors(
                 containerColor = warningColors.container,
                 labelColor = warningColors.onContainer,
