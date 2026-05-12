@@ -4,6 +4,59 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.10] - 2026-05-12
+
+Home-screen widgets paralleling the wear tile set, plus two critical
+fixes for first-launch failure modes that bricked phone+watch pairing
+and the magic-link redemption flow.
+
+### Added
+
+- **Home-screen widgets.** Five Glance widgets covering the same
+  ground as the wear tiles:
+  - **Currently Fronting** with real avatars next to names
+  - **Avatars-only** compact strip (single circle up to a 6-up row)
+  - **Member tracker** — pick members at add-time, watch the widget
+    flip a "Fronting now / Not fronting" label per row
+  - **Quick switch** — picked members are tappable; each tap opens
+    a confirm dialog before POSTing the front change
+  - **Recent fronts** — newest-first ledger with relative time
+  All five share a 96px circular-avatar cache in filesDir so adding
+  multiple widgets doesn't multiply the network cost. Member tracker
+  and quick switch ship config activities behind APPWIDGET_CONFIGURE
+  so each widget instance has its own member selection.
+- **Build stamp on the wear unsynced screen.** When pairing isn't
+  working, the "Open Sheaf on phone / Sign in manually" screen now
+  shows `Sheaf <version> · <commit>` at the bottom so users can
+  rule out "watch app is on a stale version" without uninstalling.
+
+### Fixed
+
+- **Pairing silently broken after reinstall from Play Store.**
+  Android Auto Backup was restoring DataStore (phone) and the wear
+  auth SharedPreferences (watch) from cloud snapshots, bringing back
+  revoked access/refresh tokens. The local "watch token already
+  cached → skip mint" fast-path then treated those zombie tokens as
+  valid, the phone pushed dead tokens to the watch via the Data
+  Layer, and neither side ever called `/v1/auth/sessions/secondary`.
+  Auth-bearing prefs are now excluded from both Auto Backup and
+  device-transfer on phone and watch. A watch-side
+  `/sheaf/credentials/request` message is also now treated as a
+  force-re-mint signal so anyone with a backup-restored bad install
+  self-heals on the next watch retry. Diagnostic logs under tag
+  `SheafPairing` at every checkpoint of the flow — previously this
+  path logged nothing at all.
+- **Magic-link redemption looped to ProtocolException.** When the
+  redeem endpoint returned 401, the OkHttp authenticator refreshed
+  the access token and retried — got 401 again — refreshed —
+  retried — twenty rounds until OkHttp aborted with "Too many
+  follow-up requests". User saw a generic failure with no actionable
+  signal. `/notifications/redeem` is now in the no-retry exempt list
+  alongside `/auth/refresh` and friends, so a 401 surfaces to the UI
+  immediately. The 401 itself is a backend-side bug (filed
+  separately); a server fix is required for end-to-end redemption to
+  succeed.
+
 ## [0.1.9] - 2026-05-11
 
 Catches up the phone client to the backend features that landed between
