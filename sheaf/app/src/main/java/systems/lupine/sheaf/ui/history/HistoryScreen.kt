@@ -15,7 +15,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -76,12 +80,17 @@ fun HistoryScreen(
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    // Infinite scroll: load more when near bottom
+    // Infinite scroll: load more when near bottom. Only in Infinite view —
+    // paged mode uses explicit page navigation, where auto-loading on scroll
+    // would silently jump pages and lose the user's place.
     val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             val total = listState.layoutInfo.totalItemsCount
-            lastVisible >= total - 5 && !state.isLoadingMore && state.hasMore
+            state.view == HistoryView.Infinite &&
+                lastVisible >= total - 5 &&
+                !state.isLoadingMore &&
+                state.hasMore
         }
     }
     LaunchedEffect(shouldLoadMore) {
@@ -184,58 +193,91 @@ fun HistoryScreen(
                 }
             }
             else -> {
-                LazyColumn(
-                    state = listState,
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = padding.calculateTopPadding() + 8.dp,
-                        bottom = padding.calculateBottomPadding() + 32.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    item(key = "timeline") {
-                        TimelineSection(
-                            fronts = state.fronts,
-                            members = state.members,
-                        )
-                    }
-                    if (state.fronts.isEmpty() && !state.isLoading) {
-                        item(key = "empty") {
-                            EmptyState(
-                                icon = Icons.Default.History,
-                                title = "No front history",
-                                subtitle = "Tap + to add an entry.",
+                Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    PaginationControlsBar(
+                        view = state.view,
+                        pageSize = state.pageSize,
+                        onSetView = { viewModel.setView(it) },
+                        onSetPageSize = { viewModel.setPageSize(it) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = if (state.view == HistoryView.Paged) 8.dp else 32.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        item(key = "timeline") {
+                            TimelineSection(
+                                fronts = state.fronts,
+                                members = state.members,
                             )
                         }
-                    } else {
-                        item(key = "log_header") {
-                            Text(
-                                "LOG",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 4.dp),
-                            )
-                        }
-                        items(state.fronts, key = { it.id }) { front ->
-                            val frontMembers = front.memberIds.mapNotNull { state.members[it] }
-                            FrontHistoryCard(
-                                front = front,
-                                members = frontMembers,
-                                onClick = { frontToEdit = front },
-                                onLongClick = { frontToDelete = front },
-                            )
-                        }
-                        if (state.isLoadingMore) {
-                            item(key = "loading_more") {
-                                Box(
-                                    Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        if (state.fronts.isEmpty() && !state.isLoading) {
+                            item(key = "empty") {
+                                EmptyState(
+                                    icon = Icons.Default.History,
+                                    title = "No front history",
+                                    subtitle = "Tap + to add an entry.",
+                                )
+                            }
+                        } else {
+                            item(key = "log_header") {
+                                Text(
+                                    "LOG",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
+                            }
+                            items(state.fronts, key = { it.id }) { front ->
+                                val frontMembers = front.memberIds.mapNotNull { state.members[it] }
+                                FrontHistoryCard(
+                                    front = front,
+                                    members = frontMembers,
+                                    onClick = { frontToEdit = front },
+                                    onLongClick = { frontToDelete = front },
+                                )
+                            }
+                            if (state.view == HistoryView.Infinite && state.isLoadingMore) {
+                                item(key = "loading_more") {
+                                    Box(
+                                        Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
+                            if (state.view == HistoryView.Infinite && state.hasMore && !state.isLoadingMore) {
+                                item(key = "load_older") {
+                                    Box(
+                                        Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        OutlinedButton(onClick = { viewModel.loadMore() }) {
+                                            Text("Load older entries")
+                                        }
+                                    }
                                 }
                             }
                         }
+                    }
+                    if (state.view == HistoryView.Paged) {
+                        PageNavBar(
+                            page = state.currentPage,
+                            totalPages = state.totalPages,
+                            isLoading = state.isLoadingMore,
+                            onGoTo = { viewModel.goToPage(it) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
                     }
                 }
             }
@@ -854,3 +896,104 @@ private fun formatDuration(startIso: String, endIso: String?): String =
             else               -> "${d.toDays()}d ${d.toHours() % 24}h"
         }
     }.getOrDefault("—")
+
+// ── Pagination UI ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun PaginationControlsBar(
+    view: HistoryView,
+    pageSize: Int,
+    onSetView: (HistoryView) -> Unit,
+    onSetPageSize: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Two-button segmented toggle. Material3's SingleChoiceSegmentedButton
+        // would be cleaner, but it pulls in additional opt-ins; FilterChips
+        // give the same affordance with less ceremony.
+        FilterChip(
+            selected = view == HistoryView.Infinite,
+            onClick = { onSetView(HistoryView.Infinite) },
+            label = { Text("Load more") },
+        )
+        FilterChip(
+            selected = view == HistoryView.Paged,
+            onClick = { onSetView(HistoryView.Paged) },
+            label = { Text("Pages") },
+        )
+        Spacer(Modifier.weight(1f))
+        PageSizeDropdown(current = pageSize, onSelect = onSetPageSize)
+    }
+}
+
+@Composable
+private fun PageSizeDropdown(current: Int, onSelect: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text("Per page: $current")
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            PAGE_SIZE_OPTIONS.forEach { size ->
+                DropdownMenuItem(
+                    text = { Text(size.toString()) },
+                    onClick = { onSelect(size); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageNavBar(
+    page: Int,
+    totalPages: Int,
+    isLoading: Boolean,
+    onGoTo: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(
+                onClick = { onGoTo(1) },
+                enabled = page > 1 && !isLoading,
+            ) { Icon(Icons.Default.FirstPage, contentDescription = "First page") }
+            IconButton(
+                onClick = { onGoTo(page - 1) },
+                enabled = page > 1 && !isLoading,
+            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous page") }
+            Spacer(Modifier.weight(1f))
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.size(8.dp))
+            }
+            Text(
+                "Page $page of $totalPages",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(1f))
+            IconButton(
+                onClick = { onGoTo(page + 1) },
+                enabled = page < totalPages && !isLoading,
+            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next page") }
+            IconButton(
+                onClick = { onGoTo(totalPages) },
+                enabled = page < totalPages && !isLoading,
+            ) { Icon(Icons.AutoMirrored.Filled.LastPage, contentDescription = "Last page") }
+        }
+    }
+}

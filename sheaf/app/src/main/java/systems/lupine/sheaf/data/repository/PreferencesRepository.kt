@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -49,6 +50,12 @@ class PreferencesRepository @Inject constructor(
         // so account-switching on one device looks like a fresh install
         // to the server.
         val KEY_PUSH_INSTALL_ID = stringPreferencesKey("push_install_id")
+        // Front-history pagination preference. "infinite" = cursor-based
+        // load-more (default), "paged" = offset-based numbered pages.
+        // Mirrors web's view toggle so the choice carries between clients
+        // for users who use both.
+        val KEY_HISTORY_VIEW = stringPreferencesKey("history_view")
+        val KEY_HISTORY_PAGE_SIZE = intPreferencesKey("history_page_size")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -63,6 +70,8 @@ class PreferencesRepository @Inject constructor(
     val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
     val cfClientSecret: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_SECRET] }
     val appLockEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_APP_LOCK] ?: false }
+    val historyView: Flow<String> = context.dataStore.data.map { it[KEY_HISTORY_VIEW] ?: "infinite" }
+    val historyPageSize: Flow<Int> = context.dataStore.data.map { it[KEY_HISTORY_PAGE_SIZE] ?: 50 }
 
     suspend fun saveBaseUrl(url: String) {
         context.dataStore.edit { it[KEY_BASE_URL] = normalizeBaseUrl(url) }
@@ -125,6 +134,14 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveAppLock(enabled: Boolean) {
         context.dataStore.edit { it[KEY_APP_LOCK] = enabled }
+    }
+
+    suspend fun saveHistoryView(view: String) {
+        context.dataStore.edit { it[KEY_HISTORY_VIEW] = view }
+    }
+
+    suspend fun saveHistoryPageSize(size: Int) {
+        context.dataStore.edit { it[KEY_HISTORY_PAGE_SIZE] = size }
     }
 
     suspend fun clearTokens() {

@@ -186,6 +186,18 @@ interface SheafApiService {
         @Query("offset") offset: Int = 0,
     ): List<FrontRead>
 
+    // Pagination-aware variant. Returns a Retrofit Response so callers can
+    // read the X-Sheaf-Has-More, X-Sheaf-Next-Cursor, and (when include_total
+    // is true) X-Sheaf-Total-Count headers the backend exposes for cursor
+    // and numbered-page UIs respectively.
+    @GET("/v1/fronts")
+    suspend fun listFrontsPaginated(
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int? = null,
+        @Query("cursor") cursor: String? = null,
+        @Query("include_total") includeTotal: Boolean? = null,
+    ): Response<List<FrontRead>>
+
     @POST("/v1/fronts")
     suspend fun createFront(@Body body: FrontCreate): FrontRead
 
