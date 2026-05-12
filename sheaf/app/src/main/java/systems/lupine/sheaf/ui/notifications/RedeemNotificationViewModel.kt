@@ -6,10 +6,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.RedeemRequest
+import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
@@ -25,6 +27,7 @@ sealed interface RedeemUiState {
 @HiltViewModel
 class RedeemNotificationViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val prefs: PreferencesRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<RedeemUiState>(RedeemUiState.Loading)
@@ -43,14 +46,24 @@ class RedeemNotificationViewModel @Inject constructor(
                     )
                 }
                 .onFailure { e ->
-                    val needsLogin = e is HttpException && e.code() == 401
+                    // 401 here doesn't necessarily mean the user is signed
+                    // out — the redeem endpoint can reject otherwise-valid
+                    // Bearer auth if the server's session-binding path
+                    // doesn't fire. needsLogin only flips when DataStore
+                    // genuinely has no access token, so the UI doesn't
+                    // shove a signed-in user toward the login screen.
+                    val code = (e as? HttpException)?.code()
+                    val hasToken = !prefs.accessToken.firstOrNull().isNullOrBlank()
+                    val needsLogin = code == 401 && !hasToken
                     val message = when {
+                        code == 401 && hasToken ->
+                            "Couldn't redeem subscription. The server rejected the request even though you're signed in — please report this if it keeps happening."
                         needsLogin -> "Sign in to receive notifications on this device"
-                        e is HttpException && e.code() == 404 ->
+                        code == 404 ->
                             "This subscription link has expired or already been redeemed"
-                        e is HttpException && e.code() == 410 ->
+                        code == 410 ->
                             "This subscription link has already been redeemed"
-                        e is HttpException && e.code() == 400 ->
+                        code == 400 ->
                             "This link is for a subscription type the app can't handle"
                         else -> e.toUserMessage("Couldn't redeem subscription")
                     }
