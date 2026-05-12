@@ -91,7 +91,15 @@ fun GroupsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(state.groups, key = { it.id }) { group ->
-                    GroupCard(group = group, onClick = { onGroupClick(group.id) })
+                    GroupCard(
+                        group = group,
+                        expanded = group.id in state.expanded,
+                        members = state.groupMembers[group.id],
+                        loading = group.id in state.loadingMembers,
+                        error = state.memberLoadErrors[group.id],
+                        onToggleExpand = { viewModel.toggleExpand(group.id) },
+                        onEdit = { onGroupClick(group.id) },
+                    )
                 }
             }
         }
@@ -99,14 +107,25 @@ fun GroupsScreen(
 }
 
 @Composable
-private fun GroupCard(group: systems.lupine.sheaf.data.model.GroupRead, onClick: () -> Unit) {
+private fun GroupCard(
+    group: systems.lupine.sheaf.data.model.GroupRead,
+    expanded: Boolean,
+    members: List<systems.lupine.sheaf.data.model.MemberRead>?,
+    loading: Boolean,
+    error: String?,
+    onToggleExpand: () -> Unit,
+    onEdit: () -> Unit,
+) {
     val accent = parseColor(group.color ?: "#534AB7") ?: MaterialTheme.colorScheme.primary
     Card(
-        onClick = onClick,
+        onClick = onToggleExpand,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, end = 4.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Box(
                 Modifier
                     .size(40.dp)
@@ -132,6 +151,83 @@ private fun GroupCard(group: systems.lupine.sheaf.data.model.GroupRead, onClick:
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                }
+            }
+            IconButton(onClick = onEdit) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit group",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 12.dp),
+            )
+        }
+        if (expanded) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            GroupMembersInline(
+                members = members,
+                loading = loading,
+                error = error,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupMembersInline(
+    members: List<systems.lupine.sheaf.data.model.MemberRead>?,
+    loading: Boolean,
+    error: String?,
+) {
+    when {
+        loading && members == null -> Box(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        }
+        error != null && members == null -> Text(
+            error,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(16.dp),
+        )
+        members != null && members.isEmpty() -> Text(
+            "No members in this group.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(16.dp),
+        )
+        members != null -> Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            members.forEach { m ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MemberAvatar(m, size = 32.dp)
+                    Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(
+                            m.displayNameOrName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        m.pronouns?.takeIf { it.isNotBlank() }?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -19,6 +19,16 @@ data class GroupsUiState(
     val groups: List<GroupRead> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    // Per-group inline expansion: when the user taps a card, the group id
+    // lands in [expanded] and we fetch its members on demand. Cached in
+    // [groupMembers] so a collapse + re-expand doesn't re-fetch within the
+    // same session. [loadingMembers] tracks in-flight fetches for spinner
+    // affordance; [memberLoadErrors] surfaces per-row errors without
+    // pre-empting the overall list error banner.
+    val expanded: Set<String> = emptySet(),
+    val groupMembers: Map<String, List<MemberRead>> = emptyMap(),
+    val loadingMembers: Set<String> = emptySet(),
+    val memberLoadErrors: Map<String, String> = emptyMap(),
 )
 
 @HiltViewModel
@@ -59,6 +69,47 @@ class GroupsViewModel @Inject constructor(
                     _state.update { it.copy(isLoading = false) }
                 }
             }
+        }
+    }
+
+    fun toggleExpand(groupId: String) {
+        val currentlyExpanded = groupId in _state.value.expanded
+        _state.update { s ->
+            val next = s.expanded.toMutableSet()
+            if (currentlyExpanded) next -= groupId else next += groupId
+            s.copy(expanded = next)
+        }
+        if (!currentlyExpanded && _state.value.groupMembers[groupId] == null) {
+            fetchMembers(groupId)
+        }
+    }
+
+    private fun fetchMembers(groupId: String) {
+        if (groupId in _state.value.loadingMembers) return
+        _state.update { s ->
+            s.copy(
+                loadingMembers = s.loadingMembers + groupId,
+                memberLoadErrors = s.memberLoadErrors - groupId,
+            )
+        }
+        viewModelScope.launch {
+            runCatching { api.getGroupMembers(groupId) }
+                .onSuccess { members ->
+                    _state.update { s ->
+                        s.copy(
+                            groupMembers = s.groupMembers + (groupId to members),
+                            loadingMembers = s.loadingMembers - groupId,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update { s ->
+                        s.copy(
+                            loadingMembers = s.loadingMembers - groupId,
+                            memberLoadErrors = s.memberLoadErrors + (groupId to e.toUserMessage("Couldn't load members")),
+                        )
+                    }
+                }
         }
     }
 }
