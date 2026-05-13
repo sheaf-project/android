@@ -4,6 +4,69 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.11] - 2026-05-13
+
+Polish pass: home screen renders instantly from cache then refreshes,
+the groups screen doubles as a viewer, front history gets numbered
+pagination, the persistent fronting notification finally responds to
+taps, and each redeemed Sheaf channel gets its own Android
+NotificationChannel so users can tune them independently.
+
+### Added
+
+- **Inline member expansion on the groups screen.** Tapping a group
+  card now expands a member list (avatar + name + pronouns) inline
+  instead of jumping straight to the editor. The rightmost edit
+  icon is now the only path to the actual edit screen, so the list
+  doubles as a viewer. Members are fetched lazily per-group on
+  first expand and cached for the session.
+- **Numbered + load-more pagination on front history.** Two view
+  modes toggleable from a chip pair at the top of the History
+  screen. "Load more" (default) keeps the existing cursor-based
+  infinite-scroll behaviour and adds an explicit "Load older
+  entries" button. "Pages" mode uses offset-based pagination with
+  a footer bar (first / prev / "Page X of N" / next / last). Page
+  size picker (25/50/100/200) to the right. Both choices persist
+  across launches and mirror the web client's pref keys so the
+  view stays consistent across surfaces.
+- **One Android NotificationChannel per redeemed Sheaf channel.**
+  Each subscription the user redeems now gets its own entry in
+  system settings (id `sheaf_ch_<server_id>`, label "<channel
+  name> · <system label>"). The fixed broad-category channels
+  (front_change / reminders / system) stay as fallbacks, renamed
+  "...(general)" in system settings so it's clear they're catch-
+  alls. Channels for unsubscribed Sheaf channels are pruned on
+  next sync so the settings page doesn't grow forever. Routing
+  by `data["channel_id"]` is wired client-side and will activate
+  the moment the backend includes that field in the push payload
+  (separate ask filed on the backend side).
+- **Build stamp on the wear unsynced screen.** Already shipped in
+  v0.1.10 but worth flagging — when pairing isn't working the
+  "Open Sheaf on phone / Sign in manually" screen shows
+  `Sheaf <version> · <commit>` at the bottom to confirm whether
+  the watch is on a stale build.
+
+### Fixed
+
+- **Home screen is slow to paint.** The seven endpoints `load()`
+  fired (`getMe`, `getOwnSystem`, `getCurrentFronts`, `listMembers`,
+  `getAnnouncements`, `getSystemSafety`, `getRetention`) ran
+  sequentially. None of them depend on each other, so the chain
+  was paying the round-trip cost N times in series. Now they fan
+  out via `async {}` inside a `coroutineScope`, with
+  `getCurrentFronts` queued first so the most user-visible piece
+  of data lands earliest on the wire. The screen also paints from
+  the local cache immediately on entry rather than waiting for
+  the network round-trip, with a new "Showing cached data - tap to
+  retry" chip surfacing when the refresh failed but cache had
+  data. The switch sheet's N+1 group-members fetch got the same
+  fan-out treatment.
+- **Persistent fronting notification did nothing when tapped.** The
+  ongoing Currently Fronting notification had no content intent.
+  Now wires a `PendingIntent.getActivity` that brings the existing
+  MainActivity task to the foreground (SINGLE_TOP | CLEAR_TOP, not
+  a duplicate launch) using FLAG_IMMUTABLE per API 31+ rules.
+
 ## [0.1.10] - 2026-05-12
 
 Home-screen widgets paralleling the wear tile set, plus two critical
