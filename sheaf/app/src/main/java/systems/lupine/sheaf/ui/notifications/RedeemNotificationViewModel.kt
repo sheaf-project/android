@@ -12,6 +12,7 @@ import retrofit2.HttpException
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.RedeemRequest
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.push.PushChannelSync
 import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
@@ -28,6 +29,7 @@ sealed interface RedeemUiState {
 class RedeemNotificationViewModel @Inject constructor(
     private val api: SheafApiService,
     private val prefs: PreferencesRepository,
+    private val pushChannelSync: PushChannelSync,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<RedeemUiState>(RedeemUiState.Loading)
@@ -40,6 +42,10 @@ class RedeemNotificationViewModel @Inject constructor(
                 api.redeemActivationCode(RedeemRequest(activationCode = activationCode))
             }
                 .onSuccess { resp ->
+                    // New subscription -> new Android NotificationChannel
+                    // entry so the user can tune importance for this Sheaf
+                    // channel independently before the first push arrives.
+                    runCatching { pushChannelSync.sync() }
                     _state.value = RedeemUiState.Success(
                         channelName = resp.channelName,
                         systemLabel = resp.systemLabel,

@@ -22,6 +22,7 @@ import systems.lupine.sheaf.data.repository.WatchSessionRepository
 import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import systems.lupine.sheaf.lock.AppLockManager
 import systems.lupine.sheaf.lock.LockState
+import systems.lupine.sheaf.push.PushChannelSync
 import systems.lupine.sheaf.push.PushDeviceRegistrar
 import systems.lupine.sheaf.ui.SheafApp
 import systems.lupine.sheaf.ui.lock.AppLockScreen
@@ -36,6 +37,7 @@ class MainActivity : FragmentActivity() {
     @Inject lateinit var lockManager: AppLockManager
     @Inject lateinit var watchSession: WatchSessionRepository
     @Inject lateinit var pushRegistrar: PushDeviceRegistrar
+    @Inject lateinit var pushChannelSync: PushChannelSync
     @Inject lateinit var pendingRedemption: PendingRedemptionHolder
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +61,10 @@ class MainActivity : FragmentActivity() {
                 // fired before login (token cached, account swapped) or
                 // an earlier registration failed and never retried.
                 runCatching { pushRegistrar.registerCurrentToken() }
+                // Reconcile Android NotificationChannels with the user's
+                // subscribed Sheaf channels so each shows up as its own
+                // entry in system settings.
+                runCatching { pushChannelSync.sync() }
             }
         }
         setContent {

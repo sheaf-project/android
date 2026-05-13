@@ -31,6 +31,8 @@ import javax.inject.Inject
 class SheafMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var registrar: PushDeviceRegistrar
+    @Inject lateinit var channels: PushNotificationChannels
+    @Inject lateinit var channelSync: PushChannelSync
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -66,10 +68,28 @@ class SheafMessagingService : FirebaseMessagingService() {
         // when event_id is absent (shouldn't happen in production).
         val notificationId = eventId?.hashCode() ?: System.currentTimeMillis().toInt()
 
-        // Backend currently only ships front-change events for mobile push.
-        // Route reminders / system events here once the payload includes
-        // an event_type field.
-        val channelId = PushNotificationChannels.CHANNEL_FRONT_CHANGE
+        // Route by the server's notification-channel id when present so
+        // each Sheaf channel maps to its own Android NotificationChannel.
+        // Fall back to event_type buckets and ultimately to the broad
+        // front-change channel for older payloads that don't carry the
+        // routing fields yet.
+        val serverChannelId = data["channel_id"]?.takeIf { it.isNotBlank() }
+        val eventType = data["event_type"]?.takeIf { it.isNotBlank() }
+        val channelId = when {
+            serverChannelId != null && channels.hasChannelFor(serverChannelId) ->
+                channels.channelIdFor(serverChannelId)
+            eventType == "reminders" -> PushNotificationChannels.CHANNEL_REMINDERS
+            eventType == "system" -> PushNotificationChannels.CHANNEL_SYSTEM
+            else -> PushNotificationChannels.CHANNEL_FRONT_CHANGE
+        }
+        // If we got a channel_id but don't have a matching Android channel
+        // yet (redemption happened on another device, or sync hasn't run
+        // since), kick off a lazy sync. The current notification still
+        // posts on the fallback so the user sees it; subsequent ones
+        // route correctly.
+        if (serverChannelId != null && !channels.hasChannelFor(serverChannelId)) {
+            scope.launch { channelSync.sync() }
+        }
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_notification)
