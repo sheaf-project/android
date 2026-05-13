@@ -119,7 +119,16 @@ fun WearNavigation(
 
     LaunchedEffect(initialRoute) {
         if (initialRoute != null && initialRoute != NAV_MENU) {
-            navController.navigate(initialRoute)
+            // Deep-link entries (from tiles, complications, etc.) came in
+            // pointing at a specific screen, not the menu. Pop the menu off
+            // the back stack so a swipe-back exits straight to the
+            // watchface instead of hopping through the menu first.
+            // launchSingleTop guards against double-launch if the effect
+            // re-fires for any reason.
+            navController.navigate(initialRoute) {
+                popUpTo(NAV_MENU) { inclusive = true }
+                launchSingleTop = true
+            }
         }
     }
 

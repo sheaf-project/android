@@ -18,6 +18,11 @@ class WearStore(
     val groups        = MutableStateFlow<List<WearGroup>>(emptyList())
     val isLoading     = MutableStateFlow(false)
     val error         = MutableStateFlow<String?>(null)
+    // Tracked separately from the generic `error` because the recent-fronts
+    // call is opt-out for the home path (its failure shouldn't take out the
+    // rest of the load), but the history screen needs to distinguish "we
+    // tried and it failed" from "no history yet".
+    val recentFrontsError = MutableStateFlow<String?>(null)
 
     val frontingMembers: List<WearMember>
         get() {
@@ -32,18 +37,21 @@ class WearStore(
         scope.launch {
             isLoading.value = true
             error.value = null
+            recentFrontsError.value = null
             try {
                 members.value = apiClient.getMembers()
                 currentFronts.value = apiClient.getCurrentFronts()
                 groups.value = apiClient.getGroups()
-                // Recent-fronts list isn't critical for the home screen, so
-                // surface a load failure on the surface that uses it (history
-                // screen / timeline tile) rather than blocking the rest of
-                // the sync. Empty list means "API unreachable", which the
-                // history surfaces show as "no history yet" — same as a
-                // genuinely empty system.
-                recentFronts.value = runCatching { apiClient.getRecentFronts() }
-                    .getOrElse { emptyList() }
+                // Recent-fronts isn't critical for the home screen so its
+                // failure shouldn't take out the rest of the load. Track
+                // failure separately via recentFrontsError so the history
+                // screen can distinguish "tried and failed" (show retry)
+                // from "no history yet" (show empty message). Keeping the
+                // previous list value on failure means a transient blip
+                // doesn't wipe the rendered history mid-view.
+                runCatching { apiClient.getRecentFronts() }
+                    .onSuccess { recentFronts.value = it; recentFrontsError.value = null }
+                    .onFailure { recentFrontsError.value = it.message ?: "Failed to load history" }
                 cacheTileData()
                 cacheTileAvatars()
                 requestTileUpdate()

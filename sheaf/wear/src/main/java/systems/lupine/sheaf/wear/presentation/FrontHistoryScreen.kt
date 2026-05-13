@@ -1,19 +1,27 @@
 package systems.lupine.sheaf.wear.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.material.Chip
+import androidx.wear.compose.material.ChipDefaults
+import androidx.wear.compose.material.CircularProgressIndicator
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
@@ -35,6 +43,8 @@ fun FrontHistoryScreen(navController: NavController) {
     val store = LocalWearStore.current
     val members by store.members.collectAsState()
     val recent by store.recentFronts.collectAsState()
+    val isLoading by store.isLoading.collectAsState()
+    val recentError by store.recentFrontsError.collectAsState()
 
     val byId = remember(members) { members.associateBy { it.id } }
     // API returns newest first already; render in that order.
@@ -50,27 +60,94 @@ fun FrontHistoryScreen(navController: NavController) {
     Scaffold(timeText = { TimeText() }) {
         ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
             item {
-                Text(
-                    text = "Recent fronts",
-                    style = MaterialTheme.typography.title3,
-                )
-            }
-            if (history.isEmpty()) {
-                item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
                     Text(
-                        text = "No history yet. Switches you make from the watch will appear here.",
-                        style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurface.copy(alpha = 0.7f),
+                        text = "Recent fronts",
+                        style = MaterialTheme.typography.title3,
                     )
+                    if (isLoading && history.isNotEmpty()) {
+                        // Quiet spinner alongside the title — list already
+                        // has content, refresh is happening in the background.
+                        Spacer(Modifier.size(8.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
                 }
-                return@ScalingLazyColumn
             }
-            items(history) { entry ->
-                HistoryRow(
-                    members = entry.memberIds.mapNotNull { byId[it] },
-                    timestamp = entry.timestamp,
-                    ongoing = entry.ongoing,
-                )
+            when {
+                isLoading && history.isEmpty() -> {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(strokeWidth = 3.dp)
+                        }
+                    }
+                }
+                recentError != null && history.isEmpty() -> {
+                    item {
+                        Text(
+                            text = "Couldn't load history.",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.error,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
+                    }
+                    item {
+                        Chip(
+                            label = { Text("Retry") },
+                            onClick = { store.loadAll() },
+                            colors = ChipDefaults.primaryChipColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+                history.isEmpty() -> {
+                    item {
+                        Text(
+                            text = "No history yet. Switches you make will appear here.",
+                            style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.onSurface.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+                else -> {
+                    items(history) { entry ->
+                        HistoryRow(
+                            members = entry.memberIds.mapNotNull { byId[it] },
+                            timestamp = entry.timestamp,
+                            ongoing = entry.ongoing,
+                        )
+                    }
+                    // If a refresh failed while we still have stale list
+                    // data, slot a small advisory row at the bottom so the
+                    // user knows what they're looking at isn't fresh.
+                    if (recentError != null) {
+                        item {
+                            Text(
+                                text = "Refresh failed — showing cached.",
+                                style = MaterialTheme.typography.caption2,
+                                color = MaterialTheme.colors.error,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        item {
+                            Chip(
+                                label = { Text("Retry") },
+                                onClick = { store.loadAll() },
+                                colors = ChipDefaults.secondaryChipColors(),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -96,7 +173,7 @@ private fun HistoryRow(members: List<WearMember>, timestamp: Long, ongoing: Bool
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         // Avatars first; cap at 3 to keep rows fitting on round-screen
