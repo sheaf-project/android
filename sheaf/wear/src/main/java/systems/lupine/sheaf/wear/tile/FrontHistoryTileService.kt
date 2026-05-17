@@ -28,6 +28,8 @@ import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.ListenableFuture
 import systems.lupine.sheaf.wear.MainActivity
 import systems.lupine.sheaf.wear.complications.MemberRow
+import systems.lupine.sheaf.wear.complications.WearLoadStatus
+import systems.lupine.sheaf.wear.complications.readLoadStatus
 import systems.lupine.sheaf.wear.complications.readMembersSnapshot
 import systems.lupine.sheaf.wear.data.WearAuthManager
 import systems.lupine.sheaf.wear.data.readFrontHistory
@@ -71,8 +73,13 @@ class FrontHistoryTileService : TileService() {
         val history = readFrontHistory(this).reversed().take(MAX_VISIBLE)
         val byId = readMembersSnapshot(this).orEmpty().associateBy { it.id }
 
+        val status = readLoadStatus(this)
         val layout = when {
-            !authenticated -> messageLayout("Open Sheaf on phone")
+            !authenticated -> messageLayout("Open Sheaf on phone to sign in")
+            history.isEmpty() && (status == WearLoadStatus.LOADING || status == WearLoadStatus.NEVER) ->
+                messageLayout("Loading…")
+            history.isEmpty() && status == WearLoadStatus.FAILED ->
+                messageLayout("Couldn't load — open app to retry")
             history.isEmpty() -> messageLayout("No history yet")
             else -> historyLayout(history, byId)
         }

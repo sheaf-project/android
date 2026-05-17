@@ -55,6 +55,43 @@ internal fun readMembersSnapshot(context: Context): List<MemberRow>? {
     return parseMembersJson(raw)
 }
 
+// ── Tile load status ─────────────────────────────────────────────────────────
+//
+// Tiles render in a separate process from the wear app and can't observe its
+// in-memory load state directly. WearStore writes the outcome of each
+// `loadAll` into the shared SharedPreferences keyed by tile data so tiles
+// can branch into a distinct "loading…" or "couldn't load" state rather
+// than rendering "Members not found" or falling through to the broad
+// unauthenticated message when the wear app simply hasn't synced yet.
+
+internal enum class WearLoadStatus { NEVER, LOADING, OK, FAILED }
+
+private const val KEY_LOAD_STATUS = "last_load_status"
+
+internal fun readLoadStatus(context: Context): WearLoadStatus =
+    when (
+        context.getSharedPreferences("tile_data", Context.MODE_PRIVATE)
+            .getString(KEY_LOAD_STATUS, null)
+    ) {
+        "loading" -> WearLoadStatus.LOADING
+        "ok" -> WearLoadStatus.OK
+        "failed" -> WearLoadStatus.FAILED
+        else -> WearLoadStatus.NEVER
+    }
+
+internal fun writeLoadStatus(context: Context, status: WearLoadStatus) {
+    val v = when (status) {
+        WearLoadStatus.NEVER -> return
+        WearLoadStatus.LOADING -> "loading"
+        WearLoadStatus.OK -> "ok"
+        WearLoadStatus.FAILED -> "failed"
+    }
+    context.getSharedPreferences("tile_data", Context.MODE_PRIVATE)
+        .edit()
+        .putString(KEY_LOAD_STATUS, v)
+        .apply()
+}
+
 internal fun parseMembersJson(raw: String): List<MemberRow> {
     val trimmed = raw.trim()
     if (trimmed == "[]" || trimmed.isEmpty()) return emptyList()

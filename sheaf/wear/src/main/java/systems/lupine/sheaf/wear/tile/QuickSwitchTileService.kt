@@ -71,8 +71,19 @@ class QuickSwitchTileService : TileService() {
         val selected = loadQuickSwitchSelected(this, tileId)
         val endExisting = loadQuickSwitchEndExisting(this, tileId)
 
+        val status = systems.lupine.sheaf.wear.complications.readLoadStatus(this)
         val layout = when {
-            !authenticated     -> messageLayout("Open Sheaf on phone")
+            !authenticated -> messageLayout("Open Sheaf on phone to sign in")
+            // Authenticated but the wear app hasn't synced yet (members
+            // snapshot empty). Distinguish loading from a prior failure
+            // so users know whether to wait or take action.
+            members.isEmpty() && (
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.LOADING ||
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.NEVER
+            ) -> messageLayout("Loading…")
+            members.isEmpty() &&
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.FAILED ->
+                messageLayout("Couldn't load — open app to retry")
             configured.isEmpty() -> configurePromptLayout(tileId)
             members.isEmpty()  -> messageLayout("Members not found")
             else               -> switchPanelLayout(tileId, members, selected, endExisting)

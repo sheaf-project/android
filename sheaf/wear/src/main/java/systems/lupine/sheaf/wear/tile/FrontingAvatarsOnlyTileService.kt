@@ -55,8 +55,16 @@ class FrontingAvatarsOnlyTileService : TileService() {
         val authenticated = WearAuthManager(applicationContext).isAuthenticated
         val members = orderedFronters(this)
 
+        val status = systems.lupine.sheaf.wear.complications.readLoadStatus(this)
         val layout = when {
-            !authenticated  -> messageLayout("Open Sheaf on phone")
+            !authenticated -> messageLayout("Open Sheaf on phone to sign in")
+            members.isEmpty() && (
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.LOADING ||
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.NEVER
+            ) -> messageLayout("Loading…")
+            members.isEmpty() &&
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.FAILED ->
+                messageLayout("Couldn't load — open app to retry")
             members.isEmpty() -> messageLayout("No one fronting")
             else            -> avatarsLayout(members)
         }

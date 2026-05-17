@@ -66,8 +66,19 @@ class MemberFrontingTileService : TileService() {
         val memberIds = loadTileMemberSet(this, tileId)
         val members = resolveMembers(memberIds)
 
+        val status = systems.lupine.sheaf.wear.complications.readLoadStatus(this)
         val layout = when {
-            !authenticated      -> messageLayout("Open Sheaf on phone")
+            !authenticated -> messageLayout("Open Sheaf on phone to sign in")
+            // Tile is configured but we have no member roster locally yet
+            // (or we couldn't fetch one). Beat the "Members not found"
+            // copy that read like the system genuinely had no members.
+            members.isEmpty() && memberIds.isNotEmpty() && (
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.LOADING ||
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.NEVER
+            ) -> messageLayout("Loading…")
+            members.isEmpty() && memberIds.isNotEmpty() &&
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.FAILED ->
+                messageLayout("Couldn't load — open app to retry")
             memberIds.isEmpty() -> configurePromptLayout(tileId)
             members.isEmpty()   -> messageLayout("Members not found")
             else                -> watchListLayout(tileId, members)

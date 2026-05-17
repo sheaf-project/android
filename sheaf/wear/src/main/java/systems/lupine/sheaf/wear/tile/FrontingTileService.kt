@@ -37,9 +37,21 @@ class FrontingTileService : TileService() {
         val prefs = getSharedPreferences("tile_data", Context.MODE_PRIVATE)
         val names = prefs.getString("fronting_names", null)
         val authenticated = WearAuthManager(applicationContext).isAuthenticated
+        val status = systems.lupine.sheaf.wear.complications.readLoadStatus(this)
 
         val displayText = when {
-            !authenticated        -> "Open Sheaf on phone"
+            !authenticated -> "Open Sheaf on phone to sign in"
+            // No data cached AND no successful load yet → wear app hasn't
+            // synced. Show "Loading…" rather than the prior "no one
+            // fronting" which made absence of data look like a positive
+            // empty state.
+            names.isNullOrBlank() && (
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.LOADING ||
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.NEVER
+            ) -> "Loading…"
+            names.isNullOrBlank() &&
+                status == systems.lupine.sheaf.wear.complications.WearLoadStatus.FAILED ->
+                "Couldn't load — open app to retry"
             names.isNullOrBlank() -> "No one fronting"
             else                  -> names
         }
