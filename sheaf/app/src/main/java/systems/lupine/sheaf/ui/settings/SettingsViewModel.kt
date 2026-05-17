@@ -13,6 +13,8 @@ import systems.lupine.sheaf.data.model.TOTPSetupResponse
 import systems.lupine.sheaf.data.model.TOTPVerify
 import systems.lupine.sheaf.data.model.UserRead
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.data.repository.WatchSessionRepository
+import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import systems.lupine.sheaf.notification.FrontNotificationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -65,6 +67,13 @@ data class SettingsUiState(
     val orphanDeleteSafety: OrphanFilesDeleteSafety = OrphanFilesDeleteSafety(),
     val orphanDeleteResultMessage: String? = null,
     val fileUsage: systems.lupine.sheaf.data.model.FileUsage? = null,
+    // Watch repair flow: a settings option that drops the cached watch
+    // tokens and asks the server to mint a fresh secondary session, then
+    // pushes the result to the watch via the Data Layer. Surfaced as a
+    // troubleshooting affordance when the watch is stuck.
+    val watchRepairing: Boolean = false,
+    val watchRepairError: String? = null,
+    val watchRepairCompleted: Boolean = false,
 )
 
 private const val CLIENT_ID = "android"
@@ -74,6 +83,9 @@ class SettingsViewModel @Inject constructor(
     private val api: SheafApiService,
     private val prefs: PreferencesRepository,
     private val notificationHelper: FrontNotificationHelper,
+    private val watchSession: WatchSessionRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext
+    private val appContext: android.content.Context,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState(isLoading = true))
@@ -298,6 +310,52 @@ class SettingsViewModel @Inject constructor(
     fun clearTotpError() { _state.update { it.copy(totpError = null) } }
     fun clearDeletionError() { _state.update { it.copy(deletionError = null) } }
     fun clearAccountDeletionRequested() { _state.update { it.copy(accountDeletionRequested = false) } }
+    fun clearWatchRepair() { _state.update { it.copy(watchRepairError = null, watchRepairCompleted = false) } }
+
+    // ── Watch pairing ─────────────────────────────────────────────────────────
+
+    /**
+     * Drop the cached watch session and ask the server for a new one, then
+     * push the resulting credentials to the watch. Use when the watch is
+     * stuck on stale or revoked tokens (typical after a backup-restored
+     * reinstall, or an environment switch). force=true bypasses the local
+     * fast-path in [WatchSessionRepository.ensureWatchSession].
+     */
+    fun repairWatchPairing() {
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    watchRepairing = true,
+                    watchRepairError = null,
+                    watchRepairCompleted = false,
+                )
+            }
+            runCatching {
+                // ensureWatchSession(force=true) calls clearWatchTokens
+                // internally before re-minting, so we don't need to do it
+                // here. pushWatchCredentials below uses the freshly-minted
+                // pair to write the DataItem the watch will consume.
+                PhoneDataLayerService.pushWatchCredentials(
+                    appContext, prefs, watchSession, force = true,
+                )
+            }
+                .onSuccess {
+                    _state.update {
+                        it.copy(watchRepairing = false, watchRepairCompleted = true)
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            watchRepairing = false,
+                            watchRepairError = e.toUserMessage(
+                                "Couldn't refresh watch credentials. Try again, or check that you're online."
+                            ),
+                        )
+                    }
+                }
+        }
+    }
 
     // ── Orphaned files ────────────────────────────────────────────────────────
 

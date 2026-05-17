@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Upload
@@ -564,6 +565,43 @@ fun AccountSettingsScreen(
             subtitle = "View and revoke signed-in devices",
             onClick = onNavigateToSessions,
         )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        var showWatchRepairDialog by remember { mutableStateOf(false) }
+        SettingItem(
+            icon = Icons.Outlined.Watch,
+            title = "Re-pair watch",
+            subtitle = when {
+                state.watchRepairing -> "Refreshing watch credentials…"
+                state.watchRepairCompleted -> "Watch credentials refreshed"
+                state.watchRepairError != null -> state.watchRepairError!!
+                else -> "Force-refresh the watch session if pairing seems stuck"
+            },
+            onClick = { showWatchRepairDialog = true },
+        )
+        if (showWatchRepairDialog) {
+            AlertDialog(
+                onDismissRequest = { showWatchRepairDialog = false },
+                title = { Text("Re-pair watch?") },
+                text = {
+                    Text(
+                        "Drops the cached watch session and asks the server " +
+                            "for a fresh one, then pushes the new credentials " +
+                            "to the watch. Use this if the watch is stuck on " +
+                            "\"Open Sheaf on phone\" despite being signed in here.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showWatchRepairDialog = false
+                        viewModel.clearWatchRepair()
+                        viewModel.repairWatchPairing()
+                    }) { Text("Re-pair") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showWatchRepairDialog = false }) { Text("Cancel") }
+                },
+            )
+        }
     }
 
     if (showTotpSheet) {
