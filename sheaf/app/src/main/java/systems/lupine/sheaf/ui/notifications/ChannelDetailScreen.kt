@@ -354,8 +354,12 @@ private fun TriggerLine(label: String, on: Boolean) {
 
 private fun destinationLabel(type: String): String = when (type.lowercase()) {
     "web_push" -> "Web push (browser)"
-    "fcm" -> "Android push"
-    "apns_dev", "apns_prod" -> "iOS push"
+    "mobile_push" -> "Mobile push"
+    // Legacy values: backend migration rewrites them to mobile_push at
+    // the row level, but keep these mappings in case a stale local cache
+    // or read-back of an un-migrated snapshot still surfaces them.
+    "fcm" -> "Mobile push"
+    "apns_dev", "apns_prod" -> "Mobile push"
     "email" -> "Email"
     "webhook" -> "Webhook"
     "ntfy" -> "ntfy"

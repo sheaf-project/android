@@ -138,6 +138,19 @@ private fun ReceivingRow(
     onUnsubscribe: () -> Unit,
 ) {
     val disabled = channel.destinationState.equals("disabled", ignoreCase = true)
+    val paused = channel.pausedBySender
+    val muted = disabled || paused
+    // Status suffix on the destination line. Three distinct states:
+    //  - paused-by-sender:  the *sender* turned the channel off; the
+    //                       recipient can wait for it to come back
+    //  - disabled (other):  destination dead (e.g. token revoked); the
+    //                       recipient probably needs to re-redeem
+    //  - active:            no suffix
+    val statusSuffix = when {
+        paused -> " · paused by sender"
+        disabled -> " · disabled"
+        else -> ""
+    }
     ListItem(
         headlineContent = { Text(channel.channelName) },
         supportingContent = {
@@ -150,11 +163,17 @@ private fun ReceivingRow(
                     )
                 }
                 Text(
-                    destinationLabel(channel.destinationType) +
-                        (if (disabled) " · disabled" else ""),
+                    destinationLabel(channel.destinationType) + statusSuffix,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (disabled) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = when {
+                        // Paused is a soft state (the sender controls it,
+                        // not us), so use the muted neutral tone rather
+                        // than the error tone reserved for "this won't
+                        // work without your action".
+                        paused -> MaterialTheme.colorScheme.onSurfaceVariant
+                        disabled -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
                 channel.lastDeliveredAt?.let { at ->
                     Text(
@@ -169,11 +188,15 @@ private fun ReceivingRow(
             Icon(
                 destinationIcon(channel.destinationType),
                 contentDescription = null,
-                tint = if (disabled) MaterialTheme.colorScheme.outline
+                tint = if (muted) MaterialTheme.colorScheme.outline
                        else MaterialTheme.colorScheme.primary,
             )
         },
         trailingContent = {
+            // Unsubscribe is still a valid action while paused (the
+            // recipient might want out regardless of whether the sender
+            // resumes). Disabled-state rows can't be unsubscribed because
+            // there's nothing live to unsubscribe from.
             if (!disabled) {
                 IconButton(onClick = onUnsubscribe) {
                     Icon(
@@ -218,8 +241,10 @@ private fun EmptyState() {
 
 private fun destinationLabel(type: String): String = when (type.lowercase()) {
     "web_push" -> "Web push"
-    "fcm" -> "Android push"
-    "apns_dev", "apns_prod" -> "iOS push"
+    "mobile_push" -> "Mobile push"
+    // Legacy values: backend rewrites them but stale local caches may
+    // still carry them through one render cycle.
+    "fcm", "apns_dev", "apns_prod" -> "Mobile push"
     "email" -> "Email"
     "webhook" -> "Webhook"
     "ntfy" -> "ntfy"
@@ -229,8 +254,7 @@ private fun destinationLabel(type: String): String = when (type.lowercase()) {
 }
 
 private fun destinationIcon(type: String): ImageVector = when (type.lowercase()) {
-    "fcm" -> Icons.Outlined.PhoneAndroid
-    "apns_dev", "apns_prod" -> Icons.Outlined.PhoneIphone
+    "mobile_push", "fcm", "apns_dev", "apns_prod" -> Icons.Outlined.PhoneAndroid
     "web_push" -> Icons.Outlined.Public
     else -> Icons.Outlined.NotificationsActive
 }

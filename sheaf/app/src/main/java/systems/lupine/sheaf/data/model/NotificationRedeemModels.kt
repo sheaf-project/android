@@ -4,9 +4,11 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * Body for POST /v1/notifications/redeem. For mobile push channels
- * (FCM / APNS_DEV / APNS_PROD) [pushSubscription] is rejected and the
- * server uses the session cookie to bind `redeemed_by_account_id`.
+ * Body for POST /v1/notifications/redeem. For the unified `mobile_push`
+ * destination type [pushSubscription] is rejected and the server uses the
+ * session cookie (or Bearer auth, see the redeem 401 backend bug) to bind
+ * `redeemed_by_account_id`; the recipient's account fans out to whichever
+ * devices they've registered.
  */
 @JsonClass(generateAdapter = true)
 data class RedeemRequest(
@@ -46,4 +48,9 @@ data class ReceivingChannelView(
     @Json(name = "destination_state") val destinationState: String,
     @Json(name = "redeemed_at") val redeemedAt: String? = null,
     @Json(name = "last_delivered_at") val lastDeliveredAt: String? = null,
+    // True when the sender has paused the channel server-side. Distinct
+    // from destinationState == "unsubscribed", which means the recipient
+    // chose to leave. Defaults to false so older backend responses parse
+    // the same as before.
+    @Json(name = "paused_by_sender") val pausedBySender: Boolean = false,
 )

@@ -242,8 +242,11 @@ private fun EmptyState() {
 
 private fun destinationLabel(type: String): String = when (type.lowercase()) {
     "web_push" -> "Web push (browser)"
-    "fcm" -> "Android push"
-    "apns_dev", "apns_prod" -> "iOS push"
+    "mobile_push" -> "Mobile push"
+    // Legacy values: backend rewrites them in-place, but a cached snapshot
+    // could still surface them — map to the new label so the UI stays
+    // consistent.
+    "fcm", "apns_dev", "apns_prod" -> "Mobile push"
     "email" -> "Email"
     "webhook" -> "Webhook"
     "ntfy" -> "ntfy"
@@ -253,8 +256,7 @@ private fun destinationLabel(type: String): String = when (type.lowercase()) {
 }
 
 private fun destinationIcon(type: String): ImageVector = when (type.lowercase()) {
-    "fcm" -> Icons.Outlined.PhoneAndroid
-    "apns_dev", "apns_prod" -> Icons.Outlined.PhoneAndroid
+    "mobile_push", "fcm", "apns_dev", "apns_prod" -> Icons.Outlined.PhoneAndroid
     "web_push" -> Icons.Outlined.Public
     else -> Icons.Outlined.Cloud
 }

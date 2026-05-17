@@ -65,7 +65,7 @@ fun CreateChannelScreen(
 
     var name by remember { mutableStateOf("") }
     var recipientLabel by remember { mutableStateOf("") }
-    var destinationType by remember { mutableStateOf("fcm") }
+    var destinationType by remember { mutableStateOf("mobile_push") }
     var triggerOnStart by remember { mutableStateOf(true) }
     var triggerOnStop by remember { mutableStateOf(false) }
     var triggerOnCofrontChange by remember { mutableStateOf(false) }
@@ -130,11 +130,12 @@ fun CreateChannelScreen(
                 Spacer(Modifier.height(8.dp))
                 Column(Modifier.selectableGroup()) {
                     DestinationOption(
-                        value = "fcm",
-                        title = "Android push",
-                        subtitle = "Recipient must have Sheaf installed and logged in",
-                        selected = destinationType == "fcm",
-                        onSelect = { destinationType = "fcm" },
+                        value = "mobile_push",
+                        title = "Mobile push",
+                        subtitle = "Recipient must have Sheaf installed and logged in. " +
+                            "Delivered to every device on their account.",
+                        selected = destinationType == "mobile_push",
+                        onSelect = { destinationType = "mobile_push" },
                     )
                     DestinationOption(
                         value = "web_push",
