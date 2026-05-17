@@ -11,9 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
@@ -31,8 +33,13 @@ fun MemberProfileScreen(memberId: String, navController: NavController) {
         member?.description?.takeIf { it.isNotBlank() }?.let(::stripMarkdown)
     }
 
-    Scaffold(timeText = { TimeText() }) {
-        ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
+    val listState = rememberScalingLazyListState()
+
+    Scaffold(
+        timeText = { TimeText() },
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
+    ) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             if (member == null) {
                 item { Text("Member not found", style = MaterialTheme.typography.body1) }
                 return@ScalingLazyColumn

@@ -1,26 +1,19 @@
 package systems.lupine.sheaf.wear.presentation
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
-import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
-import androidx.wear.compose.material.TimeText
 import systems.lupine.sheaf.wear.R
 
 @Composable
 fun MenuScreen(navController: NavController) {
-    Scaffold(
-        timeText = { TimeText() },
-    ) {
-        ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
+    SheafScalingLazyScaffold {
             item {
                 Text(
                     text = stringResource(R.string.app_name),
@@ -75,6 +68,5 @@ fun MenuScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
     }
 }

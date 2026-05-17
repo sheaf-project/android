@@ -19,11 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CircularProgressIndicator
 import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
@@ -57,7 +59,16 @@ fun SwitchScreen(navController: NavController) {
         }
     }
 
-    Scaffold(timeText = { TimeText() }) {
+    val listState = rememberScalingLazyListState()
+
+    Scaffold(
+        timeText = { TimeText() },
+        // Scrollbar only renders in the list branch; the Scaffold still
+        // hosts it unconditionally because Scaffold expects a stable
+        // composition. The PositionIndicator no-ops when the underlying
+        // list state hasn't been laid out yet.
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
+    ) {
         when {
             isSwitching -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -79,6 +90,7 @@ fun SwitchScreen(navController: NavController) {
                     // chip overlay; the list scrolls behind it so the confirm
                     // is reachable no matter how long the member list is.
                     ScalingLazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 72.dp),
                     ) {

@@ -8,10 +8,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
@@ -21,8 +23,13 @@ fun GroupsScreen(navController: NavController) {
     val store = LocalWearStore.current
     val groups by store.groups.collectAsState()
 
-    Scaffold(timeText = { TimeText() }) {
-        ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
+    val listState = rememberScalingLazyListState()
+
+    Scaffold(
+        timeText = { TimeText() },
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
+    ) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item {
                 Text(
                     text = "Groups",
