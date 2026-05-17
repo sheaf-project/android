@@ -12,6 +12,8 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import coil.ImageLoader
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import systems.lupine.sheaf.data.api.RelativeUrlInterceptor
 import dagger.Module
 import dagger.Provides
@@ -108,6 +110,31 @@ object NetworkModule {
                 add(relativeUrlInterceptor)
             }
             .crossfade(true)
+            // Explicit cache config. The default 2% disk allocation on a
+            // freshly-installed device with low free space ends up small
+            // enough that avatar reloads become visible on history scroll
+            // (every row in the front-history list is an avatar of a
+            // member who likely also fronts in nearby rows). Avatars are
+            // tiny on the wire so we can afford to be generous; 100MB
+            // hard cap keeps the cache from squatting on an SSD's worth
+            // of disk on a system with terabytes free.
+            .memoryCache {
+                MemoryCache.Builder(context)
+                    .maxSizePercent(0.30)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(context.cacheDir.resolve("sheaf_image_cache"))
+                    .maxSizeBytes(100L * 1024 * 1024)
+                    .build()
+            }
+            // Avatars never change at a given URL (the backend mints a new
+            // URL when an avatar is replaced), so ignore upstream cache
+            // headers and rely on URL change for invalidation. Saves the
+            // 304-validation round trips that otherwise fire on every
+            // recomposition where Coil thinks the entry might be stale.
+            .respectCacheHeaders(false)
             .build()
     }
 }

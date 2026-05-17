@@ -78,6 +78,25 @@ fun HistoryScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // Prefetch member avatars as soon as the member roster lands so the
+    // list doesn't visibly redraw each row's avatar on first scroll past.
+    // Coil's memoryCache + diskCache pick up the result; subsequent
+    // AsyncImage requests on the same URL hit immediately.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val imageLoader = remember(context) { coil.Coil.imageLoader(context) }
+    LaunchedEffect(state.allMembers) {
+        state.allMembers
+            .mapNotNull { it.avatarUrl?.takeIf { url -> url.isNotBlank() } }
+            .distinct()
+            .forEach { url ->
+                imageLoader.enqueue(
+                    coil.request.ImageRequest.Builder(context)
+                        .data(url)
+                        .build()
+                )
+            }
+    }
+
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     // Infinite scroll: load more when near bottom. Only in Infinite view —
