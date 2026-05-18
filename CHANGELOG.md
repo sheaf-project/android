@@ -4,6 +4,83 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.12] - 2026-05-18
+
+Tracks the backend's mobile-push unification, lands the wear OS Play-
+review fixes, sharpens up the various "no data" UX surfaces that were
+all reading the same regardless of whether something was loading,
+failed, or just empty, and a couple of perf wins on the way through.
+
+### Added
+
+- **One Android NotificationChannel per redeemed Sheaf channel.**
+  Already mostly shipped client-side in v0.1.11; this release tracks
+  the backend `6481d8a` that unified the per-platform `fcm` /
+  `apns_dev` / `apns_prod` channels into a single `mobile_push`.
+  Create-channel form now sends `mobile_push` (was `fcm` and 4xx-ing
+  on submit), with "Mobile push" copy that calls out the per-account
+  fan-out so senders aren't surprised when deliveries reach the
+  recipient's iPad. Stale `fcm` / `apns_*` rows map to the same
+  display label for back-compat.
+- **"Paused by sender" tri-state on Receiving.** Channels the sender
+  paused now read as paused (neutral) instead of disabled (error),
+  so recipients can tell "the sender will resume this" from "this
+  destination is dead, you need to take action".
+- **Re-pair watch shortcut.** New entry under Settings → Account
+  below Active Sessions. Drops the cached watch session and asks the
+  server for a new one via `force=true`, then writes the credentials
+  DataItem the watch consumes. Use when the watch is stuck on
+  "Open Sheaf on phone" despite the phone being signed in (typical
+  after a backup-restored reinstall or environment switch).
+
+### Fixed
+
+- **Wear OS Play review rejection.** Two reasons in one commit:
+  - Background was a dark blue (`0xFF13121E`) rather than the pure
+    black Play guidelines call for on AMOLED watches. Both background
+    and surface now flip to `Color.Black`.
+  - Lists had no scroll affordance. Every ScalingLazyColumn screen
+    (menu, home, members, groups, add member, history, member
+    profile, settings, login, group detail, switch, member-tracker
+    config, complication picker) now hosts a `PositionIndicator`
+    via the new `SheafScalingLazyScaffold` helper.
+- **Wear tiles treated three different "no data" states the same.**
+  Quick switch, fronting variants, history, and member tracker all
+  fell through to terse positive-empty messages or "Open Sheaf on
+  phone" regardless of whether they were loading, had failed to
+  sync, or were genuinely empty. WearStore now writes a load-status
+  marker (`loading` / `ok` / `failed`) into the existing tile_data
+  prefs, and each tile branches:
+  - signed out → "Open Sheaf on phone to sign in"
+  - signed in + loading → "Loading…"
+  - signed in + failed → "Couldn't load — open app to retry"
+  - signed in + ok + empty → existing positive-empty messages
+- **Recent fronts viewer's "no history" state was misleading.** Same
+  bug, wear-side: rendered "No history yet" whether refreshing,
+  failed, or actually empty. Now four explicit states: loading
+  spinner (no data + loading), failed banner + retry chip (no data
+  + last refresh failed), the existing empty message (no data +
+  successful refresh), and the list with a quiet inline spinner +
+  "showing cached" advisory when a background refresh fails after
+  earlier success.
+- **Deep-link entry stacked the menu under the target screen.**
+  Tapping a tile that opens a specific wear screen used to land on
+  `[NAV_MENU, NAV_HISTORY]`, so swipe-back went menu → exit instead
+  of straight exit. Now `popUpTo(NAV_MENU) { inclusive = true }` so
+  swipe-back from a deep-link entry exits to the watchface, matching
+  expected gesture behaviour.
+
+### Performance
+
+- **Front history avatar cache.** Same member's avatar was
+  re-decoded on every history row instead of hitting Coil's cache.
+  Two-part fix: bumps memory cache to 30% and disk cache to a
+  100MB hard cap (was the implicit 2%-of-free default that landed
+  small on new installs); prefetches every distinct avatar URL the
+  moment the member roster arrives so subsequent AsyncImage requests
+  hit warm. respectCacheHeaders flipped off since avatar URLs are
+  content-addressed and don't need 304 validation round trips.
+
 ## [0.1.11] - 2026-05-13
 
 Polish pass: home screen renders instantly from cache then refreshes,
