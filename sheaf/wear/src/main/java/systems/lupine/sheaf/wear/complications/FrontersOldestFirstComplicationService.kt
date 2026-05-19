@@ -80,7 +80,11 @@ internal fun SuspendingComplicationDataSourceService.buildFrontersComplication(
  * service boundary.
  */
 internal fun fitFrontersShortText(names: List<String>): String {
-    if (names.isEmpty()) return "—"
+    // "None" rather than a dash: on a narrow SHORT_TEXT slot a lone "—"
+    // reads as an empty body next to the boldly-rendered title, making a
+    // genuine no-fronters refresh indistinguishable from a stale/never-
+    // loaded complication. A real word makes the empty state legible.
+    if (names.isEmpty()) return "None"
     val primary = names.first()
     if (names.size == 1) return primary.take(SHORT_TEXT_BUDGET)
     val suffix = " +${names.size - 1}"
