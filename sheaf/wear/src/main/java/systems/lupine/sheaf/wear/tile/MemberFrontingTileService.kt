@@ -15,8 +15,11 @@ import androidx.wear.protolayout.LayoutElementBuilders.Layout
 import androidx.wear.protolayout.LayoutElementBuilders.Row
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
 import androidx.wear.protolayout.LayoutElementBuilders.Text
+import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM
 import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_CENTER
+import androidx.wear.protolayout.ModifiersBuilders.Background
 import androidx.wear.protolayout.ModifiersBuilders.Clickable
+import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ResourceBuilders
 import androidx.wear.protolayout.TimelineBuilders.Timeline
@@ -37,8 +40,9 @@ import systems.lupine.sheaf.wear.data.WearAuthManager
  * Member-watch tile. The user picks a set of members at tile-add time
  * via [MemberSelectorTileConfigActivity]; the tile then renders each
  * picked member's avatar with a fronting / not-fronting indicator. Layout
- * adapts to the picked count: solo big-avatar layout up to 4x2 compact
- * grid for 7+ members.
+ * adapts to the on-page count: solo big-avatar layout up to a 4x2 compact
+ * grid. Rosters larger than [TILE_PAGE_SIZE] paginate behind a tap-to-
+ * advance page chip pinned to the bottom of the tile.
  *
  * Tap-to-configure is the entry path: before the user has saved a
  * selection the tile is a single chip prompting them to pick. After
@@ -117,37 +121,55 @@ class MemberFrontingTileService : TileService() {
     }
 
     private fun watchListLayout(tileId: Int, members: List<TrackedMember>): Layout {
-        // Reserve the last grid slot for an overflow badge if the user
-        // picked more than the dense-grid budget can show.
-        val (visible, overflow) = if (members.size <= MAX_VISIBLE) members to 0
-        else members.take(MAX_VISIBLE - 1) to (members.size - (MAX_VISIBLE - 1))
+        // Slice the picked roster into screen-sized pages. The user taps a
+        // page chip to advance; render-time modulo keeps the stored index
+        // in range even after the roster (and so the page count) changes.
+        val pages = members.chunked(TILE_PAGE_SIZE)
+        val pageCount = pages.size
+        val page = loadTilePage(this, tileId).mod(pageCount)
+        val visible = pages[page]
 
-        val tap = openAppClickable()
-
-        val root: Box = when (visible.size) {
+        val grid: Box = when (visible.size) {
             1 -> soloLayout(visible[0])
             2, 3 -> rowLayout(visible)
-            4 -> gridLayout(visible, columns = 2, avatarDp = 44f, overflow = overflow)
-            5, 6 -> gridLayout(visible, columns = 3, avatarDp = 36f, overflow = overflow)
-            else -> gridLayout(visible, columns = 4, avatarDp = 32f, overflow = overflow)
+            4 -> gridLayout(visible, columns = 2, avatarDp = 48f)
+            5, 6 -> gridLayout(visible, columns = 3, avatarDp = 40f)
+            else -> gridLayout(visible, columns = 4, avatarDp = 34f)
         }
 
-        // Wrap the layout root in a Box with a tap action. Tap on a configured
-        // tile opens the wear app; a long-press on the tile-carousel surface
-        // opens the system tile editor where the user can remove and re-add
-        // the tile to change the member set.
-        return Layout.Builder()
-            .setRoot(
+        // Tap on a configured tile opens the wear app; a long-press on the
+        // tile-carousel surface opens the system tile editor where the user
+        // can remove and re-add the tile to change the member set.
+        val root = Box.Builder()
+            .setWidth(expand())
+            .setHeight(expand())
+            .setModifiers(Modifiers.Builder().setClickable(openAppClickable()).build())
+            .addContent(
                 Box.Builder()
                     .setWidth(expand())
                     .setHeight(expand())
                     .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
                     .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-                    .setModifiers(Modifiers.Builder().setClickable(tap).build())
-                    .addContent(root)
+                    .addContent(grid)
                     .build()
             )
-            .build()
+
+        // More members than fit one screen: pin a tap-to-advance page chip
+        // to the bottom. Its own clickable shadows the tile-wide open-app
+        // tap within the chip's bounds.
+        if (pageCount > 1) {
+            root.addContent(
+                Box.Builder()
+                    .setWidth(expand())
+                    .setHeight(expand())
+                    .setVerticalAlignment(VERTICAL_ALIGN_BOTTOM)
+                    .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+                    .addContent(pageChip(tileId, page, pageCount))
+                    .build()
+            )
+        }
+
+        return Layout.Builder().setRoot(root.build()).build()
     }
 
     private fun soloLayout(m: TrackedMember): Box {
@@ -194,15 +216,12 @@ class MemberFrontingTileService : TileService() {
         members: List<TrackedMember>,
         columns: Int,
         avatarDp: Float,
-        overflow: Int,
     ): Box {
         val rows = members.chunked(columns)
         val column = Column.Builder().setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
         rows.forEachIndexed { i, rowMembers ->
             if (i > 0) column.addContent(Spacer.Builder().setHeight(dp(GAP_DP)).build())
-            val isLastRow = i == rows.lastIndex
-            val rowOverflow = if (isLastRow) overflow else 0
-            column.addContent(gridRow(rowMembers, columns, avatarDp, rowOverflow))
+            column.addContent(gridRow(rowMembers, avatarDp))
         }
         return Box.Builder()
             .setWidth(expand())
@@ -213,28 +232,63 @@ class MemberFrontingTileService : TileService() {
             .build()
     }
 
-    private fun gridRow(
-        rowMembers: List<TrackedMember>,
-        columns: Int,
-        avatarDp: Float,
-        overflow: Int,
-    ): Row {
+    private fun gridRow(rowMembers: List<TrackedMember>, avatarDp: Float): Row {
         val r = Row.Builder().setVerticalAlignment(VERTICAL_ALIGN_CENTER)
         rowMembers.forEachIndexed { i, m ->
             if (i > 0) r.addContent(Spacer.Builder().setWidth(dp(GAP_DP)).build())
             r.addContent(memberCellCompact(m, avatarDp))
         }
-        if (overflow > 0 && rowMembers.size < columns) {
-            r.addContent(Spacer.Builder().setWidth(dp(GAP_DP)).build())
-            r.addContent(
+        return r.build()
+    }
+
+    private fun pageChip(tileId: Int, page: Int, pageCount: Int): Box =
+        Box.Builder()
+            .setWidth(dp(64f))
+            .setHeight(dp(22f))
+            .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
+            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+            .setModifiers(
+                Modifiers.Builder()
+                    .setClickable(pageClickable(tileId))
+                    .setBackground(
+                        Background.Builder()
+                            .setColor(argb(0x33FFFFFF))
+                            .setCorner(Corner.Builder().setRadius(dp(11f)).build())
+                            .build()
+                    )
+                    .build()
+            )
+            .addContent(
                 Text.Builder()
-                    .setText("+$overflow")
+                    .setText("${page + 1}/$pageCount  ›")
                     .setFontStyle(STATUS_STYLE)
                     .build()
             )
-        }
-        return r.build()
-    }
+            .build()
+
+    private fun pageClickable(tileId: Int): Clickable = Clickable.Builder()
+        .setId("page_$tileId")
+        .setOnClick(
+            ActionBuilders.LaunchAction.Builder()
+                .setAndroidActivity(
+                    ActionBuilders.AndroidActivity.Builder()
+                        .setClassName(TilePageAdvanceActivity::class.java.name)
+                        .setPackageName(packageName)
+                        .addKeyToExtraMapping(
+                            EXTRA_TILE_ID,
+                            ActionBuilders.AndroidIntExtra.Builder().setValue(tileId).build(),
+                        )
+                        .addKeyToExtraMapping(
+                            EXTRA_TILE_SERVICE_CLASS,
+                            ActionBuilders.AndroidStringExtra.Builder()
+                                .setValue(MemberFrontingTileService::class.java.name)
+                                .build(),
+                        )
+                        .build()
+                )
+                .build()
+        )
+        .build()
 
     private fun memberCellWithName(m: TrackedMember, avatarDp: Float): Column =
         Column.Builder()
@@ -354,7 +408,6 @@ class MemberFrontingTileService : TileService() {
         .build()
 
     private companion object {
-        const val MAX_VISIBLE = 8
         const val GAP_DP = 4f
 
         val NAME_STYLE: FontStyle = FontStyle.Builder()

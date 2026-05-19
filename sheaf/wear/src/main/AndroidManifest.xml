@@ -123,6 +123,18 @@
             android:excludeFromRecents="true"
             android:noHistory="true" />
 
+        <!-- Page-advance trampoline for paginated member-set tiles. Like
+             the quick-switch trampoline it must be exported so the tile
+             renderer can launch it; it only mutates the per-tile page
+             index in SharedPreferences and requests a tile refresh, so
+             a hostile launch can at worst flip which page is shown. -->
+        <activity
+            android:name=".tile.TilePageAdvanceActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+
         <service
             android:name=".datalayer.WearDataLayerService"
             android:exported="true">

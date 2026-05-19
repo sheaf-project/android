@@ -21,10 +21,37 @@ internal fun saveTileMemberSet(context: Context, tileId: Int, memberIds: List<St
     // next render fetches fresh inline images for the picked members. The
     // resourcesVersion incorporates this counter, so changes here flow
     // through the tile system's cache key automatically.
+    //
+    // The roster just changed, so the page count likely changed too —
+    // reset the paginated tiles back to page 0 so a previously-valid
+    // page index doesn't land out of range on the new selection.
     context.getSharedPreferences(TILE_PREFS, Context.MODE_PRIVATE)
         .edit()
         .putString(memberSetKey(tileId), memberIds.joinToString(","))
         .putLong(CONFIG_VERSION_KEY, System.currentTimeMillis())
+        .remove(pageKey(tileId))
+        .apply()
+}
+
+// Member-set tiles that exceed one screen of avatars paginate: the user
+// taps a "next page" control which advances this stored index. Render
+// code wraps it with a modulo against the live page count, so the stored
+// value only ever increments and never needs clamping on write.
+
+/** Members shown per page on the member-tracker and quick-switch tiles. */
+internal const val TILE_PAGE_SIZE = 8
+
+private fun pageKey(tileId: Int) = "tile_page:$tileId"
+
+internal fun loadTilePage(context: Context, tileId: Int): Int =
+    context.getSharedPreferences(TILE_PREFS, Context.MODE_PRIVATE)
+        .getInt(pageKey(tileId), 0)
+
+internal fun advanceTilePage(context: Context, tileId: Int) {
+    val next = loadTilePage(context, tileId) + 1
+    context.getSharedPreferences(TILE_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putInt(pageKey(tileId), next)
         .apply()
 }
 

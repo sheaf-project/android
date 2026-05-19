@@ -118,50 +118,66 @@ class QuickSwitchTileService : TileService() {
         selected: Set<String>,
         endExisting: Boolean,
     ): Layout {
-        // Pick avatar size + grid shape by configured member count. Tile
-        // budget on a Pixel Watch round screen is ~160x160dp inside the
-        // bezel; the bottom-aligned controls stack takes ~50dp, leaving
-        // most of the vertical space for the avatar buttons.
-        val avatarsBlock = avatarsLayoutFor(tileId, members, selected)
+        // Page the candidate roster so a long member list stays tappable
+        // rather than silently truncating past the grid budget. Selection
+        // is keyed by member id, so a ✓ persists as the user pages back
+        // and forth, and the Switch button counts the selection across all
+        // pages. Tile budget on a Pixel Watch round screen is ~160x160dp
+        // inside the bezel; the bottom-aligned controls stack takes ~50dp,
+        // leaving most of the vertical space for the avatar buttons.
+        val pages = members.chunked(TILE_PAGE_SIZE)
+        val pageCount = pages.size
+        val page = loadTilePage(this, tileId).mod(pageCount)
+        val avatarsBlock = avatarsLayoutFor(tileId, pages[page], selected)
 
         // Stack: avatars centered top, controls pinned to the bottom of
         // the round visible area via VERTICAL_ALIGN_BOTTOM on a separate
         // Box that fills the full tile.
-        return Layout.Builder()
-            .setRoot(
+        val root = Box.Builder()
+            .setWidth(expand())
+            .setHeight(expand())
+            .setVerticalAlignment(VERTICAL_ALIGN_TOP)
+            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+            .addContent(
+                Box.Builder()
+                    .setWidth(expand())
+                    .setHeight(expand())
+                    .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
+                    .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+                    .addContent(avatarsBlock)
+                    .build()
+            )
+            .addContent(
+                Box.Builder()
+                    .setWidth(expand())
+                    .setHeight(expand())
+                    .setVerticalAlignment(VERTICAL_ALIGN_BOTTOM)
+                    .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+                    .addContent(
+                        Column.Builder()
+                            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+                            .addContent(endExistingChip(tileId, endExisting))
+                            .addContent(Spacer.Builder().setHeight(dp(2f)).build())
+                            .addContent(switchButton(tileId, selected.size))
+                            .build()
+                    )
+                    .build()
+            )
+
+        // Page chip pinned top-centre, clear of the bottom controls.
+        if (pageCount > 1) {
+            root.addContent(
                 Box.Builder()
                     .setWidth(expand())
                     .setHeight(expand())
                     .setVerticalAlignment(VERTICAL_ALIGN_TOP)
                     .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-                    .addContent(
-                        Box.Builder()
-                            .setWidth(expand())
-                            .setHeight(expand())
-                            .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
-                            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-                            .addContent(avatarsBlock)
-                            .build()
-                    )
-                    .addContent(
-                        Box.Builder()
-                            .setWidth(expand())
-                            .setHeight(expand())
-                            .setVerticalAlignment(VERTICAL_ALIGN_BOTTOM)
-                            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-                            .addContent(
-                                Column.Builder()
-                                    .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-                                    .addContent(endExistingChip(tileId, endExisting))
-                                    .addContent(Spacer.Builder().setHeight(dp(2f)).build())
-                                    .addContent(switchButton(tileId, selected.size))
-                                    .build()
-                            )
-                            .build()
-                    )
+                    .addContent(pageChip(tileId, page, pageCount))
                     .build()
             )
-            .build()
+        }
+
+        return Layout.Builder().setRoot(root.build()).build()
     }
 
     private fun avatarsLayoutFor(
@@ -174,7 +190,8 @@ class QuickSwitchTileService : TileService() {
         3 -> avatarRow(tileId, members, selected, avatarDp = 48f)
         4 -> avatarGrid(tileId, members, selected, columns = 2, avatarDp = 48f)
         5, 6 -> avatarGrid(tileId, members, selected, columns = 3, avatarDp = 40f)
-        else -> avatarGrid(tileId, members.take(8), selected, columns = 4, avatarDp = 34f)
+        // members is already a single page slice (<= TILE_PAGE_SIZE).
+        else -> avatarGrid(tileId, members, selected, columns = 4, avatarDp = 34f)
     }
 
     private fun avatarRow(
@@ -425,6 +442,57 @@ class QuickSwitchTileService : TileService() {
                 )
                 .build()
         )
+        .build()
+
+    private fun pageChip(tileId: Int, page: Int, pageCount: Int): Box =
+        Box.Builder()
+            .setWidth(dp(64f))
+            .setHeight(dp(22f))
+            .setVerticalAlignment(VERTICAL_ALIGN_CENTER)
+            .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+            .setModifiers(
+                Modifiers.Builder()
+                    .setClickable(pageClickable(tileId))
+                    .setBackground(
+                        Background.Builder()
+                            .setColor(argb(0x33FFFFFF))
+                            .setCorner(Corner.Builder().setRadius(dp(11f)).build())
+                            .build()
+                    )
+                    .build()
+            )
+            .addContent(
+                Text.Builder()
+                    .setText("${page + 1}/$pageCount  ›")
+                    .setFontStyle(TOGGLE_STYLE)
+                    .build()
+            )
+            .build()
+
+    private fun pageClickable(tileId: Int): Clickable = Clickable.Builder()
+        .setId("page_$tileId")
+        .setOnClick(
+            ActionBuilders.LaunchAction.Builder()
+                .setAndroidActivity(
+                    ActionBuilders.AndroidActivity.Builder()
+                        .setClassName(TilePageAdvanceActivity::class.java.name)
+                        .setPackageName(packageName)
+                        .addKeyToExtraMapping(
+                            EXTRA_TILE_ID,
+                            ActionBuilders.AndroidIntExtra.Builder().setValue(tileId).build(),
+                        )
+                        .addKeyToExtraMapping(
+                            EXTRA_TILE_SERVICE_CLASS,
+                            ActionBuilders.AndroidStringExtra.Builder()
+                                .setValue(QuickSwitchTileService::class.java.name)
+                                .build(),
+                        )
+                        .build()
+                )
+                .build()
+        )
+        .setMinimumClickableWidth(dp(MIN_TOUCH_DP))
+        .setMinimumClickableHeight(dp(MIN_TOUCH_DP))
         .build()
 
     private companion object {

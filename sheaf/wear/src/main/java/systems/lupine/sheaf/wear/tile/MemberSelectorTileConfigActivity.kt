@@ -112,6 +112,17 @@ private fun MemberSelector(
                 )
             }
 
+            // Make the paging behaviour explicit up front: the tile shows
+            // a fixed number of members per screen and adds tap-through
+            // pages beyond that, so picking a long list isn't a surprise.
+            item {
+                Text(
+                    text = "Tile shows $TILE_PAGE_SIZE per page — pick more and " +
+                        "it adds tap-through pages.",
+                    style = MaterialTheme.typography.caption2,
+                )
+            }
+
             if (members.isEmpty()) {
                 item {
                     Text(
@@ -153,8 +164,14 @@ private fun MemberSelector(
             }
 
             item {
+                val pageCount =
+                    if (selected.isEmpty()) 0
+                    else (selected.size + TILE_PAGE_SIZE - 1) / TILE_PAGE_SIZE
+                val saveLabel =
+                    if (pageCount > 1) "Save (${selected.size} · $pageCount pages)"
+                    else "Save (${selected.size})"
                 Chip(
-                    label = { Text("Save (${selected.size})") },
+                    label = { Text(saveLabel) },
                     onClick = { onSave(selected) },
                     colors = ChipDefaults.primaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
