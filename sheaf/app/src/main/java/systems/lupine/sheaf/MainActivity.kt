@@ -100,10 +100,24 @@ class MainActivity : FragmentActivity() {
 
     private fun captureRedemptionDeepLink(intent: Intent?) {
         val data: Uri = intent?.data ?: return
-        if (data.scheme != "sheaf") return
-        if (data.host != "notifications") return
-        if (data.pathSegments.firstOrNull() != "redeem") return
+        // Two entry shapes resolve here:
+        //  - sheaf://notifications/redeem?code=...  (custom-scheme CTA,
+        //    works from any instance's web redeem page)
+        //  - https://sheaf.sh/redeem?code=...       (verified App Link on
+        //    the canonical domain)
+        val isCustomScheme = data.scheme == "sheaf" &&
+            data.host == "notifications" &&
+            data.pathSegments.firstOrNull() == "redeem"
+        val isAppLink = data.scheme == "https" &&
+            data.host == "sheaf.sh" &&
+            data.pathSegments.firstOrNull() == "redeem"
+        if (!isCustomScheme && !isAppLink) return
         val code = data.getQueryParameter("code")?.takeIf { it.isNotBlank() } ?: return
-        pendingRedemption.set(code)
+        // App Link form also carries the instance the link was minted for
+        // (e.g. instance=https%3A%2F%2Ftest.sheaf.sh). Kept so the redeem
+        // flow can refuse a link aimed at a different server than the one
+        // this device is signed into.
+        val instance = data.getQueryParameter("instance")?.takeIf { it.isNotBlank() }
+        pendingRedemption.set(code, instance)
     }
 }

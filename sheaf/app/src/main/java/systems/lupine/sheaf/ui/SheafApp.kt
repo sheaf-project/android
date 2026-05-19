@@ -12,9 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import android.net.Uri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.*
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.auth.LoginScreen
@@ -91,7 +94,7 @@ object Routes {
     const val SETTINGS_DANGER        = "settings/danger"
     const val SETTINGS_TAGS          = "settings/tags"
     const val SETTINGS_RETENTION     = "settings/retention"
-    const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}"
+    const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}?instance={instance}"
     const val NOTIFICATIONS_RECEIVING = "settings/notifications/receiving"
     const val NOTIFICATIONS_DEVICES   = "settings/notifications/devices"
     const val NOTIFICATIONS_OWNED     = "settings/notifications/owned"
@@ -131,7 +134,7 @@ fun SheafApp(
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
-    val pendingRedeemCode by pendingRedemption.code.collectAsState()
+    val pendingRedeem by pendingRedemption.pending.collectAsState()
     val navController = rememberNavController()
 
     // React to login state changes
@@ -155,11 +158,17 @@ fun SheafApp(
     // Fires after the isLoggedIn → home navigation above, so the redeem
     // screen sits on top of HOME in the back stack and "Done" returns
     // the user to home rather than dropping out of the app.
-    LaunchedEffect(isLoggedIn, pendingRedeemCode) {
-        val code = pendingRedeemCode
-        if (isLoggedIn && code != null) {
+    LaunchedEffect(isLoggedIn, pendingRedeem) {
+        val redemption = pendingRedeem
+        if (isLoggedIn && redemption != null) {
             pendingRedemption.clear()
-            navController.navigate("notifications/redeem/$code")
+            val route = buildString {
+                append("notifications/redeem/${Uri.encode(redemption.code)}")
+                redemption.instanceUrl?.takeIf { it.isNotBlank() }?.let {
+                    append("?instance=${Uri.encode(it)}")
+                }
+            }
+            navController.navigate(route)
         }
     }
 
@@ -300,10 +309,21 @@ fun SheafApp(
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
-            composable(Routes.NOTIFICATIONS_REDEEM) { backStack ->
+            composable(
+                Routes.NOTIFICATIONS_REDEEM,
+                arguments = listOf(
+                    navArgument("instance") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { backStack ->
                 val code = backStack.arguments?.getString("code") ?: return@composable
+                val instance = backStack.arguments?.getString("instance")
                 RedeemNotificationScreen(
                     activationCode = code,
+                    instanceUrl = instance,
                     onDone = { navController.popBackStack() },
                 )
             }

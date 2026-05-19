@@ -35,9 +35,27 @@ class RedeemNotificationViewModel @Inject constructor(
     private val _state = MutableStateFlow<RedeemUiState>(RedeemUiState.Loading)
     val state: StateFlow<RedeemUiState> = _state.asStateFlow()
 
-    fun redeem(activationCode: String) {
+    fun redeem(activationCode: String, instanceUrl: String? = null) {
         viewModelScope.launch {
             _state.value = RedeemUiState.Loading
+            // Refuse a link minted for a different Sheaf instance than the
+            // one this device is signed into. The redeem POST goes to the
+            // configured base URL, so a cross-instance link would just
+            // 404 with an opaque "expired or already redeemed" — better to
+            // name the mismatch. Links without an instance hint (the
+            // custom-scheme CTA) skip the check and proceed as before.
+            if (!instanceUrl.isNullOrBlank()) {
+                val linkHost = hostOf(instanceUrl)
+                val configuredHost = hostOf(prefs.baseUrl.firstOrNull().orEmpty())
+                if (linkHost != null && configuredHost != null && linkHost != configuredHost) {
+                    _state.value = RedeemUiState.Error(
+                        "This subscription link is for $linkHost, but this device is " +
+                            "signed in to $configuredHost. Sign in to $linkHost here " +
+                            "to redeem it.",
+                    )
+                    return@launch
+                }
+            }
             runCatching {
                 api.redeemActivationCode(RedeemRequest(activationCode = activationCode))
             }
@@ -76,5 +94,20 @@ class RedeemNotificationViewModel @Inject constructor(
                     _state.value = RedeemUiState.Error(message, needsLogin = needsLogin)
                 }
         }
+    }
+
+    /**
+     * Extracts a comparable lowercase host from a base URL that may or
+     * may not carry a scheme (`baseUrl` is stored either way — see
+     * PreferencesRepository). Returns null if no host can be parsed, in
+     * which case the caller skips the mismatch check rather than guess.
+     */
+    private fun hostOf(url: String): String? {
+        val trimmed = url.trim()
+        if (trimmed.isBlank()) return null
+        val withScheme = if ("://" in trimmed) trimmed else "https://$trimmed"
+        return runCatching {
+            android.net.Uri.parse(withScheme).host?.lowercase()
+        }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 }

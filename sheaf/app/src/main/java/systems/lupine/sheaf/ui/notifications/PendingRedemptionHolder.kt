@@ -7,7 +7,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * In-memory parking spot for an activation code arriving via deep link
+ * A magic-link activation code captured from a deep link, plus the
+ * instance the link was minted for (when the link carried one). The
+ * instance lets the redemption flow detect a link aimed at a different
+ * Sheaf server than this device is signed into, rather than redeeming
+ * against the wrong one and getting an opaque 404.
+ */
+data class PendingRedemption(
+    val code: String,
+    /** Instance base URL from the link's `instance=` param, or null. */
+    val instanceUrl: String?,
+)
+
+/**
+ * In-memory parking spot for a [PendingRedemption] arriving via deep link
  * before the user is logged in (or while the nav graph is mid-flight).
  * SheafApp observes this and routes to the redemption screen as soon
  * as both isLoggedIn and a code are available.
@@ -17,9 +30,12 @@ import javax.inject.Singleton
  */
 @Singleton
 class PendingRedemptionHolder @Inject constructor() {
-    private val _code = MutableStateFlow<String?>(null)
-    val code: StateFlow<String?> = _code.asStateFlow()
+    private val _pending = MutableStateFlow<PendingRedemption?>(null)
+    val pending: StateFlow<PendingRedemption?> = _pending.asStateFlow()
 
-    fun set(activationCode: String) { _code.value = activationCode }
-    fun clear() { _code.value = null }
+    fun set(activationCode: String, instanceUrl: String?) {
+        _pending.value = PendingRedemption(activationCode, instanceUrl)
+    }
+
+    fun clear() { _pending.value = null }
 }

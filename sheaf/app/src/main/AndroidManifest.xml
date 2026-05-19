@@ -119,12 +119,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!-- Magic-link redemption from outside the app (email, IM, etc.).
-                 The web fallback at <base_url>/notifications/redeem... lives
-                 on whatever instance the recipient's account uses; we don't
-                 wire App Links here because that'd need per-instance domain
-                 verification (problematic for self-hosted users). The web
-                 redeem page is expected to surface an "Open in Sheaf" CTA
-                 that fires the sheaf:// URL. -->
+                 Custom-scheme fallback: any instance's web redeem page can
+                 surface an "Open in Sheaf" CTA that fires this sheaf:// URL.
+                 Not verifiable, so it stays autoVerify="false". -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -133,6 +130,19 @@
                     android:scheme="sheaf"
                     android:host="notifications"
                     android:path="/redeem" />
+            </intent-filter>
+            <!-- Verified App Link for the canonical domain. sheaf.sh hosts
+                 /.well-known/assetlinks.json, so autoVerify lets these open
+                 the app directly with no browser/chooser. Self-hosted
+                 instances on other domains still rely on the sheaf:// CTA
+                 above (we can't verify domains we don't control). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="sheaf.sh" />
+                <data android:path="/redeem" />
             </intent-filter>
         </activity>
 
