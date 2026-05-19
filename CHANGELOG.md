@@ -4,6 +4,46 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.13] - 2026-05-19
+
+Closes the loop on watchface freshness, lets the member-set tiles hold
+arbitrarily long rosters, and wires proper App Links so magic links
+open the app instead of bouncing through the browser.
+
+### Added
+
+- **Verified App Links for `sheaf.sh/redeem`.** Magic-link redemption
+  URLs on the canonical domain now open the app directly (no browser
+  hop, no chooser) via an `autoVerify` intent filter backed by the
+  domain's `assetlinks.json`. The `sheaf://notifications/redeem`
+  custom-scheme fallback stays for self-hosted instances on domains
+  the project can't verify.
+- **Instance-aware redemption.** The redeem link carries the instance
+  it was minted for; the app now refuses a link aimed at a different
+  Sheaf server than the device is signed into, naming both hosts,
+  rather than redeeming against the wrong server and surfacing an
+  opaque "expired or already redeemed".
+- **Paginated member-set tiles.** The member-tracker and quick-switch
+  tiles now page rosters larger than 8 behind a tap-to-advance page
+  chip instead of truncating. The tracker previously capped at 8 with
+  a "+N" badge that ate a grid slot (so picking 9 showed only 7);
+  quick switch silently dropped everyone past 8. The tile picker
+  states "shows 8 per page" up front and the Save button reflects the
+  resulting page count.
+- **Phone-to-watch front-status push.** After any front change on the
+  phone (a switch, or an incoming push) the phone nudges a paired
+  watch to re-sync, so watchface tiles and complications refresh
+  without waiting for the wear app to be foregrounded. Previously the
+  watch only synced in the foreground, leaving the watchface stale.
+
+### Fixed
+
+- **Front complications looked stuck on "FRONT".** With no fronters
+  the SHORT_TEXT complication rendered a lone em-dash body next to
+  the constant "front" title, reading as a blank slot that never
+  refreshed. The empty state now reads "None" so a genuine
+  no-fronters result is legible.
+
 ## [0.1.12] - 2026-05-18
 
 Tracks the backend's mobile-push unification, lands the wear OS Play-
