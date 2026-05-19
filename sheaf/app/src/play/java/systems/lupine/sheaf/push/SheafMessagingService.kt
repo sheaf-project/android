@@ -13,6 +13,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.R
+import systems.lupine.sheaf.datalayer.WatchFrontSync
 import javax.inject.Inject
 
 /**
@@ -106,6 +107,15 @@ class SheafMessagingService : FirebaseMessagingService() {
             // POST_NOTIFICATIONS denied on Android 13+. Drop silently;
             // there's no useful action to take from a background service.
             Log.w(TAG, "Notification not posted: permission denied", e)
+        }
+
+        // Nudge a paired watch to re-sync so its tiles and complications
+        // don't sit stale until the wear app is next opened. Most pushes
+        // imply front state moved; skip only the buckets that clearly
+        // don't (reminders, system). An occasional redundant re-sync on
+        // an unknown event type is cheaper than a missed front change.
+        if (eventType != "reminders" && eventType != "system") {
+            WatchFrontSync.notifyFrontChanged(this)
         }
     }
 

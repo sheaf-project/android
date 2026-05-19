@@ -34,48 +34,57 @@ class WearStore(
         get() = currentFronts.value.minByOrNull { it.startedAt ?: "" }
 
     fun loadAll() {
-        scope.launch {
-            isLoading.value = true
-            error.value = null
-            recentFrontsError.value = null
-            // Mirror in-memory loading state into the tile-data prefs so
-            // tile services in their own process can branch "loading…" vs
-            // "couldn't load" instead of falling through to "Members not
-            // found" when the wear app simply hasn't synced yet.
+        scope.launch { refreshNow() }
+    }
+
+    /**
+     * Body of [loadAll] as a suspending function. Callers that must keep
+     * a short-lived process alive until the refresh finishes — the
+     * data-layer listener handling a phone "front changed" nudge — await
+     * this directly instead of firing into [scope] and racing service
+     * teardown.
+     */
+    suspend fun refreshNow() {
+        isLoading.value = true
+        error.value = null
+        recentFrontsError.value = null
+        // Mirror in-memory loading state into the tile-data prefs so
+        // tile services in their own process can branch "loading…" vs
+        // "couldn't load" instead of falling through to "Members not
+        // found" when the wear app simply hasn't synced yet.
+        systems.lupine.sheaf.wear.complications.writeLoadStatus(
+            context,
+            systems.lupine.sheaf.wear.complications.WearLoadStatus.LOADING,
+        )
+        try {
+            members.value = apiClient.getMembers()
+            currentFronts.value = apiClient.getCurrentFronts()
+            groups.value = apiClient.getGroups()
+            // Recent-fronts isn't critical for the home screen so its
+            // failure shouldn't take out the rest of the load. Track
+            // failure separately via recentFrontsError so the history
+            // screen can distinguish "tried and failed" (show retry)
+            // from "no history yet" (show empty message). Keeping the
+            // previous list value on failure means a transient blip
+            // doesn't wipe the rendered history mid-view.
+            runCatching { apiClient.getRecentFronts() }
+                .onSuccess { recentFronts.value = it; recentFrontsError.value = null }
+                .onFailure { recentFrontsError.value = it.message ?: "Failed to load history" }
+            cacheTileData()
+            cacheTileAvatars()
+            requestTileUpdate()
             systems.lupine.sheaf.wear.complications.writeLoadStatus(
                 context,
-                systems.lupine.sheaf.wear.complications.WearLoadStatus.LOADING,
+                systems.lupine.sheaf.wear.complications.WearLoadStatus.OK,
             )
-            try {
-                members.value = apiClient.getMembers()
-                currentFronts.value = apiClient.getCurrentFronts()
-                groups.value = apiClient.getGroups()
-                // Recent-fronts isn't critical for the home screen so its
-                // failure shouldn't take out the rest of the load. Track
-                // failure separately via recentFrontsError so the history
-                // screen can distinguish "tried and failed" (show retry)
-                // from "no history yet" (show empty message). Keeping the
-                // previous list value on failure means a transient blip
-                // doesn't wipe the rendered history mid-view.
-                runCatching { apiClient.getRecentFronts() }
-                    .onSuccess { recentFronts.value = it; recentFrontsError.value = null }
-                    .onFailure { recentFrontsError.value = it.message ?: "Failed to load history" }
-                cacheTileData()
-                cacheTileAvatars()
-                requestTileUpdate()
-                systems.lupine.sheaf.wear.complications.writeLoadStatus(
-                    context,
-                    systems.lupine.sheaf.wear.complications.WearLoadStatus.OK,
-                )
-            } catch (e: Exception) {
-                error.value = e.message ?: "Failed to load"
-                systems.lupine.sheaf.wear.complications.writeLoadStatus(
-                    context,
-                    systems.lupine.sheaf.wear.complications.WearLoadStatus.FAILED,
-                )
-            } finally {
-                isLoading.value = false
-            }
+        } catch (e: Exception) {
+            error.value = e.message ?: "Failed to load"
+            systems.lupine.sheaf.wear.complications.writeLoadStatus(
+                context,
+                systems.lupine.sheaf.wear.complications.WearLoadStatus.FAILED,
+            )
+        } finally {
+            isLoading.value = false
         }
     }
 

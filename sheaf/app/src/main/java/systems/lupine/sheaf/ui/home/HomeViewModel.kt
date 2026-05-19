@@ -21,6 +21,7 @@ import systems.lupine.sheaf.data.model.UserRead
 import systems.lupine.sheaf.data.network.NetworkMonitor
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.data.sync.SyncWorker
+import systems.lupine.sheaf.datalayer.WatchFrontSync
 import systems.lupine.sheaf.notification.FrontNotificationHelper
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -188,6 +189,17 @@ class HomeViewModel @Inject constructor(
                 val newUser          = user.getOrNull()          ?: _state.value.user
                 val frontingIds = newFronts.flatMap { it.memberIds }.toSet()
                 val frontingMembers = newMembers.filter { it.id in frontingIds }
+                // Nudge a paired watch to re-sync when the fronting set
+                // actually changed, so its tiles and complications don't
+                // sit stale. _state hasn't been updated yet, so its
+                // currentFronts still holds the pre-refresh set. No-op
+                // when no watch is paired; gated on a real change so a
+                // routine refresh that found nothing new costs nothing.
+                val previousFrontingIds =
+                    _state.value.currentFronts.flatMap { it.memberIds }.toSet()
+                if (frontingIds != previousFrontingIds) {
+                    WatchFrontSync.notifyFrontChanged(appContext)
+                }
                 val safetyResp = safety.getOrNull()
                 val trimNotice = if (retention.isSuccess) {
                     retention.getOrNull()?.trimNotice?.takeIf { it.status == "pending" }
