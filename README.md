@@ -10,7 +10,7 @@
 
 Native Android client for [Sheaf](https://github.com/sheaf-project/sheaf), the open-source plural system tracker. Built with Kotlin and Jetpack Compose; targets Android 8.0+ (API 26) and includes a Wear OS companion.
 
-> **Status:** in active development. Use the dev build to try it; report issues on the [main repo's issue tracker](https://github.com/sheaf-project/sheaf/issues).
+> **Status:** in active development. Installable from [GitHub Releases](https://github.com/sheaf-project/android/releases) or through the Play Store (for Play Store beta access, request through the Discord); report issues on the [main repo's issue tracker](https://github.com/sheaf-project/sheaf/issues).
 
 ## Features
 
