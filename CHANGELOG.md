@@ -4,6 +4,11 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.14] - 2026-05-22
+
+Fixes a missing scrollbars flagged during Play Store review on the
+WearOS app.
+
 ## [0.1.13] - 2026-05-19
 
 Closes the loop on watchface freshness, lets the member-set tiles hold
