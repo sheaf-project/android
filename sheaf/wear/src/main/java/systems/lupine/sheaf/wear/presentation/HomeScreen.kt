@@ -55,7 +55,11 @@ fun HomeScreen(navController: NavController) {
         out.toMap() to capped.toSet()
     }
 
-    Scaffold(timeText = { TimeText() }) {
+    val listState = rememberScalingLazyListState()
+    Scaffold(
+        timeText = { TimeText() },
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
+    ) {
         if (isLoading && frontingMembers.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -63,7 +67,7 @@ fun HomeScreen(navController: NavController) {
             return@Scaffold
         }
 
-        ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item {
                 Text(
                     text = "Currently Fronting",

@@ -38,6 +38,12 @@ open the app instead of bouncing through the browser.
 
 ### Fixed
 
+- **Four wear screens were still missing their scrollbar.** The 0.1.12
+  PositionIndicator sweep missed the main menu, home, members, and
+  group-detail screens (three even kept a dangling unused import where
+  the wiring was dropped), so Play review rejected the build again for
+  lists without a scroll affordance. All four now bind a list state and
+  host a PositionIndicator like the rest.
 - **Front complications looked stuck on "FRONT".** With no fronters
   the SHORT_TEXT complication rendered a lone em-dash body next to
   the constant "front" title, reading as a blank slot that never

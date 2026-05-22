@@ -51,7 +51,11 @@ fun GroupDetailScreen(groupId: String, navController: NavController) {
         isLoading = false
     }
 
-    Scaffold(timeText = { TimeText() }) {
+    val listState = rememberScalingLazyListState()
+    Scaffold(
+        timeText = { TimeText() },
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
+    ) {
         if (isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -59,7 +63,7 @@ fun GroupDetailScreen(groupId: String, navController: NavController) {
             return@Scaffold
         }
 
-        ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item {
                 Text(
                     text = group?.name ?: "Group",

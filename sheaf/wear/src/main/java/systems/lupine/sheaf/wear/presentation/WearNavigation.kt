@@ -16,9 +16,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
@@ -69,8 +71,12 @@ fun WearNavigation(
                 onCancel = { showLogin = false },
             )
         } else {
-            Scaffold(timeText = { TimeText() }) {
-                ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
+            val menuListState = rememberScalingLazyListState()
+            Scaffold(
+                timeText = { TimeText() },
+                positionIndicator = { PositionIndicator(scalingLazyListState = menuListState) },
+            ) {
+                ScalingLazyColumn(state = menuListState, modifier = Modifier.fillMaxSize()) {
                     item {
                         Text(
                             text = stringResource(R.string.app_name),

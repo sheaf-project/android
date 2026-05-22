@@ -33,7 +33,11 @@ fun MembersScreen(navController: NavController) {
     val frontingIds = fronts.flatMap { it.memberIds }.toSet()
     val isRefreshing = isLoading && members.isNotEmpty()
 
-    Scaffold(timeText = { TimeText() }) {
+    val listState = rememberScalingLazyListState()
+    Scaffold(
+        timeText = { TimeText() },
+        positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
+    ) {
         if (isLoading && members.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -41,7 +45,7 @@ fun MembersScreen(navController: NavController) {
             return@Scaffold
         }
 
-        ScalingLazyColumn(modifier = Modifier.fillMaxSize()) {
+        ScalingLazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             item {
                 Text(
                     text = "Members",
