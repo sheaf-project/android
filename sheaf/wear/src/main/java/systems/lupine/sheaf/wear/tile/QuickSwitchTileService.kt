@@ -19,6 +19,7 @@ import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM
 import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_CENTER
 import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_TOP
 import androidx.wear.protolayout.ModifiersBuilders.Background
+import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Clickable
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
@@ -243,6 +244,28 @@ class QuickSwitchTileService : TileService() {
                 .setModifiers(
                     Modifiers.Builder()
                         .setClickable(toggleMemberClickable(tileId, m.id))
+                        .apply {
+                            // Selected members get a thin accent ring around
+                            // the (already circular) avatar so the next-switch
+                            // set reads at a glance, not just from the ✓ below.
+                            // The Background's circular corner makes the
+                            // Border render as a ring rather than a square.
+                            if (isSelected) {
+                                setBackground(
+                                    Background.Builder()
+                                        .setCorner(
+                                            Corner.Builder().setRadius(dp(sizeDp / 2f)).build()
+                                        )
+                                        .build()
+                                )
+                                setBorder(
+                                    Border.Builder()
+                                        .setWidth(dp(RING_WIDTH_DP))
+                                        .setColor(argb(RING_SELECTED))
+                                        .build()
+                                )
+                            }
+                        }
                         .build()
                 )
                 .addContent(
@@ -498,6 +521,10 @@ class QuickSwitchTileService : TileService() {
     private companion object {
         const val GAP_DP = 4f
         const val MIN_TOUCH_DP = 48f
+        const val RING_WIDTH_DP = 3f
+        // Same green accent as the ✓ mark and the Switch button, so
+        // "this member is in the next switch" reads consistently.
+        const val RING_SELECTED = 0xFF8FE0B7.toInt()
 
         val MARK_ON_STYLE: FontStyle = FontStyle.Builder()
             .setSize(sp(11f))

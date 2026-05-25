@@ -4,6 +4,18 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.15] - 2026-05-22
+
+### Added
+
+- **Selection and active-state rings on the watch tiles.** The
+  quick-switch tile draws a thin accent ring around members picked for
+  the next switch (in addition to the existing ✓), so the pending set
+  reads at a glance. The member-tracker tile rings members who are
+  currently fronting. Both use the same green accent, so a ring means
+  "active / selected" consistently across tiles. Avatars stay the same
+  size selected or not, so toggling doesn't reflow the grid.
+
 ## [0.1.14] - 2026-05-22
 
 Fixes a missing scrollbars flagged during Play Store review on the

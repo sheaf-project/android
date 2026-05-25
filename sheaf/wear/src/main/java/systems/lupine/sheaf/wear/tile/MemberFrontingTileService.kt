@@ -12,12 +12,14 @@ import androidx.wear.protolayout.LayoutElementBuilders.FontStyle
 import androidx.wear.protolayout.LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER
 import androidx.wear.protolayout.LayoutElementBuilders.Image
 import androidx.wear.protolayout.LayoutElementBuilders.Layout
+import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement
 import androidx.wear.protolayout.LayoutElementBuilders.Row
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
 import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM
 import androidx.wear.protolayout.LayoutElementBuilders.VERTICAL_ALIGN_CENTER
 import androidx.wear.protolayout.ModifiersBuilders.Background
+import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Clickable
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
@@ -321,12 +323,38 @@ class MemberFrontingTileService : TileService() {
             )
             .build()
 
-    private fun avatarImage(m: TrackedMember, sizeDp: Float): Image =
-        Image.Builder()
+    private fun avatarImage(m: TrackedMember, sizeDp: Float): LayoutElement {
+        val image = Image.Builder()
             .setResourceId(tileAvatarResourceId(m.row.id))
             .setWidth(dp(sizeDp))
             .setHeight(dp(sizeDp))
             .build()
+        // Fronting members get a thin accent ring around the (already
+        // circular) avatar, so the active set reads at a glance rather
+        // than only from the ✓/✗ glyph below. The Background's circular
+        // corner is what makes the Border render as a ring not a square.
+        if (!m.isFronting) return image
+        return Box.Builder()
+            .setWidth(dp(sizeDp))
+            .setHeight(dp(sizeDp))
+            .setModifiers(
+                Modifiers.Builder()
+                    .setBackground(
+                        Background.Builder()
+                            .setCorner(Corner.Builder().setRadius(dp(sizeDp / 2f)).build())
+                            .build()
+                    )
+                    .setBorder(
+                        Border.Builder()
+                            .setWidth(dp(RING_WIDTH_DP))
+                            .setColor(argb(RING_ACTIVE))
+                            .build()
+                    )
+                    .build()
+            )
+            .addContent(image)
+            .build()
+    }
 
     private fun configurePromptLayout(tileId: Int): Layout {
         val tap = pickerClickable(tileId)
@@ -409,6 +437,10 @@ class MemberFrontingTileService : TileService() {
 
     private companion object {
         const val GAP_DP = 4f
+        const val RING_WIDTH_DP = 3f
+        // Green "active" accent matching the quick-switch selection ring,
+        // so a ringed avatar means the same thing across both tiles.
+        const val RING_ACTIVE = 0xFF8FE0B7.toInt()
 
         val NAME_STYLE: FontStyle = FontStyle.Builder()
             .setSize(sp(14f))
