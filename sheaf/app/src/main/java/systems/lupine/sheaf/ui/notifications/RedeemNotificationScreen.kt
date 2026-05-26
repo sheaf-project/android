@@ -52,15 +52,12 @@ import systems.lupine.sheaf.push.PushNotificationChannels
 @Composable
 fun RedeemNotificationScreen(
     activationCode: String,
-    instanceUrl: String? = null,
     onDone: () -> Unit,
 ) {
     val viewModel: RedeemNotificationViewModel = hiltViewModel()
     val state by viewModel.state.collectAsState()
 
-    LaunchedEffect(activationCode, instanceUrl) {
-        viewModel.redeem(activationCode, instanceUrl)
-    }
+    LaunchedEffect(activationCode) { viewModel.redeem(activationCode) }
 
     Scaffold(
         topBar = {

@@ -16,8 +16,6 @@ import android.net.Uri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.compose.*
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.auth.LoginScreen
@@ -94,7 +92,7 @@ object Routes {
     const val SETTINGS_DANGER        = "settings/danger"
     const val SETTINGS_TAGS          = "settings/tags"
     const val SETTINGS_RETENTION     = "settings/retention"
-    const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}?instance={instance}"
+    const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}"
     const val NOTIFICATIONS_RECEIVING = "settings/notifications/receiving"
     const val NOTIFICATIONS_DEVICES   = "settings/notifications/devices"
     const val NOTIFICATIONS_OWNED     = "settings/notifications/owned"
@@ -161,14 +159,12 @@ fun SheafApp(
     LaunchedEffect(isLoggedIn, pendingRedeem) {
         val redemption = pendingRedeem
         if (isLoggedIn && redemption != null) {
-            pendingRedemption.clear()
-            val route = buildString {
-                append("notifications/redeem/${Uri.encode(redemption.code)}")
-                redemption.instanceUrl?.takeIf { it.isNotBlank() }?.let {
-                    append("?instance=${Uri.encode(it)}")
-                }
-            }
-            navController.navigate(route)
+            // Holder is consumed by RedeemNotificationViewModel after it
+            // reads the instance hint, not here — so the route stays a
+            // plain path-arg destination (no fiddly nav-compose query
+            // args) and the instance URL stays out of nav state where
+            // an encoded slash can quietly fail a route match.
+            navController.navigate("notifications/redeem/${Uri.encode(redemption.code)}")
         }
     }
 
@@ -309,21 +305,10 @@ fun SheafApp(
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
-            composable(
-                Routes.NOTIFICATIONS_REDEEM,
-                arguments = listOf(
-                    navArgument("instance") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    },
-                ),
-            ) { backStack ->
+            composable(Routes.NOTIFICATIONS_REDEEM) { backStack ->
                 val code = backStack.arguments?.getString("code") ?: return@composable
-                val instance = backStack.arguments?.getString("instance")
                 RedeemNotificationScreen(
                     activationCode = code,
-                    instanceUrl = instance,
                     onDone = { navController.popBackStack() },
                 )
             }

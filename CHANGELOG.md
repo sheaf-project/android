@@ -16,6 +16,19 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   "active / selected" consistently across tiles. Avatars stay the same
   size selected or not, so toggling doesn't reflow the grid.
 
+### Fixed
+
+- **`sheaf.sh/redeem` App Link opened the app to the home screen
+  instead of the redemption flow.** The 0.1.13 instance-aware redeem
+  threaded the link's `instance=` value through the nav route as a
+  query arg, and a URL-encoded value (the instance URL contains
+  encoded slashes) silently failed the route match — the redeem
+  navigate threw inside its LaunchedEffect, the login effect's home
+  navigate ran next, and the user ended up on home with the holder
+  cleared. The instance hint now lives in PendingRedemptionHolder and
+  is consumed by the redeem ViewModel, so the nav route stays a plain
+  path-arg destination.
+
 ## [0.1.14] - 2026-05-22
 
 Fixes a missing scrollbars flagged during Play Store review on the

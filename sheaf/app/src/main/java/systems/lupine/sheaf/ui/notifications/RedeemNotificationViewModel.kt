@@ -30,14 +30,22 @@ class RedeemNotificationViewModel @Inject constructor(
     private val api: SheafApiService,
     private val prefs: PreferencesRepository,
     private val pushChannelSync: PushChannelSync,
+    private val pendingRedemption: PendingRedemptionHolder,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<RedeemUiState>(RedeemUiState.Loading)
     val state: StateFlow<RedeemUiState> = _state.asStateFlow()
 
-    fun redeem(activationCode: String, instanceUrl: String? = null) {
+    fun redeem(activationCode: String) {
         viewModelScope.launch {
             _state.value = RedeemUiState.Loading
+            // The instance hint travels via the holder rather than the nav
+            // route — encoding a full URL through nav-compose's optional
+            // query arg machinery turned out to be a quiet way for the
+            // route match to fail. We read it here and consume the holder.
+            val instanceUrl = pendingRedemption.pending.value?.instanceUrl
+            pendingRedemption.clear()
+
             // Refuse a link minted for a different Sheaf instance than the
             // one this device is signed into. The redeem POST goes to the
             // configured base URL, so a cross-instance link would just
