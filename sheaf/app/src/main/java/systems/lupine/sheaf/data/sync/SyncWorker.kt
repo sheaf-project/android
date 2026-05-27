@@ -22,16 +22,20 @@ class SyncWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val dao = db.pendingOperationsDao()
 
-        // Apply removals first (in order), then switches.
-        // If any step fails due to a non-network error, discard to avoid getting stuck.
+        // Replay removals oldest-first, each with its original createdAt as
+        // endedAt so the timeline reflects when the user actually removed
+        // the member rather than when the connection came back. (Partial
+        // removals — front members shrinks but the front continues — can't
+        // carry a timestamp; the API just takes the new memberIds list.)
         val removals = dao.getAllRemovals()
         for (removal in removals) {
+            val removedAtIso = Instant.ofEpochMilli(removal.createdAt).toString()
             runCatching {
                 val fronts = api.getCurrentFronts()
                 fronts.filter { removal.memberId in it.memberIds }.forEach { front ->
                     val remaining = front.memberIds - removal.memberId
                     if (remaining.isEmpty()) {
-                        api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
+                        api.updateFront(front.id, FrontUpdate(endedAt = removedAtIso))
                     } else {
                         api.updateFront(front.id, FrontUpdate(memberIds = remaining))
                     }
@@ -43,21 +47,25 @@ class SyncWorker @AssistedInject constructor(
             }
         }
 
-        // Only apply the latest queued switch (stale intermediate switches are discarded).
+        // Replay every queued switch oldest-first with its original
+        // createdAt as startedAt, so a string of offline switches lands as
+        // a real history of past-dated fronts (the API accepts past
+        // startedAt) rather than collapsing into a single "synced just
+        // now" entry. Each row is deleted on success so a partial replay
+        // (network drops mid-loop) is safe to retry.
         val switches = dao.getAllSwitches()
-        if (switches.isNotEmpty()) {
-            val latest = switches.last()
+        for (switch in switches) {
             runCatching {
-                val memberIds = latest.memberIds.split(",")
+                val memberIds = switch.memberIds.split(",")
                 api.createFront(
                     FrontCreate(
                         memberIds = memberIds,
-                        startedAt = Instant.now().toString(),
-                        replaceFronts = latest.replaceFronts,
+                        startedAt = Instant.ofEpochMilli(switch.createdAt).toString(),
+                        replaceFronts = switch.replaceFronts,
                     )
                 )
             }.onSuccess {
-                dao.deleteAllSwitches()
+                dao.deleteSwitch(switch)
             }.onFailure {
                 return Result.retry()
             }

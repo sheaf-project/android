@@ -109,6 +109,7 @@ class HomeViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
+            val refreshStart = System.currentTimeMillis()
             // Cache-first paint: if we have nothing in state yet, immediately
             // hydrate from disk so the screen isn't blank while we wait for
             // the network. Subsequent refreshes (state already populated)
@@ -117,19 +118,24 @@ class HomeViewModel @Inject constructor(
             if (_state.value.allMembers.isEmpty()) {
                 loadFromCache()
             }
+            // Show the refresh spinner for the entire fetch, regardless of
+            // whether there's already cached content. Previously this was
+            // `isLoading = allMembers.isEmpty()`, which meant a refresh of
+            // an already-populated screen flipped to false immediately and
+            // the pull-to-refresh spinner never appeared — a fast network
+            // response then looked identical to "nothing happened". The
+            // finally block below holds the spinner for at least
+            // MIN_REFRESH_VISIBLE_MS so a sub-100ms cached response still
+            // reads as a real refresh gesture.
             _state.update {
-                it.copy(
-                    isLoading = it.allMembers.isEmpty(),
-                    error = null,
-                    refreshFailed = false,
-                )
+                it.copy(isLoading = true, error = null, refreshFailed = false)
             }
 
+            try {
             val online = networkMonitor.isOnline.first()
             if (!online) {
                 // Already painted from cache above (or had state already).
                 // Nothing more to do; the offline banner is already up.
-                _state.update { it.copy(isLoading = false) }
                 return@launch
             }
 
@@ -174,7 +180,6 @@ class HomeViewModel @Inject constructor(
                         .firstNotNullOfOrNull { it.exceptionOrNull() }
                     _state.update {
                         it.copy(
-                            isLoading = false,
                             error = firstError?.toUserMessage() ?: "Couldn't load",
                             refreshFailed = false,
                         )
@@ -218,7 +223,6 @@ class HomeViewModel @Inject constructor(
                         pendingSafetyActions = safetyResp?.pendingActions ?: it.pendingSafetyActions,
                         pendingSafetyChanges = safetyResp?.pendingChanges ?: it.pendingSafetyChanges,
                         pendingTrimNotice = trimNotice,
-                        isLoading = false,
                         refreshFailed = anyCriticalFailed,
                         error = null,
                     )
@@ -228,6 +232,17 @@ class HomeViewModel @Inject constructor(
                         notificationHelper.post(frontingMembers.map { it.displayNameOrName })
                     } catch (_: SecurityException) {}
                 }
+            }
+            } finally {
+                // Hold the spinner for at least MIN_REFRESH_VISIBLE_MS so a
+                // sub-100ms cached / no-op response still registers as a
+                // visible refresh gesture. Without this the spinner can
+                // flash so briefly that pull-to-refresh looks broken.
+                val elapsed = System.currentTimeMillis() - refreshStart
+                if (elapsed < MIN_REFRESH_VISIBLE_MS) {
+                    kotlinx.coroutines.delay(MIN_REFRESH_VISIBLE_MS - elapsed)
+                }
+                _state.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -342,7 +357,12 @@ class HomeViewModel @Inject constructor(
                     _state.update { it.copy(isSwitching = false, error = e.toUserMessage()) }
                 }
             } else {
-                pendingOpsDao.deleteAllSwitches()
+                // Queue this switch rather than coalescing with prior offline
+                // switches. PendingFrontSwitch.createdAt captures "now", and
+                // SyncWorker replays each row with that exact startedAt so
+                // every front the user recorded while offline lands at its
+                // real timestamp once the connection comes back, rather
+                // than collapsing into a single "we synced just now" entry.
                 pendingOpsDao.insertSwitch(
                     PendingFrontSwitch(
                         memberIds = sel.joinToString(","),
@@ -387,4 +407,11 @@ class HomeViewModel @Inject constructor(
     }
 
     fun clearError() { _state.update { it.copy(error = null) } }
+
+    private companion object {
+        // Minimum on-screen time for the refresh spinner. Cached / no-op
+        // responses can finish in tens of ms, leaving the user staring at
+        // the screen wondering if the pull-to-refresh registered at all.
+        const val MIN_REFRESH_VISIBLE_MS = 600L
+    }
 }

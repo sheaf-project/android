@@ -16,6 +16,24 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   "active / selected" consistently across tiles. Avatars stay the same
   size selected or not, so toggling doesn't reflow the grid.
 
+### Changed
+
+- **Home pull-to-refresh actually shows a spinner now.** Refreshing
+  against an already-populated screen used to flip `isLoading` to
+  false the instant the call left the gate, so a fast cached response
+  left the spinner invisible and users wondering whether the gesture
+  registered at all. The spinner now stays up for the whole fetch
+  with a 600ms minimum, so even sub-100ms refreshes read as a real
+  refresh gesture.
+
+- **Offline switches preserve their full history on sync.** A string
+  of switches made while offline used to coalesce to the most recent
+  one, and the resulting front got `startedAt = now` at sync time
+  rather than when the user actually switched. Now every queued
+  switch replays in order with its original timestamp, so the
+  timeline reflects what actually happened across an offline period.
+  Same fix applies to front-removals' `endedAt`.
+
 ### Fixed
 
 - **`sheaf.sh/redeem` App Link opened the app to the home screen
