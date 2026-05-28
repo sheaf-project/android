@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.HowToVote
 import androidx.compose.material.icons.outlined.SwitchAccount
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -46,7 +45,6 @@ fun HomeScreen(
     onNavigateToSystemSafety: () -> Unit,
     onNavigateToRetention: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToPolls: () -> Unit,
     onNavigateToMessages: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
@@ -86,9 +84,6 @@ fun HomeScreen(
                 actions = {
                     IconButton(onClick = onNavigateToMessages) {
                         Icon(Icons.Outlined.Forum, contentDescription = "Board messages")
-                    }
-                    IconButton(onClick = onNavigateToPolls) {
-                        Icon(Icons.Outlined.HowToVote, contentDescription = "Polls")
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")

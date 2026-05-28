@@ -28,6 +28,18 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Changed
 
+- **Polls is now a top-level bottom-nav tab.** Was a top-bar action on
+  the home screen, easy to miss; now sits next to Home / Members /
+  History / Journals in the bottom navigation, matching the iOS app's
+  five-tab layout. The redundant home-screen polls icon is gone.
+
+- **Purple theme aligned to the iOS app.** Light-mode primary is now
+  violet-500 (`#8B5CF6`) where it was a darker, more saturated
+  `#534AB7`. Dark-mode background is the iOS purple-tinted `#0F0C29`
+  (was a more neutral grey `#13121E`), and dark surface is `#1A1535`.
+  Same brand colour across both clients now. A theme picker covering
+  alternate palettes is on the todo list.
+
 - **Server-URL step defaults to `app.sheaf.sh`.** First-run login
   used to disable the Continue button until something was typed,
   forcing every hosted-service user to manually enter the domain

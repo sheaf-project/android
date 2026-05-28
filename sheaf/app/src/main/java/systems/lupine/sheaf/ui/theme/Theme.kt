@@ -11,19 +11,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
+//
+// Aligned to the iOS app's violet-500 (#8B5CF6) accent so the two clients
+// look like the same product. Token names mirror Material 3 tone levels
+// loosely — the values themselves track Tailwind's violet scale rather
+// than the MD3 default lookup, because iOS picked those exact hexes and
+// matching them keeps brand colour identical across platforms. A future
+// theme picker (see task list) will swap these out per palette.
 
-val Purple10  = Color(0xFF26215C)
-val Purple20  = Color(0xFF3C3489)
-val Purple40  = Color(0xFF534AB7)
-val Purple60  = Color(0xFF7F77DD)
-val Purple80  = Color(0xFFAFA9EC)
-val Purple90  = Color(0xFFCECBF6)
-val Purple99  = Color(0xFFEEEDFE)
+val Purple10  = Color(0xFF2E1065)  // violet-950
+val Purple20  = Color(0xFF4C1D95)  // violet-900
+val Purple40  = Color(0xFF8B5CF6)  // violet-500, iOS accent / light-mode primary
+val Purple60  = Color(0xFF9466F8)  // interpolated for secondary
+val Purple80  = Color(0xFFA78BFA)  // violet-400, iOS accentLight / dark-mode primary
+val Purple90  = Color(0xFFDDD6FE)  // violet-200, light secondaryContainer
+val Purple99  = Color(0xFFF5F3FF)  // violet-50, light primaryContainer
 
-val PurpleGrey10 = Color(0xFF1A1826)
-val PurpleGrey20 = Color(0xFF2D2B46)
-val PurpleGrey80 = Color(0xFFCBC8E8)
-val PurpleGrey90 = Color(0xFFE8E6F5)
+val PurpleGrey10 = Color(0xFF1A1035)  // iOS light textPrimary; high-contrast text on light surfaces
+val PurpleGrey20 = Color(0xFF2A1F50)
+val PurpleGrey80 = Color(0xFFDCD6EE)  // light-on-dark text, violet-tinted
+val PurpleGrey90 = Color(0xFFECE8F6)
 
 val Teal40 = Color(0xFF1D9E75)
 val Teal80 = Color(0xFF9FE1CB)
@@ -58,13 +65,13 @@ internal val LightColorScheme = lightColorScheme(
     onSecondaryContainer = Purple20,
     tertiary         = Teal40,
     onTertiary       = Color.White,
-    background       = Color(0xFFF7F7FB),
+    background       = Color(0xFFF2F0FF),  // matches iOS light bgPrimary (lavender)
     onBackground     = PurpleGrey10,
     surface          = Color.White,
     onSurface        = PurpleGrey10,
     surfaceVariant   = PurpleGrey90,
     onSurfaceVariant = PurpleGrey20,
-    outline          = Color(0xFFC0BDE8),
+    outline          = Color(0xFFC4B5FD),  // violet-300
     error            = Red40,
     onError          = Color.White,
 )
@@ -80,13 +87,13 @@ internal val DarkColorScheme = darkColorScheme(
     onSecondaryContainer = Purple90,
     tertiary         = Teal80,
     onTertiary       = Color(0xFF004D36),
-    background       = Color(0xFF13121E),
+    background       = Color(0xFF0F0C29),  // matches iOS dark bgPrimary
     onBackground     = PurpleGrey80,
-    surface          = Color(0xFF1E1D2E),
+    surface          = Color(0xFF1A1535),  // matches iOS dark bgSecondary
     onSurface        = PurpleGrey80,
     surfaceVariant   = PurpleGrey20,
     onSurfaceVariant = PurpleGrey80,
-    outline          = Color(0xFF453F6F),
+    outline          = Color(0xFF4C2A85),  // violet-tinted, darker
     error            = Red80,
     onError          = Color(0xFF690005),
 )

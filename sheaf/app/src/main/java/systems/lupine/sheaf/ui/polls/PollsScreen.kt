@@ -41,7 +41,6 @@ import systems.lupine.sheaf.ui.components.SheafTopAppBar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PollsScreen(
-    onNavigateUp: () -> Unit,
     onPollClick: (String) -> Unit,
     onCreateNew: () -> Unit,
     viewModel: PollsListViewModel = hiltViewModel(),
@@ -51,14 +50,9 @@ fun PollsScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
-            SheafTopAppBar(
-                title = { Text("Polls") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateUp) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
+            // No navigation icon: Polls is now a top-level bottom-nav
+            // destination, so there's nothing to navigate "up" to.
+            SheafTopAppBar(title = { Text("Polls") })
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(

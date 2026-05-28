@@ -120,8 +120,9 @@ data class TopLevelDest(
 val topLevelDestinations = listOf(
     TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,                  Icons.Outlined.Home),
     TopLevelDest(Routes.PEOPLE,   "Members",  Icons.Filled.People,                Icons.Outlined.People),
-    TopLevelDest(Routes.JOURNALS, "Journals", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook),
     TopLevelDest(Routes.HISTORY,  "History",  Icons.Filled.History,               Icons.Outlined.History),
+    TopLevelDest(Routes.JOURNALS, "Journals", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook),
+    TopLevelDest(Routes.POLLS,    "Polls",    Icons.Filled.HowToVote,             Icons.Outlined.HowToVote),
 )
 
 // ── Root composable ───────────────────────────────────────────────────────────
@@ -239,7 +240,6 @@ fun SheafApp(
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
                     onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
-                    onNavigateToPolls = { navController.navigate(Routes.POLLS) },
                     onNavigateToMessages = { navController.navigate(Routes.MESSAGES) },
                 )
             }
@@ -403,7 +403,6 @@ fun SheafApp(
             }
             composable(Routes.POLLS) {
                 PollsScreen(
-                    onNavigateUp = { navController.navigateUp() },
                     onPollClick = { id -> navController.navigate("polls/$id") },
                     onCreateNew = { navController.navigate(Routes.POLL_NEW) },
                 )
