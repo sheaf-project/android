@@ -24,11 +24,18 @@ import javax.inject.Inject
  * iOS app's Week / Month / Year picker; web uses the same intervals
  * just labelled in days.
  */
-enum class AnalyticsWindow(val label: String, val days: Long) {
-    WEEK("7 days", 7L),
-    MONTH("30 days", 30L),
-    QUARTER("90 days", 90L),
-    YEAR("1 year", 365L);
+enum class AnalyticsWindow(
+    /** Compact label for the chip row (fits five chips on a phone). */
+    val label: String,
+    /** Verbose label for the totals card prose ("across 7 days"). */
+    val verboseLabel: String,
+    val days: Long,
+) {
+    WEEK("7d", "7 days", 7L),
+    FORTNIGHT("14d", "14 days", 14L),
+    MONTH("30d", "30 days", 30L),
+    QUARTER("90d", "90 days", 90L),
+    YEAR("1y", "1 year", 365L);
 }
 
 data class AnalyticsUiState(

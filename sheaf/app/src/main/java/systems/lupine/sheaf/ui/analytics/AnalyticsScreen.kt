@@ -2,9 +2,12 @@ package systems.lupine.sheaf.ui.analytics
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -13,7 +16,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -130,6 +136,12 @@ private fun AnalyticsBody(
             )
         }
         item {
+            DistributionDonut(
+                ranked = ranked,
+                memberById = memberById,
+            )
+        }
+        item {
             SectionHeader("By member")
         }
         items(ranked, key = { it.memberId }) { stats ->
@@ -162,7 +174,14 @@ private fun WindowPicker(
     selected: AnalyticsWindow,
     onSelected: (AnalyticsWindow) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    // Horizontal scroll keeps the picker robust to additional presets
+    // and to localisations whose labels run wide. With five chips of
+    // short labels it fits without scrolling on most phones; the
+    // scroll only kicks in when it has to.
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    ) {
         AnalyticsWindow.values().forEach { window ->
             val isSelected = window == selected
             FilterChip(
@@ -201,7 +220,7 @@ private fun TotalsCard(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "across ${window.label.lowercase(Locale.getDefault())}",
+                    "across ${window.verboseLabel}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -304,6 +323,113 @@ private fun MemberRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Per-member distribution donut + legend. The donut visualises each
+ * member's share of *total front time* (not window time — co-fronting
+ * makes those differ), so the slices sum to a full circle even when
+ * the underlying numbers exceed `window_seconds`. Members with zero
+ * fronting time in the window aren't drawn; the legend caps at six
+ * rows with a "+N more" trailer so a large system stays scannable.
+ */
+@Composable
+private fun DistributionDonut(
+    ranked: List<MemberFrontingStats>,
+    memberById: Map<String, MemberRead>,
+) {
+    val active = remember(ranked) { ranked.filter { it.totalSeconds > 0 } }
+    if (active.isEmpty()) return
+    val total = active.sumOf { it.totalSeconds }
+    if (total <= 0L) return
+
+    val defaultColor = MaterialTheme.colorScheme.primary
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(
+                "Distribution",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Canvas(modifier = Modifier.size(120.dp)) {
+                    val strokeWidth = 22.dp.toPx()
+                    val diameter = size.minDimension - strokeWidth
+                    val topLeft = Offset(
+                        (size.width - diameter) / 2f,
+                        (size.height - diameter) / 2f,
+                    )
+                    val arcSize = Size(diameter, diameter)
+                    // Start at 12 o'clock and lay slices clockwise. Each
+                    // slice is `totalSeconds / total` of 360°. A 1° gap
+                    // between slices isn't worth the bookkeeping for
+                    // small slices, so we let them touch — the colour
+                    // change reads as a boundary on its own.
+                    var startAngle = -90f
+                    active.forEach { stats ->
+                        val member = memberById[stats.memberId]
+                        val color = member?.color?.let { parseColor(it) } ?: defaultColor
+                        val sweep = (stats.totalSeconds.toFloat() / total.toFloat()) * 360f
+                        drawArc(
+                            color = color,
+                            startAngle = startAngle,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = topLeft,
+                            size = arcSize,
+                            style = Stroke(width = strokeWidth),
+                        )
+                        startAngle += sweep
+                    }
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    val legendLimit = 6
+                    active.take(legendLimit).forEach { stats ->
+                        val member = memberById[stats.memberId] ?: return@forEach
+                        val color = member.color?.let { parseColor(it) } ?: defaultColor
+                        val pct = (stats.totalSeconds.toDouble() / total.toDouble()) * 100.0
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 2.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(color),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = member.displayNameOrName,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = String.format(Locale.getDefault(), "%.0f%%", pct),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (active.size > legendLimit) {
+                        Text(
+                            text = "+${active.size - legendLimit} more",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp, start = 18.dp),
+                        )
+                    }
+                }
             }
         }
     }
