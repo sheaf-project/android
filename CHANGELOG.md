@@ -28,6 +28,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Changed
 
+- **Server-URL step defaults to `app.sheaf.sh`.** First-run login
+  used to disable the Continue button until something was typed,
+  forcing every hosted-service user to manually enter the domain
+  that's right there in the placeholder. Continue is now always
+  enabled; a blank field resolves to `app.sheaf.sh` on press, and
+  the helper text says so explicitly. Self-hosters still type their
+  own URL exactly as before.
+
 - **Home pull-to-refresh actually shows a spinner now.** Refreshing
   against an already-populated screen used to flip `isLoading` to
   false the instant the call left the gate, so a fast cached response

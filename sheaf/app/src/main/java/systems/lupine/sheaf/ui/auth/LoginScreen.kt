@@ -130,7 +130,13 @@ fun LoginScreen(
                     urlDraft = urlDraft,
                     onUrlChange = { urlDraft = it },
                     onContinue = {
-                        viewModel.saveBaseUrl(urlDraft.trim())
+                        // Default to the hosted instance when the user
+                        // leaves the field blank — most users land there
+                        // anyway, and the placeholder alone reads as an
+                        // example rather than a "press Continue to use
+                        // this" hint.
+                        val resolved = urlDraft.trim().ifBlank { DEFAULT_HOSTED_INSTANCE }
+                        viewModel.saveBaseUrl(resolved)
                         step = "auth"
                     },
                 )
@@ -264,22 +270,32 @@ private fun ServerUrlStep(
             value = urlDraft,
             onValueChange = onUrlChange,
             label = { Text("Server URL or domain") },
-            placeholder = { Text("app.sheaf.sh") },
+            placeholder = { Text(DEFAULT_HOSTED_INSTANCE) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { if (urlDraft.isNotBlank()) onContinue() }),
+            // No isNotBlank gate: a blank submit resolves to the hosted
+            // instance in the caller, so IME Done from an empty field
+            // is a valid "yes, the default is fine" gesture.
+            keyboardActions = KeyboardActions(onDone = { onContinue() }),
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "https:// is added automatically. Use http:// explicitly only for plaintext servers.",
+            "Leave blank to use $DEFAULT_HOSTED_INSTANCE. https:// is added " +
+                "automatically; use http:// explicitly only for plaintext servers.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = onContinue, enabled = urlDraft.isNotBlank(), modifier = Modifier.fillMaxWidth().height(48.dp)) {
+        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(48.dp)) {
             Text("Continue")
         }
     }
 }
+
+// Hosted Sheaf instance the Continue button falls back to when the
+// user leaves the server-URL field blank. Lives at file scope so the
+// placeholder, helper text, and outer onContinue all read the same
+// string and a future move to a different default only changes here.
+private const val DEFAULT_HOSTED_INSTANCE = "app.sheaf.sh"
 
 // ── Step 2: login / register ──────────────────────────────────────────────────
 
