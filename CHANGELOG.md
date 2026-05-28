@@ -16,6 +16,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   "active / selected" consistently across tiles. Avatars stay the same
   size selected or not, so toggling doesn't reflow the grid.
 
+- **Watch switches survive an offline watch.** Switches committed on
+  the watch used to hit the API directly and silently fail when the
+  watch had no network. They now try the API first, hand the switch
+  to the phone via DataLayer if direct fails (the phone has a
+  durable PendingFrontSwitch queue and is the more reliable mover),
+  and persist locally on the watch as a final fallback for replay
+  from the next refresh. Each replay carries the original timestamp,
+  so the resulting front history reflects when the user actually
+  switched rather than when connectivity came back.
+
 ### Changed
 
 - **Home pull-to-refresh actually shows a spinner now.** Refreshing

@@ -139,10 +139,20 @@ class WearApiClient(private val auth: WearAuthManager) {
         return moshi.adapter<List<WearFront>>(type).fromJson(body)!!
     }
 
-    suspend fun createFront(memberIds: List<String>, replaceFronts: Boolean? = null) {
+    suspend fun createFront(
+        memberIds: List<String>,
+        replaceFronts: Boolean? = null,
+        // Optional past-dated start time for replaying a switch that was
+        // queued offline. The server accepts arbitrary startedAt and uses
+        // it verbatim, so a queue drain after re-connecting preserves the
+        // real moment the user pressed the switch rather than collapsing
+        // every replayed entry into "now".
+        startedAt: String? = null,
+    ) {
         val ids = memberIds.joinToString(",") { "\"$it\"" }
         val replaceField = replaceFronts?.let { ""","replace_fronts":$it""" } ?: ""
-        val json = """{"member_ids":[$ids]$replaceField}"""
+        val startedField = startedAt?.let { ""","started_at":"$it"""" } ?: ""
+        val json = """{"member_ids":[$ids]$replaceField$startedField}"""
         execute {
             Request.Builder()
                 .url(url("/v1/fronts"))

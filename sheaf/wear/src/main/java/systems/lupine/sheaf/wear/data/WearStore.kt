@@ -56,6 +56,17 @@ class WearStore(
             context,
             systems.lupine.sheaf.wear.complications.WearLoadStatus.LOADING,
         )
+        // Drain any locally-queued switches now we're presumably
+        // online again. Each replay carries its original createdAt as
+        // startedAt so the resulting front lands at the moment the
+        // user actually pressed switch, not at the moment the watch
+        // reconnected. Best-effort: a transient failure leaves the
+        // row in place for the next refreshNow.
+        for (q in WearSwitchQueue.snapshot(context)) {
+            val iso = java.time.Instant.ofEpochMilli(q.createdAt).toString()
+            runCatching { apiClient.createFront(q.memberIds, q.replaceFronts, iso) }
+                .onSuccess { WearSwitchQueue.remove(context, q.uuid) }
+        }
         try {
             members.value = apiClient.getMembers()
             currentFronts.value = apiClient.getCurrentFronts()
@@ -101,14 +112,33 @@ class WearStore(
 
     suspend fun switchFront(memberIds: List<String>, replaceFronts: Boolean? = null): Boolean {
         error.value = null
-        return try {
-            apiClient.createFront(memberIds, replaceFronts)
-            loadAll()
-            true
-        } catch (e: Exception) {
-            error.value = e.message ?: "Failed to switch front"
-            false
+        // Try the direct API path first. Common case; succeeds when the
+        // watch has its own network.
+        runCatching { apiClient.createFront(memberIds, replaceFronts) }
+            .onSuccess {
+                loadAll()
+                return true
+            }
+        // Direct call failed (most often: watch is offline). Two
+        // fallback rungs, in order: hand off to the phone via
+        // DataLayer (the phone has a persistent queue + SyncWorker
+        // and is more likely than the watch to reach the server), and
+        // if even that can't be delivered, queue locally on the watch
+        // for a retry from the next refreshNow. See [WearSwitchQueue]
+        // for the race-avoidance reasoning — only one side ever owns
+        // a given switch, so the front isn't double-created.
+        val queued = WearQueuedSwitch.create(
+            memberIds = memberIds,
+            replaceFronts = replaceFronts ?: true,
+        )
+        if (!WearSwitchQueue.sendToPhone(context, queued)) {
+            WearSwitchQueue.enqueue(context, queued)
         }
+        // Report success either way: the user pressed switch, the
+        // system has captured it, and it will land — surfacing a
+        // transient "network failed" they can't act on would be
+        // worse UX than the rare lost-on-floor case below.
+        return true
     }
 
     suspend fun createMember(name: String, displayName: String?, pronouns: String?): WearMember {
