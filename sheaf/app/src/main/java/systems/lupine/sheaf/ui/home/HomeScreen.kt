@@ -5,7 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
@@ -177,13 +179,19 @@ fun HomeScreen(
                         EmptyState(
                             icon = Icons.Default.People,
                             title = "No one is fronting",
-                            subtitle = "Tap 'Switch Front' to set who's fronting now.",
+                            subtitle = "Tap a member below or use Switch for more options.",
                             action = {
                                 TextButton(onClick = onNavigateToMembers) {
                                     Text("Go to Members")
                                 }
                             },
                             modifier = Modifier.weight(1f),
+                        )
+                        QuickSwitchCarousel(
+                            members = state.topFronters,
+                            defaultReplaceFronts = state.system?.replaceFrontsDefault ?: true,
+                            onSwitch = { id, replace -> viewModel.quickSwitch(id, replace) },
+                            modifier = Modifier.padding(bottom = 96.dp),
                         )
                     }
                 }
@@ -206,6 +214,15 @@ fun HomeScreen(
                                 front = front,
                                 onLongClick = { memberToRemove = member },
                             )
+                        }
+                        if (state.topFronters.isNotEmpty()) {
+                            item {
+                                QuickSwitchCarousel(
+                                    members = state.topFronters,
+                                    defaultReplaceFronts = state.system?.replaceFrontsDefault ?: true,
+                                    onSwitch = { id, replace -> viewModel.quickSwitch(id, replace) },
+                                )
+                            }
                         }
                         item { Spacer(Modifier.height(80.dp)) }
                     }
@@ -671,6 +688,98 @@ private fun PendingDeletionBanner(
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        }
+    }
+}
+
+// ── Quick switch carousel ────────────────────────────────────────────────────
+
+/**
+ * Horizontal row of one-tap switch chips, populated from
+ * `/v1/members/top-fronters` (pinned members first, then recency-
+ * weighted score). Sits beneath the fronting cards on the populated
+ * home, or beneath the empty-state copy when no one is fronting yet —
+ * so starting a front is one tap away in either state.
+ *
+ * Tap commits a switch with the system's default replace-fronts
+ * behaviour. Long-press opens a menu that lets the user explicitly
+ * pick "switch (end current)" vs "add to front", per Nocturnal's
+ * request — same instruction repeated on iOS.
+ */
+@Composable
+private fun QuickSwitchCarousel(
+    members: List<MemberRead>,
+    defaultReplaceFronts: Boolean,
+    onSwitch: (memberId: String, replaceFronts: Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (members.isEmpty()) return
+    Column(modifier = modifier.padding(top = 4.dp)) {
+        Text(
+            text = "Quick switch",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(members, key = { it.id }) { member ->
+                QuickSwitchChip(
+                    member = member,
+                    onTap = { onSwitch(member.id, defaultReplaceFronts) },
+                    onSwitchReplacing = { onSwitch(member.id, true) },
+                    onAddToFront = { onSwitch(member.id, false) },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun QuickSwitchChip(
+    member: MemberRead,
+    onTap: () -> Unit,
+    onSwitchReplacing: () -> Unit,
+    onAddToFront: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            modifier = Modifier.combinedClickable(
+                onClick = onTap,
+                onLongClick = { menuOpen = true },
+            ),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 4.dp, end = 14.dp, top = 4.dp, bottom = 4.dp),
+            ) {
+                MemberAvatar(member = member, size = 32.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = member.displayNameOrName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 120.dp),
+                )
+            }
+        }
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text("Switch (end current)") },
+                onClick = { menuOpen = false; onSwitchReplacing() },
+            )
+            DropdownMenuItem(
+                text = { Text("Add to front") },
+                onClick = { menuOpen = false; onAddToFront() },
             )
         }
     }

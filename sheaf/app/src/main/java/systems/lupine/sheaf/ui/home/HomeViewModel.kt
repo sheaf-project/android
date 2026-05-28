@@ -40,6 +40,11 @@ data class HomeUiState(
     val currentFronts: List<FrontRead> = emptyList(),
     val frontingMembers: List<MemberRead> = emptyList(),
     val allMembers: List<MemberRead> = emptyList(),
+    // Server-ranked top fronters for the home quick-switch carousel.
+    // Pinned members come first (in pin order); the rest are sorted by a
+    // recency-weighted fronting score with a 30-day half-life. Populated
+    // from /v1/members/top-fronters alongside the rest of the home load.
+    val topFronters: List<MemberRead> = emptyList(),
     val announcements: List<AnnouncementPublic> = emptyList(),
     val dismissedAnnouncementIds: Set<String> = emptySet(),
     val isLoading: Boolean = false,
@@ -152,6 +157,9 @@ class HomeViewModel @Inject constructor(
                 val safetyD        = async { runCatching { api.getSystemSafety() } }
                 val retentionD     = async { runCatching { api.getRetention() } }
                 val userD          = async { runCatching { api.getMe() } }
+                // Fetched alongside the rest so the quick-switch carousel
+                // hydrates without an extra round-trip after first paint.
+                val topFrontersD   = async { runCatching { api.getTopFronters() } }
 
                 val fronts        = frontsD.await()
                 val members       = membersD.await()
@@ -160,6 +168,7 @@ class HomeViewModel @Inject constructor(
                 val safety        = safetyD.await()
                 val retention     = retentionD.await()
                 val user          = userD.await()
+                val topFronters   = topFrontersD.await()
 
                 val criticalFailures = listOf(fronts, members, system).count { it.isFailure }
                 val anyCriticalFailed = criticalFailures > 0
@@ -192,6 +201,7 @@ class HomeViewModel @Inject constructor(
                 val newSystem        = system.getOrNull()        ?: _state.value.system
                 val newAnnouncements = announcements.getOrNull() ?: _state.value.announcements
                 val newUser          = user.getOrNull()          ?: _state.value.user
+                val newTopFronters   = topFronters.getOrNull()   ?: _state.value.topFronters
                 val frontingIds = newFronts.flatMap { it.memberIds }.toSet()
                 val frontingMembers = newMembers.filter { it.id in frontingIds }
                 // Nudge a paired watch to re-sync when the fronting set
@@ -219,6 +229,7 @@ class HomeViewModel @Inject constructor(
                         currentFronts = newFronts,
                         frontingMembers = frontingMembers,
                         allMembers = newMembers,
+                        topFronters = newTopFronters,
                         announcements = newAnnouncements,
                         pendingSafetyActions = safetyResp?.pendingActions ?: it.pendingSafetyActions,
                         pendingSafetyChanges = safetyResp?.pendingChanges ?: it.pendingSafetyChanges,
@@ -331,6 +342,45 @@ class HomeViewModel @Inject constructor(
 
     fun setSwitchEndCurrent(value: Boolean) {
         _state.update { it.copy(switchEndCurrent = value) }
+    }
+
+    /**
+     * One-shot switch from the home-screen quick-switch carousel.
+     * Bypasses the full switch sheet's selection-set machinery and
+     * commits a single-member front directly. Mirrors confirmSwitch's
+     * online + offline-queue paths so a tap-from-carousel and a
+     * sheet-confirm route through identical persistence.
+     */
+    fun quickSwitch(memberId: String, replaceFronts: Boolean) {
+        if (memberId.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(isSwitching = true, error = null) }
+            if (networkMonitor.isOnline.first()) {
+                runCatching {
+                    api.createFront(
+                        FrontCreate(
+                            memberIds = listOf(memberId),
+                            startedAt = Instant.now().toString(),
+                            replaceFronts = replaceFronts,
+                        )
+                    )
+                }.onSuccess {
+                    _state.update { it.copy(isSwitching = false) }
+                    load()
+                }.onFailure { e ->
+                    _state.update { it.copy(isSwitching = false, error = e.toUserMessage()) }
+                }
+            } else {
+                pendingOpsDao.insertSwitch(
+                    PendingFrontSwitch(
+                        memberIds = memberId,
+                        replaceFronts = replaceFronts,
+                    )
+                )
+                SyncWorker.schedule(appContext)
+                _state.update { it.copy(isSwitching = false) }
+            }
+        }
     }
 
     fun confirmSwitch() {

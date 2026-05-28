@@ -8,6 +8,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Quick-switch carousel on home.** A horizontal row of one-tap
+  member chips lives at the bottom of the home screen, populated from
+  the backend's new `/v1/members/top-fronters` endpoint (pinned
+  members first, then a recency-weighted score with a 30-day half
+  life). Tap a chip to switch using the system's default
+  replace-fronts behaviour; long-press to choose "Switch (end
+  current)" vs "Add to front" explicitly, so the override is one
+  gesture away without leaving the home screen. The full switch sheet
+  with group filtering still lives behind the Switch FAB for
+  multi-member or filtered switches.
+
 - **Selection and active-state rings on the watch tiles.** The
   quick-switch tile draws a thin accent ring around members picked for
   the next switch (in addition to the existing ✓), so the pending set

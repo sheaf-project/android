@@ -139,6 +139,15 @@ interface SheafApiService {
     @GET("/v1/members")
     suspend fun listMembers(): List<MemberRead>
 
+    /**
+     * Members ordered for a quick-switch UI: `quick_switch_pin`-pinned
+     * members first (in pin order), then the rest by a recency-weighted
+     * fronting score (30-day half life). Backs the home-screen carousel
+     * so it surfaces the people the user actually switches to often.
+     */
+    @GET("/v1/members/top-fronters")
+    suspend fun getTopFronters(@Query("limit") limit: Int = 8): List<MemberRead>
+
     @POST("/v1/members")
     suspend fun createMember(@Body body: MemberCreate): MemberRead
 
