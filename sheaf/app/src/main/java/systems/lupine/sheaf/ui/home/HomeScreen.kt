@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.SwitchAccount
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -48,6 +49,7 @@ fun HomeScreen(
     onNavigateToRetention: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToMessages: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -86,6 +88,17 @@ fun HomeScreen(
                 actions = {
                     IconButton(onClick = onNavigateToMessages) {
                         Icon(Icons.Outlined.Forum, contentDescription = "Board messages")
+                    }
+                    // Notifications hub on the top bar: same parity with
+                    // web's sidebar (notifications is a first-class entry,
+                    // not buried two taps into Settings). One tap from
+                    // Home reaches owned channels, your subscriptions,
+                    // your devices, and reminders.
+                    IconButton(onClick = onNavigateToNotifications) {
+                        Icon(
+                            Icons.Outlined.Notifications,
+                            contentDescription = "Notifications",
+                        )
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")

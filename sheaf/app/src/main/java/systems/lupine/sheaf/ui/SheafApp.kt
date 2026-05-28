@@ -243,6 +243,7 @@ fun SheafApp(
                     onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                     onNavigateToMessages = { navController.navigate(Routes.MESSAGES) },
+                    onNavigateToNotifications = { navController.navigate(Routes.SETTINGS_NOTIFICATIONS) },
                 )
             }
             composable(Routes.PEOPLE) {

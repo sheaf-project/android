@@ -62,6 +62,12 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   `0.1.14-dev`), so About no longer reads `Sheaf 0.1.0 · …` forever
   on every working-tree build.
 
+- **Notifications icon on the home top bar.** Notifications (owned
+  channels, your subscriptions, your devices, reminders) was buried
+  two taps under Settings, despite being a first-class entry in the
+  web sidebar. Now reachable in one tap from Home, in the row of
+  top-bar icons next to Messages and Settings.
+
 - **Polls is now a top-level bottom-nav tab.** Was a top-bar action on
   the home screen, easy to miss; now sits next to Home / Members /
   History / Journals in the bottom navigation, matching the iOS app's
