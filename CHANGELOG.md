@@ -8,6 +8,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Analytics screen.** New screen reached from a stats icon next to
+  the "Add entry" button on History (matching where the iOS app
+  surfaces it). Consumes the backend `/v1/analytics/fronting`
+  endpoint and shows: a 7d / 30d / 90d / 1y window picker, a totals
+  card (total front time + active member count over the window), a
+  per-member breakdown with member-coloured "% of window" bars and
+  session count + longest session, and a 24-bar hour-of-day chart
+  aggregated across all members in the device's local timezone.
+  Hand-rolled on Canvas rather than pulling in a charting library
+  for one bar chart.
+
 - **Quick-switch carousel on home.** A horizontal row of one-tap
   member chips pinned to the bottom of the home screen, above the
   navigation bar — always visible regardless of scroll position.

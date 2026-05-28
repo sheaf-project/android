@@ -23,6 +23,7 @@ import systems.lupine.sheaf.ui.auth.OnboardingScreen
 import systems.lupine.sheaf.ui.debug.DebugScreen
 import systems.lupine.sheaf.ui.groups.GroupDetailScreen
 import systems.lupine.sheaf.ui.groups.GroupsScreen
+import systems.lupine.sheaf.ui.analytics.AnalyticsScreen
 import systems.lupine.sheaf.ui.history.HistoryScreen
 import systems.lupine.sheaf.ui.journals.JournalDetailScreen
 import systems.lupine.sheaf.ui.journals.JournalsScreen
@@ -70,6 +71,7 @@ object Routes {
     const val JOURNALS      = "journals"
     const val JOURNAL_DETAIL = "journals/{journalId}"
     const val HISTORY       = "history"
+    const val ANALYTICS     = "analytics"
     const val SETTINGS      = "settings"
     const val SYSTEM_EDIT   = "settings/system"
     const val SP_IMPORT      = "settings/import/simplyplural"
@@ -303,6 +305,12 @@ fun SheafApp(
             composable(Routes.HISTORY) {
                 HistoryScreen(
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                    onNavigateToAnalytics = { navController.navigate(Routes.ANALYTICS) },
+                )
+            }
+            composable(Routes.ANALYTICS) {
+                AnalyticsScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.NOTIFICATIONS_REDEEM) { backStack ->

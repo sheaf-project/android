@@ -134,6 +134,22 @@ interface SheafApiService {
     @DELETE("/v1/retention/trim-notice/{id}")
     suspend fun cancelTrimNotice(@Path("id") id: String)
 
+    // ── Analytics ─────────────────────────────────────────────────────────────
+
+    /**
+     * Per-member fronting summary over [since]..[until], plus an hour-of-
+     * day distribution in [tz]. Defaults if omitted: until=now,
+     * since=until-30d, tz=UTC. The server clamps windows to 5 years.
+     * Co-fronting double-counts so "Alice fronted X" reads naturally
+     * regardless of who else was on at the same time.
+     */
+    @GET("/v1/analytics/fronting")
+    suspend fun getFrontingAnalytics(
+        @Query("since") since: String? = null,
+        @Query("until") until: String? = null,
+        @Query("tz") tz: String? = null,
+    ): FrontingAnalytics
+
     // ── Members ───────────────────────────────────────────────────────────────
 
     @GET("/v1/members")

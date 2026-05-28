@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -61,6 +62,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     onNavigateToSettings: () -> Unit,
+    onNavigateToAnalytics: () -> Unit,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -188,6 +190,16 @@ fun HistoryScreen(
                 actions = {
                     IconButton(onClick = { showAddSheet = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Add entry")
+                    }
+                    // Sits next to Add per the consistency-with-iOS ask;
+                    // Analytics summarises everything below this screen
+                    // is logging, so this is the natural home for the
+                    // entry point.
+                    IconButton(onClick = onNavigateToAnalytics) {
+                        Icon(
+                            Icons.Outlined.QueryStats,
+                            contentDescription = "Analytics",
+                        )
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
