@@ -1,3 +1,7 @@
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -38,6 +42,29 @@ val gitCommitShort: String = runCatching {
         .inputStream.bufferedReader().readText().trim()
 }.getOrNull()?.takeIf { it.isNotBlank() } ?: "unknown"
 
+// Build timestamp (UTC) at configure time, also surfaced via BuildConfig.
+// Same purpose as gitCommitShort but answers "when was this APK compiled" —
+// useful for the "wait, did I actually install the new build" moment when
+// the versionName hasn't ticked but commits have. Formatted as a short
+// ISO-like UTC string for human scanning, not for machine parsing.
+val buildTimestamp: String =
+    LocalDateTime.now(ZoneOffset.UTC)
+        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'"))
+
+// Latest annotated release tag (e.g. "0.1.14"), used as a sensible
+// versionName fallback for local dev builds that don't pass
+// -PversionName. CI still passes -PversionName explicitly and that
+// always wins. Without this fallback every local build shipped as
+// "0.1.0" forever, making it impossible to tell stale dev installs
+// apart from current ones in About. Strips a leading "v" since tags
+// here are "v0.1.14" but versionName wants "0.1.14".
+val latestReleaseTag: String = runCatching {
+    ProcessBuilder("git", "describe", "--tags", "--abbrev=0", "--match", "v*")
+        .redirectErrorStream(true)
+        .start()
+        .inputStream.bufferedReader().readText().trim()
+}.getOrNull()?.takeIf { it.isNotBlank() }?.removePrefix("v") ?: "0.1.0"
+
 android {
     namespace = "systems.lupine.sheaf"
     compileSdk = 35
@@ -46,8 +73,13 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = providers.gradleProperty("versionCode").orNull?.toInt() ?: 1
-        versionName = providers.gradleProperty("versionName").orNull ?: "0.1.0"
+        // CI passes -PversionName; local dev builds derive from the most
+        // recent git release tag with a "-dev" suffix so About never lies
+        // about which release line the dev build descends from.
+        versionName = providers.gradleProperty("versionName").orNull
+            ?: "$latestReleaseTag-dev"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommitShort\"")
+        buildConfigField("String", "BUILD_TIME", "\"$buildTimestamp\"")
     }
 
     // Distribution split: `.play` ships to Google Play (Firebase / FCM, prod

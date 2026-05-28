@@ -44,6 +44,9 @@ data class HomeUiState(
     // Pinned members come first (in pin order); the rest are sorted by a
     // recency-weighted fronting score with a 30-day half-life. Populated
     // from /v1/members/top-fronters alongside the rest of the home load.
+    // If the endpoint isn't reachable (older backend, network failure)
+    // the [quickSwitchMembers] derived property falls back to allMembers
+    // so the carousel still renders rather than vanishing silently.
     val topFronters: List<MemberRead> = emptyList(),
     val announcements: List<AnnouncementPublic> = emptyList(),
     val dismissedAnnouncementIds: Set<String> = emptySet(),
@@ -74,6 +77,17 @@ data class HomeUiState(
 ) {
     val visibleAnnouncements: List<AnnouncementPublic>
         get() = announcements.filter { it.id !in dismissedAnnouncementIds }
+
+    /**
+     * What the home carousel actually renders. Prefers the server-ranked
+     * [topFronters] list; falls back to the first 8 of [allMembers] when
+     * the endpoint hasn't yet hydrated (cold start) or isn't deployed on
+     * the backend yet, so the carousel never disappears purely because
+     * one API call hasn't landed. Returns empty only when the system
+     * genuinely has no members.
+     */
+    val quickSwitchMembers: List<MemberRead>
+        get() = topFronters.ifEmpty { allMembers.take(8) }
 }
 
 @HiltViewModel

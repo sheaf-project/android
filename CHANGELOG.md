@@ -9,15 +9,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 ### Added
 
 - **Quick-switch carousel on home.** A horizontal row of one-tap
-  member chips lives at the bottom of the home screen, populated from
-  the backend's new `/v1/members/top-fronters` endpoint (pinned
-  members first, then a recency-weighted score with a 30-day half
-  life). Tap a chip to switch using the system's default
-  replace-fronts behaviour; long-press to choose "Switch (end
-  current)" vs "Add to front" explicitly, so the override is one
-  gesture away without leaving the home screen. The full switch sheet
-  with group filtering still lives behind the Switch FAB for
-  multi-member or filtered switches.
+  member chips pinned to the bottom of the home screen, above the
+  navigation bar — always visible regardless of scroll position.
+  Populated from the backend's new `/v1/members/top-fronters`
+  endpoint (pinned members first, then a recency-weighted score with
+  a 30-day half life), falling back to the alphabetical member list
+  if that endpoint isn't reachable so the carousel never disappears
+  purely because of a deployment skew. Tap a chip to switch using the
+  system's default replace-fronts behaviour; long-press to choose
+  "Switch (end current)" vs "Add to front" explicitly, so the
+  override is one gesture away. The full switch sheet with group
+  filtering still lives behind the Switch FAB.
 
 - **Selection and active-state rings on the watch tiles.** The
   quick-switch tile draws a thin accent ring around members picked for
@@ -38,6 +40,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   switched rather than when connectivity came back.
 
 ### Changed
+
+- **About row stamps build timestamp + flavour + versionCode.** Used
+  to read `Sheaf 0.1.15 · abc1234 · debug`; now also carries the UTC
+  build time and which distribution flavour the APK was assembled
+  from, so the "wait, is this build the one I just installed" moment
+  is answerable at a glance without digging through aapt2 or Play
+  Console. Local dev builds also derive their versionName from the
+  most recent git release tag with a `-dev` suffix (e.g.
+  `0.1.14-dev`), so About no longer reads `Sheaf 0.1.0 · …` forever
+  on every working-tree build.
 
 - **Polls is now a top-level bottom-nav tab.** Was a top-bar action on
   the home screen, easy to miss; now sits next to Home / Members /

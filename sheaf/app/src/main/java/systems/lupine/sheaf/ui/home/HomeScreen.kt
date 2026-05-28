@@ -100,6 +100,17 @@ fun HomeScreen(
                 text = { Text("Switch") },
             )
         },
+        // Quick-switch chip row pinned above the bottom navigation. Sits
+        // here rather than inline in the scrollable content so it's
+        // always one tap away regardless of how far the user has scrolled
+        // through fronting cards or announcements.
+        bottomBar = {
+            QuickSwitchCarousel(
+                members = state.quickSwitchMembers,
+                defaultReplaceFronts = state.system?.replaceFrontsDefault ?: true,
+                onSwitch = { id, replace -> viewModel.quickSwitch(id, replace) },
+            )
+        },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (isPendingDeletion) {
@@ -179,19 +190,14 @@ fun HomeScreen(
                         EmptyState(
                             icon = Icons.Default.People,
                             title = "No one is fronting",
-                            subtitle = "Tap a member below or use Switch for more options.",
+                            subtitle = "Tap a member in the bar below to start a front, " +
+                                "or use Switch for more options.",
                             action = {
                                 TextButton(onClick = onNavigateToMembers) {
                                     Text("Go to Members")
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                        )
-                        QuickSwitchCarousel(
-                            members = state.topFronters,
-                            defaultReplaceFronts = state.system?.replaceFrontsDefault ?: true,
-                            onSwitch = { id, replace -> viewModel.quickSwitch(id, replace) },
-                            modifier = Modifier.padding(bottom = 96.dp),
                         )
                     }
                 }
@@ -215,15 +221,8 @@ fun HomeScreen(
                                 onLongClick = { memberToRemove = member },
                             )
                         }
-                        if (state.topFronters.isNotEmpty()) {
-                            item {
-                                QuickSwitchCarousel(
-                                    members = state.topFronters,
-                                    defaultReplaceFronts = state.system?.replaceFrontsDefault ?: true,
-                                    onSwitch = { id, replace -> viewModel.quickSwitch(id, replace) },
-                                )
-                            }
-                        }
+                        // Spacer clears the FAB and the pinned quick-switch
+                        // bottomBar above the system nav.
                         item { Spacer(Modifier.height(80.dp)) }
                     }
                 }

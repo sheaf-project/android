@@ -294,8 +294,13 @@ fun SettingsScreen(
             SettingItem(
                 icon = Icons.Outlined.Info,
                 title = "About",
-                subtitle = "Sheaf ${BuildConfig.VERSION_NAME} · ${BuildConfig.GIT_COMMIT}" +
-                    if (BuildConfig.DEBUG) " · debug" else "",
+                subtitle = buildString {
+                    append("Sheaf ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                    append(" · ${BuildConfig.GIT_COMMIT}")
+                    append(" · built ${BuildConfig.BUILD_TIME}")
+                    append(" · ${BuildConfig.FLAVOR}")
+                    if (BuildConfig.DEBUG) append(" · debug")
+                },
                 onClick = {},
             )
 
