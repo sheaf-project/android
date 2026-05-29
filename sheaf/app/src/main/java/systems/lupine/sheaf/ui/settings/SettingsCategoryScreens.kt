@@ -9,7 +9,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.dynamicDarkColorScheme
+import systems.lupine.sheaf.ui.theme.SheafPalette
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -100,6 +108,7 @@ fun AppearanceSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
+    val themePalette by viewModel.themePalette.collectAsState()
     CategoryScaffold(title = "Appearance", onNavigateUp = onNavigateUp) {
         val themeModes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
         val themeIcons = mapOf(
@@ -129,7 +138,118 @@ fun AppearanceSettingsScreen(
             }
             if (mode != "dark") HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         }
+        HorizontalDivider()
+        PaletteSection(
+            selectedId = themePalette,
+            onSelected = { viewModel.savePalette(it) },
+        )
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PaletteSection(
+    selectedId: String,
+    onSelected: (String) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(
+            "Palette",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            SheafPalette.all.forEach { palette ->
+                PaletteCard(
+                    palette = palette,
+                    selected = palette.id == selectedId,
+                    onClick = { onSelected(palette.id) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaletteCard(
+    palette: SheafPalette,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    // Material You's colours are derived from the system wallpaper at
+    // render time, so its swatch can only show real values on Android
+    // 12+. On older devices we fall through to whatever the palette's
+    // static dark scheme returns (currently a noop sentinel), which
+    // signals "this is unavailable here" naturally enough.
+    val scheme = if (
+        palette.id == SheafPalette.MATERIAL_YOU_ID &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    ) {
+        dynamicDarkColorScheme(context)
+    } else {
+        palette.dark
+    }
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val borderWidth = if (selected) 2.dp else 1.dp
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = scheme.background,
+        border = BorderStroke(borderWidth, borderColor),
+        modifier = Modifier
+            .width(110.dp)
+            .height(96.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            // Three colour dots give a glance read of the palette's
+            // accents without rendering a fake mini-screen — primary
+            // covers buttons / FAB, secondary covers chips, tertiary
+            // is the success / status hue.
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SwatchDot(scheme.primary)
+                SwatchDot(scheme.secondary)
+                SwatchDot(scheme.tertiary)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = palette.displayName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.onBackground,
+                    modifier = Modifier.weight(1f),
+                )
+                if (selected) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = scheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwatchDot(color: androidx.compose.ui.graphics.Color) {
+    Box(
+        modifier = Modifier
+            .size(18.dp)
+            .clip(CircleShape)
+            .background(color),
+    )
 }
 
 // ── Notifications ───────────────────────────────────────────────────────────

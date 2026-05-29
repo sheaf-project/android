@@ -98,6 +98,9 @@ class SettingsViewModel @Inject constructor(
     val themeMode: StateFlow<String> = prefs.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "system")
 
+    val themePalette: StateFlow<String> = prefs.themePalette
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "purple")
+
     val frontNotificationEnabled: StateFlow<Boolean> = prefs.frontNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -158,6 +161,23 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             prefs.saveTheme(mode)
             runCatching { api.saveClientSettings(CLIENT_ID, ClientSettingsBody(mapOf("theme" to mode))) }
+        }
+    }
+
+    fun savePalette(paletteId: String) {
+        viewModelScope.launch {
+            prefs.savePalette(paletteId)
+            // Mirror the persisted choice to the server's per-client
+            // settings bag so a future cross-device sync can read it,
+            // exactly as saveTheme does for the dark/light mode. Best-
+            // effort: a network failure here doesn't undo the local
+            // save, which is what the user just expressed intent on.
+            runCatching {
+                api.saveClientSettings(
+                    CLIENT_ID,
+                    ClientSettingsBody(mapOf("theme_palette" to paletteId)),
+                )
+            }
         }
     }
 
