@@ -43,8 +43,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import systems.lupine.sheaf.data.model.MemberRead
-import systems.lupine.sheaf.ui.theme.PurpleGrey10
-import systems.lupine.sheaf.ui.theme.PurpleGrey80
 import coil.compose.AsyncImage
 import java.time.Duration
 import java.time.Instant

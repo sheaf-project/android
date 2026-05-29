@@ -27,6 +27,7 @@ class PreferencesRepository @Inject constructor(
         val KEY_ACCESS_TOKEN = stringPreferencesKey("access_token")
         val KEY_REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val KEY_THEME = stringPreferencesKey("theme")
+        val KEY_PALETTE = stringPreferencesKey("theme_palette")
         val KEY_FRONT_NOTIFICATION = booleanPreferencesKey("front_notification")
         val KEY_CF_CLIENT_ID = stringPreferencesKey("cf_client_id")
         val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
@@ -66,6 +67,8 @@ class PreferencesRepository @Inject constructor(
     val watchRefreshToken: Flow<String?> = context.dataStore.data.map { it[KEY_WATCH_REFRESH_TOKEN] }
     val watchSessionId: Flow<String?> = context.dataStore.data.map { it[KEY_WATCH_SESSION_ID] }
     val themeMode: Flow<String> = context.dataStore.data.map { it[KEY_THEME] ?: "system" }
+    val themePalette: Flow<String> =
+        context.dataStore.data.map { it[KEY_PALETTE] ?: "purple" }
     val frontNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_FRONT_NOTIFICATION] ?: false }
     val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
     val cfClientSecret: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_SECRET] }
@@ -126,6 +129,10 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveTheme(mode: String) {
         context.dataStore.edit { it[KEY_THEME] = mode }
+    }
+
+    suspend fun savePalette(paletteId: String) {
+        context.dataStore.edit { it[KEY_PALETTE] = paletteId }
     }
 
     suspend fun saveFrontNotification(enabled: Boolean) {

@@ -1,108 +1,50 @@
 package systems.lupine.sheaf.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-// ── Color tokens ──────────────────────────────────────────────────────────────
-//
-// Aligned to the iOS app's violet-500 (#8B5CF6) accent so the two clients
-// look like the same product. Token names mirror Material 3 tone levels
-// loosely — the values themselves track Tailwind's violet scale rather
-// than the MD3 default lookup, because iOS picked those exact hexes and
-// matching them keeps brand colour identical across platforms. A future
-// theme picker (see task list) will swap these out per palette.
-
-val Purple10  = Color(0xFF2E1065)  // violet-950
-val Purple20  = Color(0xFF4C1D95)  // violet-900
-val Purple40  = Color(0xFF8B5CF6)  // violet-500, iOS accent / light-mode primary
-val Purple60  = Color(0xFF9466F8)  // interpolated for secondary
-val Purple80  = Color(0xFFA78BFA)  // violet-400, iOS accentLight / dark-mode primary
-val Purple90  = Color(0xFFDDD6FE)  // violet-200, light secondaryContainer
-val Purple99  = Color(0xFFF5F3FF)  // violet-50, light primaryContainer
-
-val PurpleGrey10 = Color(0xFF1A1035)  // iOS light textPrimary; high-contrast text on light surfaces
-val PurpleGrey20 = Color(0xFF2A1F50)
-val PurpleGrey80 = Color(0xFFDCD6EE)  // light-on-dark text, violet-tinted
-val PurpleGrey90 = Color(0xFFECE8F6)
-
-val Teal40 = Color(0xFF1D9E75)
-val Teal80 = Color(0xFF9FE1CB)
-
-val Red40  = Color(0xFFE24B4A)
-val Red80  = Color(0xFFF09595)
-
-val Yellow10 = Color(0xFF221B00)
-val Yellow40 = Color(0xFF7B5800)
-val Yellow80 = Color(0xFFEFC032)
-val Yellow90 = Color(0xFFFFDF9E)
-
-// ── Warning colors (no MD3 built-in) ─────────────────────────────────────────
+// ── Warning colours (no Material 3 built-in slot) ────────────────────────────
 
 @Immutable
 data class WarningColors(val container: Color, val onContainer: Color)
 
 val LocalWarningColors = staticCompositionLocalOf {
-    WarningColors(container = Yellow90, onContainer = Yellow10)
+    // Fallback for previews + any composable that's used outside SheafTheme.
+    // Real values come from the active palette's warningLight / warningDark.
+    WarningColors(container = Color(0xFFFFDF9E), onContainer = Color(0xFF221B00))
 }
 
-// ── Color schemes ─────────────────────────────────────────────────────────────
+// ── Theme entry point ────────────────────────────────────────────────────────
 
-internal val LightColorScheme = lightColorScheme(
-    primary          = Purple40,
-    onPrimary        = Color.White,
-    primaryContainer = Purple99,
-    onPrimaryContainer = Purple10,
-    secondary        = Purple60,
-    onSecondary      = Color.White,
-    secondaryContainer = Purple90,
-    onSecondaryContainer = Purple20,
-    tertiary         = Teal40,
-    onTertiary       = Color.White,
-    background       = Color(0xFFF2F0FF),  // matches iOS light bgPrimary (lavender)
-    onBackground     = PurpleGrey10,
-    surface          = Color.White,
-    onSurface        = PurpleGrey10,
-    surfaceVariant   = PurpleGrey90,
-    onSurfaceVariant = PurpleGrey20,
-    outline          = Color(0xFFC4B5FD),  // violet-300
-    error            = Red40,
-    onError          = Color.White,
-)
-
-internal val DarkColorScheme = darkColorScheme(
-    primary          = Purple80,
-    onPrimary        = Purple20,
-    primaryContainer = Purple40,
-    onPrimaryContainer = Purple99,
-    secondary        = Purple90,
-    onSecondary      = Purple10,
-    secondaryContainer = Purple20,
-    onSecondaryContainer = Purple90,
-    tertiary         = Teal80,
-    onTertiary       = Color(0xFF004D36),
-    background       = Color(0xFF0F0C29),  // matches iOS dark bgPrimary
-    onBackground     = PurpleGrey80,
-    surface          = Color(0xFF1A1535),  // matches iOS dark bgSecondary
-    onSurface        = PurpleGrey80,
-    surfaceVariant   = PurpleGrey20,
-    onSurfaceVariant = PurpleGrey80,
-    outline          = Color(0xFF4C2A85),  // violet-tinted, darker
-    error            = Red80,
-    onError          = Color(0xFF690005),
-)
-
-// ── Theme entry point ─────────────────────────────────────────────────────────
-
+/**
+ * Root theme composable.
+ *
+ * The user's themeMode preference ("system" / "light" / "dark") and
+ * themePalette preference ("purple" / future entries) are orthogonal:
+ * the palette decides *which* colours, the mode decides whether to use
+ * the light or dark variant of those colours.
+ *
+ * Material You is a special case — it derives colours from the system
+ * wallpaper at render time rather than carrying them as constants. When
+ * that palette is active we call `dynamicLight/DarkColorScheme(context)`
+ * instead of reading from the [SheafPalette].
+ */
 @Composable
 fun SheafTheme(
     themeMode: String = "system",
+    themePalette: String = SheafPalette.default.id,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (themeMode) {
@@ -110,11 +52,20 @@ fun SheafTheme(
         "light" -> false
         else    -> isSystemInDarkTheme()
     }
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val warningColors = if (darkTheme)
-        WarningColors(container = Yellow40, onContainer = Yellow80)
-    else
-        WarningColors(container = Yellow90, onContainer = Yellow10)
+    val palette = SheafPalette.fromId(themePalette)
+    val context = LocalContext.current
+
+    val colorScheme = when {
+        palette.id == SheafPalette.MATERIAL_YOU_ID &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (darkTheme) dynamicDarkColorScheme(context)
+            else dynamicLightColorScheme(context)
+
+        darkTheme -> palette.dark
+        else      -> palette.light
+    }
+
+    val warningColors = if (darkTheme) palette.warningDark else palette.warningLight
 
     CompositionLocalProvider(LocalWarningColors provides warningColors) {
         MaterialTheme(

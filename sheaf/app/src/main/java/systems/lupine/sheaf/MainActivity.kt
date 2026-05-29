@@ -69,7 +69,8 @@ class MainActivity : FragmentActivity() {
         }
         setContent {
             val themeMode by prefs.themeMode.collectAsState(initial = "system")
-            SheafTheme(themeMode = themeMode) {
+            val themePalette by prefs.themePalette.collectAsState(initial = "purple")
+            SheafTheme(themeMode = themeMode, themePalette = themePalette) {
                 val lockState by lockManager.lockState.collectAsState()
                 // Always render SheafApp so its NavController state survives a
                 // re-lock when the app is backgrounded; the lock screen is an
