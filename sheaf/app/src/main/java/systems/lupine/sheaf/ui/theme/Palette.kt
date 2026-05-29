@@ -36,6 +36,9 @@ internal interface SheafPalette {
             ClassicPalette,
             OledPalette,
             MaterialYouPalette,
+            MintPalette,
+            OceanPalette,
+            SepiaPalette,
         )
 
         /** Fallback if a persisted id no longer matches anything in [all]. */
