@@ -31,7 +31,12 @@ internal interface SheafPalette {
         const val MATERIAL_YOU_ID: String = "material_you"
 
         /** The shipped palette catalog, in picker display order. */
-        val all: List<SheafPalette> = listOf(PurplePalette)
+        val all: List<SheafPalette> = listOf(
+            PurplePalette,
+            ClassicPalette,
+            OledPalette,
+            MaterialYouPalette,
+        )
 
         /** Fallback if a persisted id no longer matches anything in [all]. */
         val default: SheafPalette = PurplePalette
