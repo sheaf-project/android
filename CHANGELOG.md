@@ -4,6 +4,45 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.16] - 2026-05-29
+
+Theme picker — choose between ten palettes (Purple, Classic, OLED,
+Material You, Mint, Ocean, Sepia, Pride, Trans, Non-binary) under
+Settings → Appearance, orthogonal to the existing light / dark /
+system mode.
+
+### Added
+
+- **Theme palette picker.** Settings → Appearance gains a Palette
+  section below the existing mode rows, rendered as a FlowRow of
+  swatch cards. Each card previews the palette's background plus
+  three accent dots. Tapping a card applies the palette live across
+  the app and persists the choice in DataStore.
+
+- **Ten-palette catalog.** Purple (the iOS-aligned default) plus
+  nine alternatives:
+  - **Classic** — the pre-iOS-alignment palette (`#534AB7` darker
+    purple) for users who preferred the older look.
+  - **OLED** — pure `#000000` background and surface, closes the
+    AMOLED-friendly dark task. Light mode mirrors Purple.
+  - **Material You** — wallpaper-derived dynamic colour scheme on
+    Android 12+. Pre-S devices fall through to Purple.
+  - **Mint** — Tailwind emerald scale, calm green chrome.
+  - **Ocean** — Tailwind sky scale, clean blue chrome.
+  - **Sepia** — Tailwind amber on stone-warm surfaces, easier on
+    the eyes at night.
+  - **Pride** — pink-led, rainbow-spanning accents on neutral
+    surfaces.
+  - **Trans** — flag pink + flag blue.
+  - **Non-binary** — flag purple-led, with the flag yellow as a
+    vivid secondary.
+
+  Palette selections are persisted in DataStore as `theme_palette`
+  alongside the existing `theme` key for mode; the two are
+  orthogonal (mode picks light vs dark, palette picks which hues).
+  Selection mirrors to the server's per-client settings bag like
+  the mode choice does, so future cross-device sync can read it.
+
 ## [0.1.15] - 2026-05-28
 
 ### Added

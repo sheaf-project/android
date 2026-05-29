@@ -39,6 +39,9 @@ internal interface SheafPalette {
             MintPalette,
             OceanPalette,
             SepiaPalette,
+            PridePalette,
+            TransPalette,
+            NonBinaryPalette,
         )
 
         /** Fallback if a persisted id no longer matches anything in [all]. */
