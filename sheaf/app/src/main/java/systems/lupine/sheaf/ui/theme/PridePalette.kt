@@ -36,15 +36,21 @@ internal object PridePalette : SheafPalette {
     private val Red40  = Color(0xFFE24B4A)
     private val Red80  = Color(0xFFF09595)
 
+    // FAB / nav-indicator slots carry the rainbow hero colours
+    // directly (primaryContainer = pink, secondaryContainer = yellow),
+    // so the primary chrome reads as "rainbow Sheaf" instead of "dark
+    // plum somewhere near pink". The lighter/darker variants in the
+    // primary/secondary slots drive on-tonal-surface text rendering.
+
     override val light = lightColorScheme(
         primary              = PridePink,
         onPrimary            = Color.White,
-        primaryContainer     = Color(0xFFFCE4EC),
+        primaryContainer     = PridePinkLt,         // FAB: vivid rainbow pink
         onPrimaryContainer   = Color(0xFF3A0A1E),
         secondary            = PrideOrange,
         onSecondary          = Color.White,
-        secondaryContainer   = Color(0xFFFFE0B2),
-        onSecondaryContainer = Color(0xFF3A1F02),
+        secondaryContainer   = PrideYellow,         // nav indicator: rainbow yellow
+        onSecondaryContainer = Color(0xFF3D2F00),
         tertiary             = PrideBlue,
         onTertiary           = Color.White,
         background           = Color(0xFFFFF8FA),  // faint pink-tinted white
@@ -59,14 +65,14 @@ internal object PridePalette : SheafPalette {
     )
 
     override val dark = darkColorScheme(
-        primary              = PridePinkLt,
+        primary              = PridePinkLt,        // recognisable pink for tonal text
         onPrimary            = Color(0xFF3D0418),
-        primaryContainer     = Color(0xFF5E0825),
-        onPrimaryContainer   = Color(0xFFFCE4EC),
-        secondary            = PrideYellow,
+        primaryContainer     = PridePink,          // FAB: deeper but still vivid pink
+        onPrimaryContainer   = Color.White,
+        secondary            = PrideYellow,        // recognisable yellow for tonal text
         onSecondary          = Color(0xFF3A2A00),
-        secondaryContainer   = Color(0xFF5C4400),
-        onSecondaryContainer = Color(0xFFFFF1B5),
+        secondaryContainer   = Color(0xFFD4A800),  // nav indicator: deeper amber, recognisably yellow
+        onSecondaryContainer = Color(0xFF3A2A00),
         tertiary             = Color(0xFF64B5F6),
         onTertiary           = Color(0xFF002F58),
         background           = Color(0xFF1A0F1A),  // very dark plum

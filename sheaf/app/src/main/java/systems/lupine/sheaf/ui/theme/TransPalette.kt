@@ -32,14 +32,22 @@ internal object TransPalette : SheafPalette {
     private val Red40  = Color(0xFFE24B4A)
     private val Red80  = Color(0xFFF09595)
 
+    // FAB / nav-indicator pinks and blues. M3 renders the FAB from
+    // primaryContainer and the bottom-nav selection blob from
+    // secondaryContainer, so to read as "trans" those two slots need
+    // to carry the *actual flag pink and blue*, not muted-into-the-
+    // background derivatives. The primary/secondary slots that drive
+    // text-on-tonal-surfaces still pick the lighter / deeper variants
+    // for contrast.
+
     override val light = lightColorScheme(
-        primary              = TransPinkDeeper,
+        primary              = TransPinkDeeper,  // pink-on-white for tonal accents
         onPrimary            = Color.White,
-        primaryContainer     = Color(0xFFFCE1E7),
-        onPrimaryContainer   = Color(0xFF3A0A1E),
+        primaryContainer     = TransPink,        // FAB: flag pink, recognisable
+        onPrimaryContainer   = Color(0xFF3D0418),
         secondary            = TransBlueDeeper,
         onSecondary          = Color.White,
-        secondaryContainer   = Color(0xFFD9F1FB),
+        secondaryContainer   = TransBlue,        // nav indicator: flag blue
         onSecondaryContainer = Color(0xFF062F45),
         tertiary             = Color(0xFFC084FC),  // light purple bridge between the two flag hues
         onTertiary           = Color.White,
@@ -55,14 +63,14 @@ internal object TransPalette : SheafPalette {
     )
 
     override val dark = darkColorScheme(
-        primary              = TransPink,         // brighter on the dark surface
+        primary              = TransPink,         // recognisable flag pink for tonal accents
         onPrimary            = Color(0xFF3D0418),
-        primaryContainer     = Color(0xFF5E1230),
-        onPrimaryContainer   = Color(0xFFFCE1E7),
-        secondary            = TransBlue,
+        primaryContainer     = TransPinkDeeper,   // FAB: deeper flag pink, still clearly pink
+        onPrimaryContainer   = Color.White,
+        secondary            = TransBlue,         // recognisable flag blue for tonal accents
         onSecondary          = Color(0xFF002F45),
-        secondaryContainer   = Color(0xFF0E4D6E),
-        onSecondaryContainer = Color(0xFFD9F1FB),
+        secondaryContainer   = TransBlueDeeper,   // nav indicator: deeper flag blue
+        onSecondaryContainer = Color.White,
         tertiary             = Color(0xFFD8B4FE),
         onTertiary           = Color(0xFF3A0E5C),
         background           = Color(0xFF161220),

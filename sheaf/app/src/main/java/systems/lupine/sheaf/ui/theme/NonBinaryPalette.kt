@@ -32,14 +32,20 @@ internal object NonBinaryPalette : SheafPalette {
     private val Red40  = Color(0xFFE24B4A)
     private val Red80  = Color(0xFFF09595)
 
+    // FAB / nav-indicator slots carry the iconic flag purple and
+    // yellow (primaryContainer = purple, secondaryContainer = yellow),
+    // so the primary chrome reads as "NB Sheaf" rather than dropping
+    // the flag's most identifiable colours into low-contrast container
+    // tones.
+
     override val light = lightColorScheme(
         primary              = NbPurpleDeeper,
         onPrimary            = Color.White,
-        primaryContainer     = Color(0xFFF1E4FB),
-        onPrimaryContainer   = Color(0xFF2E0F50),
+        primaryContainer     = NbPurple,            // FAB: flag purple, recognisable
+        onPrimaryContainer   = Color.White,
         secondary            = NbYellowDeeper,
         onSecondary          = Color.White,
-        secondaryContainer   = Color(0xFFFFF6B5),
+        secondaryContainer   = NbYellow,            // nav indicator: flag yellow
         onSecondaryContainer = Color(0xFF3D2F00),
         tertiary             = Color(0xFF4A4A55),  // deliberate flag-black-as-neutral accent
         onTertiary           = Color.White,
@@ -55,14 +61,14 @@ internal object NonBinaryPalette : SheafPalette {
     )
 
     override val dark = darkColorScheme(
-        primary              = NbPurple,
+        primary              = NbPurple,           // recognisable flag purple
         onPrimary            = Color(0xFF2E0F50),
-        primaryContainer     = NbPurpleDeeper,
-        onPrimaryContainer   = Color(0xFFF1E4FB),
-        secondary            = NbYellow,
+        primaryContainer     = NbPurpleDeeper,     // FAB: deeper purple, still clearly the flag
+        onPrimaryContainer   = Color.White,
+        secondary            = NbYellow,           // recognisable flag yellow
         onSecondary          = Color(0xFF3D2F00),
-        secondaryContainer   = Color(0xFF5C4400),
-        onSecondaryContainer = Color(0xFFFFF6B5),
+        secondaryContainer   = NbYellowDeeper,     // nav indicator: deeper yellow, still yellow
+        onSecondaryContainer = Color.White,
         tertiary             = Color(0xFFD8C8E8),
         onTertiary           = Color(0xFF2A1F3E),
         background           = NbBlack,

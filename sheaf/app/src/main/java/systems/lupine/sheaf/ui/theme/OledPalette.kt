@@ -60,11 +60,15 @@ internal object OledPalette : SheafPalette {
     override val dark = darkColorScheme(
         primary              = Purple80,
         onPrimary            = Purple20,
-        primaryContainer     = Color(0xFF1A0F45),  // deeper than Purple40 so it still reads against #000
-        onPrimaryContainer   = Purple99,
+        // FAB renders from primaryContainer; on a true-black background
+        // the deep-violet sentinel was almost invisible. Match Purple's
+        // dark primaryContainer (Purple40 = #8B5CF6) so the FAB stays
+        // a bright violet against the void.
+        primaryContainer     = Purple40,
+        onPrimaryContainer   = Color.White,
         secondary            = Purple90,
         onSecondary          = Purple10,
-        secondaryContainer   = Color(0xFF14092E),
+        secondaryContainer   = Purple20,
         onSecondaryContainer = Purple90,
         tertiary             = Teal80,
         onTertiary           = Color(0xFF004D36),

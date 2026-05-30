@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import systems.lupine.sheaf.ui.theme.SheafPalette
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -141,6 +142,7 @@ fun AppearanceSettingsScreen(
         HorizontalDivider()
         PaletteSection(
             selectedId = themePalette,
+            themeMode = themeMode,
             onSelected = { viewModel.savePalette(it) },
         )
     }
@@ -150,8 +152,19 @@ fun AppearanceSettingsScreen(
 @Composable
 private fun PaletteSection(
     selectedId: String,
+    themeMode: String,
     onSelected: (String) -> Unit,
 ) {
+    // Resolve the user's themeMode (light / dark / system) to a
+    // concrete "is the app currently dark" flag so swatches preview
+    // the variant the user is actually looking at. Without this, the
+    // swatches always rendered dark regardless of mode and gave a
+    // misleading preview to anyone on light or system-light.
+    val isDarkPreview = when (themeMode) {
+        "dark"  -> true
+        "light" -> false
+        else    -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(
             "Palette",
@@ -168,6 +181,7 @@ private fun PaletteSection(
                 PaletteCard(
                     palette = palette,
                     selected = palette.id == selectedId,
+                    isDarkPreview = isDarkPreview,
                     onClick = { onSelected(palette.id) },
                 )
             }
@@ -179,21 +193,23 @@ private fun PaletteSection(
 private fun PaletteCard(
     palette: SheafPalette,
     selected: Boolean,
+    isDarkPreview: Boolean,
     onClick: () -> Unit,
 ) {
     val context = LocalContext.current
     // Material You's colours are derived from the system wallpaper at
     // render time, so its swatch can only show real values on Android
-    // 12+. On older devices we fall through to whatever the palette's
-    // static dark scheme returns (currently a noop sentinel), which
-    // signals "this is unavailable here" naturally enough.
+    // 12+. On older devices we fall through to the palette's static
+    // sentinel scheme, which signals "this is unavailable here"
+    // naturally enough.
     val scheme = if (
         palette.id == SheafPalette.MATERIAL_YOU_ID &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     ) {
-        dynamicDarkColorScheme(context)
+        if (isDarkPreview) dynamicDarkColorScheme(context)
+        else dynamicLightColorScheme(context)
     } else {
-        palette.dark
+        if (isDarkPreview) palette.dark else palette.light
     }
     val borderColor = if (selected) MaterialTheme.colorScheme.primary
         else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
