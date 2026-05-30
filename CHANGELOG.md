@@ -4,7 +4,7 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
-## [0.1.16] - 2026-05-29
+## [0.1.16] - 2026-05-30
 
 Theme picker — choose between ten palettes (Purple, Classic, OLED,
 Material You, Mint, Ocean, Sepia, Pride, Trans, Non-binary) under
@@ -18,6 +18,17 @@ system mode.
   swatch cards. Each card previews the palette's background plus
   three accent dots. Tapping a card applies the palette live across
   the app and persists the choice in DataStore.
+
+- **Real User-Agent on API requests.** Phone and watch were both
+  sending OkHttp's default `okhttp/<lib version>` as User-Agent on
+  API calls (the existing `UserAgentInterceptor` only ran on image
+  loading). The Trusted Devices list reads this header to label
+  sessions, so the user's own device showed up as `okhttp/4.12.0`
+  next to actual browser sessions. Phone now sends
+  `Sheaf Android/<version>`, watch sends `Sheaf Android Wear/<version>`
+  so the two stay distinguishable on the same account. New sessions
+  pick up the new label; existing sessions on the server keep what
+  was recorded when they were minted.
 
 - **Ten-palette catalog.** Purple (the iOS-aligned default) plus
   nine alternatives:
