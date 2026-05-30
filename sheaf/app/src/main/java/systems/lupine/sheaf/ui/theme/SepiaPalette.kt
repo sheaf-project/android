@@ -83,7 +83,9 @@ internal object SepiaPalette : SheafPalette {
         onSurface            = GreyText80,
         surfaceVariant       = Stone800,
         onSurfaceVariant     = GreyText80,
-        outline              = Color(0xFF5E3A1A),
+        // Warmer than the previous brown; reads as "sepia" rather than
+        // "muddy" against the stone-warm surface.
+        outline              = Color(0xFF7A4A20),
         error                = Red80,
         onError              = Color(0xFF690005),
     )

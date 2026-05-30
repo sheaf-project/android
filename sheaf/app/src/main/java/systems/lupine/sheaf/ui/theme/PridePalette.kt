@@ -51,7 +51,7 @@ internal object PridePalette : SheafPalette {
         onSecondary          = Color.White,
         secondaryContainer   = PrideYellow,         // nav indicator: rainbow yellow
         onSecondaryContainer = Color(0xFF3D2F00),
-        tertiary             = PrideBlue,
+        tertiary             = PridePurple,        // covers the cool end of the rainbow
         onTertiary           = Color.White,
         background           = Color(0xFFFFF8FA),  // faint pink-tinted white
         onBackground         = GreyText10,
@@ -73,8 +73,8 @@ internal object PridePalette : SheafPalette {
         onSecondary          = Color(0xFF3A2A00),
         secondaryContainer   = Color(0xFFD4A800),  // nav indicator: deeper amber, recognisably yellow
         onSecondaryContainer = Color(0xFF3A2A00),
-        tertiary             = Color(0xFF64B5F6),
-        onTertiary           = Color(0xFF002F58),
+        tertiary             = Color(0xFFCE93D8),  // light violet, picks up flag purple stripe
+        onTertiary           = Color(0xFF2C1238),
         background           = Color(0xFF1A0F1A),  // very dark plum
         onBackground         = GreyText80,
         surface              = Color(0xFF231423),

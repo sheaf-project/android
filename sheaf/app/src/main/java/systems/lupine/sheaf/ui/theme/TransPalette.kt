@@ -49,7 +49,11 @@ internal object TransPalette : SheafPalette {
         onSecondary          = Color.White,
         secondaryContainer   = TransBlue,        // nav indicator: flag blue
         onSecondaryContainer = Color(0xFF062F45),
-        tertiary             = Color(0xFFC084FC),  // light purple bridge between the two flag hues
+        // Soft pink-blue bridge picks up the white stripe of the flag
+        // as a near-neutral tone, rather than randomly inserting a
+        // third unrelated hue. Tinted slightly cool so it leans toward
+        // the flag blue without competing with the secondary slot.
+        tertiary             = Color(0xFFA0B6CC),
         onTertiary           = Color.White,
         background           = Color(0xFFFFFAFC),  // very faint pink-tinted white
         onBackground         = GreyText10,
@@ -71,8 +75,11 @@ internal object TransPalette : SheafPalette {
         onSecondary          = Color(0xFF002F45),
         secondaryContainer   = TransBlueDeeper,   // nav indicator: deeper flag blue
         onSecondaryContainer = Color.White,
-        tertiary             = Color(0xFFD8B4FE),
-        onTertiary           = Color(0xFF3A0E5C),
+        // Lighter version of the same near-neutral pink-blue bridge
+        // for dark mode; reads as "soft flag white" without breaking
+        // contrast on the dark surface.
+        tertiary             = Color(0xFFC9D6E2),
+        onTertiary           = Color(0xFF1B2638),
         background           = Color(0xFF161220),
         onBackground         = GreyText80,
         surface              = Color(0xFF1F1A2D),
