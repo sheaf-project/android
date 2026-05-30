@@ -49,12 +49,20 @@ object NetworkModule {
         baseUrlInterceptor: BaseUrlInterceptor,
         tokenAuthenticator: TokenAuthenticator,
         cookieJar: TrustedDeviceCookieJar,
+        userAgentInterceptor: UserAgentInterceptor,
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .cookieJar(cookieJar)
             .addInterceptor(baseUrlInterceptor)
             .addInterceptor(authInterceptor)
             .authenticator(tokenAuthenticator)
+            // Send "Sheaf Android/<version>" on every API call instead of
+            // OkHttp's default "okhttp/<lib version>". The server records
+            // User-Agent in the session row that powers the Trusted
+            // Devices list, so without this the user's own device was
+            // labelled "okhttp/4.12.0" — useless for telling sessions
+            // apart from a browser session at a glance.
+            .addInterceptor(userAgentInterceptor)
             .addInterceptor(
                 HttpLoggingInterceptor().apply {
                     level = HttpLoggingInterceptor.Level.BODY

@@ -6,17 +6,36 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import systems.lupine.sheaf.wear.BuildConfig
 import java.util.concurrent.TimeUnit
 
 class WearApiClient(private val auth: WearAuthManager) {
 
+    // Stamp every request with a real Sheaf User-Agent rather than the
+    // OkHttp default. The server stores this on the session row that
+    // shows up in the user's Trusted Devices list, so without this
+    // entry the watch sessions read as "okhttp/<lib version>" and
+    // couldn't be told apart from any other anonymous bearer. The
+    // "Wear" suffix distinguishes them from phone sessions on the
+    // same account.
+    private val userAgent: String = "Sheaf Android Wear/${BuildConfig.VERSION_NAME}"
+    private val userAgentInterceptor = Interceptor { chain ->
+        chain.proceed(
+            chain.request().newBuilder()
+                .header("User-Agent", userAgent)
+                .build()
+        )
+    }
+
     private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor(userAgentInterceptor)
         .build()
 
     // Codegen-only Moshi: every data class we round-trip is annotated
