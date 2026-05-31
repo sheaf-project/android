@@ -30,7 +30,14 @@ internal interface SheafPalette {
         /** Sentinel id checked in [SheafTheme] to trigger dynamic-color resolution. */
         const val MATERIAL_YOU_ID: String = "material_you"
 
-        /** The shipped palette catalog, in picker display order. */
+        /**
+         * The shipped palette catalog, in picker display order. Grouping:
+         *  - Brand default first.
+         *  - Neutral / system options (Classic, OLED, Material You).
+         *  - Colour-family palettes, warm-to-cool-ish.
+         *  - Flag palettes, with Plural up front since it's the app's
+         *    on-brand identity flag.
+         */
         val all: List<SheafPalette> = listOf(
             PurplePalette,
             ClassicPalette,
@@ -39,9 +46,15 @@ internal interface SheafPalette {
             MintPalette,
             OceanPalette,
             SepiaPalette,
+            CrimsonPalette,
+            GoldenrodPalette,
+            PluralPalette,
             PridePalette,
             TransPalette,
             NonBinaryPalette,
+            BiPalette,
+            PanPalette,
+            AsexualPalette,
         )
 
         /** Fallback if a persisted id no longer matches anything in [all]. */
