@@ -303,9 +303,27 @@ fun MemberDetailScreen(
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
     var showAvatarMenu by remember { mutableStateOf(false) }
+    // Holds the URI of the just-picked image while the cropper dialog
+    // is on screen. Null means no crop in progress. The crop dialog
+    // confirms with JPEG bytes which then go to uploadAvatarBytes;
+    // the legacy uploadAndSetAvatar(uri) path on the viewmodel is
+    // kept around but no longer reachable from the UI now that every
+    // upload goes through the cropper.
+    var pendingCropUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val photoPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
-    ) { uri -> uri?.let { viewModel.uploadAndSetAvatar(it) } }
+    ) { uri -> pendingCropUri = uri }
+
+    pendingCropUri?.let { uri ->
+        systems.lupine.sheaf.ui.avatar.AvatarCropDialog(
+            sourceUri = uri,
+            onCancel = { pendingCropUri = null },
+            onConfirm = { bytes ->
+                pendingCropUri = null
+                viewModel.uploadAvatarBytes(bytes)
+            },
+        )
+    }
 
     val bioImagePicker = rememberMarkdownImagePicker(viewModel.markdownImages, viewModel.viewModelScope)
 

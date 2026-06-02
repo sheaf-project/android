@@ -120,6 +120,30 @@ class SystemEditViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Upload a pre-cropped avatar (JPEG bytes from [AvatarCropDialog]).
+     * Used by the picker-then-crop flow so the user frames their avatar
+     * before it's sent rather than relying on the display layer to
+     * square-crop whatever raw image they picked.
+     */
+    fun uploadAvatarBytes(bytes: ByteArray, fileName: String = "avatar.jpg") {
+        viewModelScope.launch {
+            _state.update { it.copy(isUploadingAvatar = true, error = null) }
+            runCatching {
+                val requestBody = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+                api.uploadFile(part)
+            }
+                .onSuccess { response ->
+                    _form.update { it.copy(avatarUrl = response.url) }
+                    _state.update { it.copy(isUploadingAvatar = false) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.toUserMessage()}") }
+                }
+        }
+    }
+
     fun removeAvatar() {
         _form.update { it.copy(avatarUrl = "") }
     }

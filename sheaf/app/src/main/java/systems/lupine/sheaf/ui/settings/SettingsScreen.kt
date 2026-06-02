@@ -631,9 +631,23 @@ fun SystemEditScreen(
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
     var showAvatarMenu by remember { mutableStateOf(false) }
+    // See MemberDetailScreen for the picker-then-crop pattern. Same
+    // shape here for the system avatar.
+    var pendingCropUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val photoPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
-    ) { uri -> uri?.let { viewModel.uploadAndSetAvatar(it) } }
+    ) { uri -> pendingCropUri = uri }
+
+    pendingCropUri?.let { uri ->
+        systems.lupine.sheaf.ui.avatar.AvatarCropDialog(
+            sourceUri = uri,
+            onCancel = { pendingCropUri = null },
+            onConfirm = { bytes ->
+                pendingCropUri = null
+                viewModel.uploadAvatarBytes(bytes)
+            },
+        )
+    }
 
     val descriptionImagePicker = rememberMarkdownImagePicker(
         viewModel.markdownImages,

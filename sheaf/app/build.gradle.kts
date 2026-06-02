@@ -172,6 +172,11 @@ dependencies {
     // Biometric / device credential auth (app lock)
     implementation(libs.androidx.biometric)
 
+    // EXIF parsing — used by the avatar cropper so portrait photos
+    // (which JPEG-encode with a rotation flag rather than rotated
+    // pixels) come into the cropper right-side-up.
+    implementation(libs.androidx.exifinterface)
+
     // Images
     implementation(libs.coil.compose)
 
