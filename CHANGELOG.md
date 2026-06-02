@@ -4,6 +4,93 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [0.1.18] - 2026-06-02
+
+### Added
+
+- **Avatar crop / pan editor.** Picking a photo for a member or system
+  avatar now opens a full-screen crop dialog with pinch-to-zoom and
+  drag-to-pan inside a circular preview window. The image is clamped
+  to always cover the crop area (no white space pannable into the
+  avatar) and EXIF rotation is honoured on decode so portrait photos
+  arrive right-side-up. Output is a square 512×512 JPEG, encoded off
+  the UI thread so the save tap doesn't stutter. Replaces the previous
+  pipe-it-straight-to-upload flow that left the display layer to
+  square-crop arbitrary inputs.
+
+### Fixed
+
+- **Analytics percentages no longer 100× too large.** The
+  `percent_of_window` field on `/v1/analytics/fronting` is already a
+  percent value server-side (e.g. `52.93` for "53% of window"), but
+  the stats screen was multiplying by 100 again, producing labels
+  like "5293.0% of window" for a member with ~53% real share. Now
+  uses the value as-is; can still legitimately exceed 100 % under
+  co-fronting (two members fronting together for the whole window
+  each come back at 100 %).
+
+## [0.1.18] - 2026-06-02
+
+### Added
+
+- **Avatar crop / pan editor.** Picking a photo for a member or system
+  avatar now opens a full-screen crop dialog with pinch-to-zoom and
+  drag-to-pan inside a circular preview window. The image is clamped
+  to always cover the crop area (no white space pannable into the
+  avatar) and EXIF rotation is honoured on decode so portrait photos
+  arrive right-side-up. Output is a square 512×512 JPEG, encoded off
+  the UI thread so the save tap doesn't stutter. Replaces the previous
+  pipe-it-straight-to-upload flow that left the display layer to
+  square-crop arbitrary inputs.
+
+- **PluralKit and Tupperbox importers.** Brings Android importer
+  coverage in line with iOS / the backend's supported sources. Three
+  new entries under Settings → Data:
+  - **PluralKit (file)**: pick a `pk;export` JSON; system profile,
+    groups, and front-history toggles. Front history is off by default
+    since switch logs can run thousands of entries.
+  - **PluralKit (API)**: paste a PK token (show/hide toggle); preview
+    fetches the system from PK live, then submit enqueues the import
+    via `/v1/imports/api`. Token is request-scoped server-side:
+    encrypted at rest while the job runs, wiped on finalize, never
+    logged.
+  - **Tupperbox**: smallest surface of the three — TB exports carry
+    only tuppers and groups (no system metadata, no fronting history),
+    so the import screen is correspondingly stripped down.
+
+- **Import history viewer.** Settings → Data → Import history shows the
+  user's past and pending imports (any source). Each row carries a
+  source label, status badge, short counts summary, and a relative
+  timestamp. Tap to see the full counts table, warnings/errors, and
+  any failure message; the detail screen polls every 1.5 s for jobs
+  that aren't yet terminal so a running import lands without manual
+  refresh. Pending jobs can be cancelled, terminal-not-archived jobs
+  can be archived; running jobs return a 409 from the backend
+  (cooperative mid-flight cancel is server v2) and surface that as an
+  inline message.
+
+### Fixed
+
+- **Analytics percentages no longer 100× too large.** The
+  `percent_of_window` field on `/v1/analytics/fronting` is already a
+  percent value server-side (e.g. `52.93` for "53% of window"), but
+  the stats screen was multiplying by 100 again, producing labels
+  like "5293.0% of window" for a member with ~53% real share. Now
+  uses the value as-is; can still legitimately exceed 100 % under
+  co-fronting (two members fronting together for the whole window
+  each come back at 100 %).
+
+- **Simply Plural and Sheaf imports no longer 404.** Backend retired
+  the per-source synchronous submit endpoints (`/v1/import/simplyplural`,
+  `/v1/import/sheaf`) in favour of an async job runner at
+  `/v1/imports/file`. The clients hadn't migrated, so every
+  "run import" tap landed on a 404 (previews still worked since
+  those routes were preserved). Both importers now submit via the
+  new endpoint, poll the job until terminal status, and decode
+  counts/events back into the existing result UI. Warnings collect
+  the per-record `events` rows at level=warning; failures surface
+  the job's `last_error`.
+
 ## [0.1.17] - 2026-05-31
 Six new themes: Crimson, Goldenrod, Plural, Bi, Pan, Asexual    
 
