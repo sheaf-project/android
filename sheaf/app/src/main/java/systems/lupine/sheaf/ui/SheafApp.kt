@@ -76,6 +76,8 @@ object Routes {
     const val SYSTEM_EDIT   = "settings/system"
     const val SP_IMPORT      = "settings/import/simplyplural"
     const val SHEAF_IMPORT   = "settings/import/sheaf"
+    const val IMPORT_HISTORY = "settings/import/history"
+    const val IMPORT_DETAIL  = "settings/import/history/{jobId}"
     const val CUSTOM_FIELDS  = "settings/fields"
     const val API_KEYS       = "settings/keys"
     const val SESSIONS       = "settings/sessions"
@@ -460,6 +462,7 @@ fun SheafApp(
                     onNavigateToFiles = { navController.navigate(Routes.FILES) },
                     onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
                     onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
+                    onNavigateToImportHistory = { navController.navigate(Routes.IMPORT_HISTORY) },
                 )
             }
             composable(Routes.SETTINGS_SAFETY) {
@@ -487,6 +490,24 @@ fun SheafApp(
             }
             composable(Routes.SHEAF_IMPORT) {
                 SheafImportScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.IMPORT_HISTORY) {
+                systems.lupine.sheaf.ui.imports.ImportHistoryScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onOpenJob = { jobId ->
+                        navController.navigate(Routes.IMPORT_DETAIL.replace("{jobId}", jobId))
+                    },
+                )
+            }
+            composable(
+                route = Routes.IMPORT_DETAIL,
+                arguments = listOf(
+                    androidx.navigation.navArgument("jobId") { type = androidx.navigation.NavType.StringType }
+                ),
+            ) {
+                systems.lupine.sheaf.ui.imports.ImportJobDetailScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
             }
             composable(Routes.CUSTOM_FIELDS) {
                 CustomFieldsScreen(onNavigateUp = { navController.navigateUp() })

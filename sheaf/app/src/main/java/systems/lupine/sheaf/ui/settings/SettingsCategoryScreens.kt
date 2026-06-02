@@ -522,6 +522,7 @@ fun DataSettingsScreen(
     onNavigateToFiles: () -> Unit,
     onNavigateToSpImport: () -> Unit,
     onNavigateToSheafImport: () -> Unit,
+    onNavigateToImportHistory: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -602,6 +603,13 @@ fun DataSettingsScreen(
             title = "Import from Sheaf Export",
             subtitle = "Restore from a Sheaf JSON backup",
             onClick = onNavigateToSheafImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.History,
+            title = "Import history",
+            subtitle = "Past and pending imports — status, counts, and warnings",
+            onClick = onNavigateToImportHistory,
         )
     }
 
