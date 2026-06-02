@@ -678,6 +678,69 @@ data class SheafImportResult(
     val warnings: List<String>,
 )
 
+// ── PluralKit import ─────────────────────────────────────────────────────────
+//
+// Same canonical PK shape for both ingestion paths (file upload + live API
+// pull); the preview/result schemas don't care which path produced them.
+
+@JsonClass(generateAdapter = true)
+data class PKPreviewMember(
+    val id: String,  // PK HID
+    val name: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class PKPreviewSummary(
+    @Json(name = "system_name") val systemName: String?,
+    @Json(name = "member_count") val memberCount: Int,
+    val members: List<PKPreviewMember>,
+    @Json(name = "group_count") val groupCount: Int,
+    @Json(name = "switch_count") val switchCount: Int,
+    @Json(name = "earliest_switch") val earliestSwitch: String? = null,
+    @Json(name = "latest_switch") val latestSwitch: String? = null,
+)
+
+/** Result decoded from an ImportJobRead.counts dict at terminal status. */
+@JsonClass(generateAdapter = true)
+data class PKImportResult(
+    @Json(name = "members_imported") val membersImported: Int,
+    @Json(name = "groups_imported") val groupsImported: Int,
+    @Json(name = "fronts_imported") val frontsImported: Int,
+    val warnings: List<String> = emptyList(),
+)
+
+/** Body for the PK API preview endpoint — token only, request-scoped. */
+@JsonClass(generateAdapter = true)
+data class PKApiPreviewBody(
+    val token: String,
+)
+
+// ── Tupperbox import ─────────────────────────────────────────────────────────
+//
+// Tupperbox is a Discord proxy bot. Its export is a flat tupper list plus
+// groups; no system metadata, no fronting history, no custom fields. So the
+// preview surface is correspondingly smaller than PK / SP / Sheaf.
+
+@JsonClass(generateAdapter = true)
+data class TBPreviewMember(
+    val id: String,  // Tupperbox numeric id, stringified for transport
+    val name: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class TBPreviewSummary(
+    @Json(name = "member_count") val memberCount: Int,
+    val members: List<TBPreviewMember>,
+    @Json(name = "group_count") val groupCount: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class TBImportResult(
+    @Json(name = "members_imported") val membersImported: Int,
+    @Json(name = "groups_imported") val groupsImported: Int,
+    val warnings: List<String> = emptyList(),
+)
+
 // ── Async import job runner ──────────────────────────────────────────────────
 //
 // Backend wrapped every importer (SP / Sheaf / PK / TB) in a shared async
@@ -766,6 +829,12 @@ data class ImportJobList(
     val items: List<ImportJobSummary>,
     @Json(name = "next_cursor") val nextCursor: String? = null,
 )
+
+// Credential-based submit (`/v1/imports/api`, used by PluralKit API) takes
+// a JSON body with `source`, `idempotency_key`, `pk_token`, `options`. The
+// options dict is mixed-typed (bools + an optional string list), which
+// Moshi codegen doesn't model cleanly, so the viewmodel hand-rolls the
+// body as a JSON string and the API method takes a RequestBody directly.
 
 // ── Invite codes ─────────────────────────────────────────────────────────────
 

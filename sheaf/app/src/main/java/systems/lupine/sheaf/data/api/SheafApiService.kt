@@ -403,6 +403,28 @@ interface SheafApiService {
         @Part file: MultipartBody.Part,
     ): SheafPreviewSummary
 
+    @Multipart
+    @POST("/v1/import/pluralkit/preview")
+    suspend fun previewPluralKitFileImport(
+        @Part file: MultipartBody.Part,
+    ): PKPreviewSummary
+
+    /**
+     * Live-API preview for PluralKit. Hits the user's PK system via the
+     * supplied token for a single round-trip; the token is request-scoped
+     * server-side and never persisted. Submit goes through [createApiImport].
+     */
+    @POST("/v1/import/pluralkit-api/preview")
+    suspend fun previewPluralKitApiImport(
+        @Body body: PKApiPreviewBody,
+    ): PKPreviewSummary
+
+    @Multipart
+    @POST("/v1/import/tupperbox/preview")
+    suspend fun previewTupperboxImport(
+        @Part file: MultipartBody.Part,
+    ): TBPreviewSummary
+
     /**
      * Enqueue a file-based import. [source] is one of the
      * [ImportJobSource] constants; [options] is a JSON-encoded
@@ -423,6 +445,14 @@ interface SheafApiService {
 
     @GET("/v1/imports/{jobId}")
     suspend fun getImportJob(@Path("jobId") jobId: String): ImportJobRead
+
+    /**
+     * Enqueue a credential-based import (PluralKit API today; only PK uses
+     * this path). The body is a hand-built JSON object — see ImportApiCreate
+     * field-name docs in Models.kt for the shape. Returns 202 + ImportJobRead.
+     */
+    @POST("/v1/imports/api")
+    suspend fun createApiImport(@Body body: RequestBody): ImportJobRead
 
     /**
      * Paginated list of the current user's import jobs, most recent first.

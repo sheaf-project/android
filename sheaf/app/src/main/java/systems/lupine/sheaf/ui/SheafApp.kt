@@ -76,6 +76,9 @@ object Routes {
     const val SYSTEM_EDIT   = "settings/system"
     const val SP_IMPORT      = "settings/import/simplyplural"
     const val SHEAF_IMPORT   = "settings/import/sheaf"
+    const val PK_IMPORT      = "settings/import/pluralkit"
+    const val PK_API_IMPORT  = "settings/import/pluralkit-api"
+    const val TB_IMPORT      = "settings/import/tupperbox"
     const val IMPORT_HISTORY = "settings/import/history"
     const val IMPORT_DETAIL  = "settings/import/history/{jobId}"
     const val CUSTOM_FIELDS  = "settings/fields"
@@ -462,6 +465,9 @@ fun SheafApp(
                     onNavigateToFiles = { navController.navigate(Routes.FILES) },
                     onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
                     onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
+                    onNavigateToPkFileImport = { navController.navigate(Routes.PK_IMPORT) },
+                    onNavigateToPkApiImport = { navController.navigate(Routes.PK_API_IMPORT) },
+                    onNavigateToTupperboxImport = { navController.navigate(Routes.TB_IMPORT) },
                     onNavigateToImportHistory = { navController.navigate(Routes.IMPORT_HISTORY) },
                 )
             }
@@ -490,6 +496,21 @@ fun SheafApp(
             }
             composable(Routes.SHEAF_IMPORT) {
                 SheafImportScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.PK_IMPORT) {
+                systems.lupine.sheaf.ui.pkimport.PluralKitFileImportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.PK_API_IMPORT) {
+                systems.lupine.sheaf.ui.pkapiimport.PluralKitApiImportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.TB_IMPORT) {
+                systems.lupine.sheaf.ui.tbimport.TupperboxImportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
             }
             composable(Routes.IMPORT_HISTORY) {
                 systems.lupine.sheaf.ui.imports.ImportHistoryScreen(

@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.*
@@ -522,6 +523,9 @@ fun DataSettingsScreen(
     onNavigateToFiles: () -> Unit,
     onNavigateToSpImport: () -> Unit,
     onNavigateToSheafImport: () -> Unit,
+    onNavigateToPkFileImport: () -> Unit,
+    onNavigateToPkApiImport: () -> Unit,
+    onNavigateToTupperboxImport: () -> Unit,
     onNavigateToImportHistory: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -603,6 +607,27 @@ fun DataSettingsScreen(
             title = "Import from Sheaf Export",
             subtitle = "Restore from a Sheaf JSON backup",
             onClick = onNavigateToSheafImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from PluralKit (file)",
+            subtitle = "Use a PK export JSON from `pk;export`",
+            onClick = onNavigateToPkFileImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.CloudDownload,
+            title = "Import from PluralKit (API)",
+            subtitle = "Connect with your PK token to import live",
+            onClick = onNavigateToPkApiImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from Tupperbox",
+            subtitle = "Use a Tupperbox export JSON from `tul!export`",
+            onClick = onNavigateToTupperboxImport,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
