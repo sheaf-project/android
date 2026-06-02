@@ -678,6 +678,95 @@ data class SheafImportResult(
     val warnings: List<String>,
 )
 
+// ── Async import job runner ──────────────────────────────────────────────────
+//
+// Backend wrapped every importer (SP / Sheaf / PK / TB) in a shared async
+// job model. Submit returns a job row with status=pending; the worker runs
+// the import out-of-band; clients poll the job until it lands on a terminal
+// status. The legacy synchronous endpoints under `/v1/import/<source>` (no
+// trailing `s`) were retired except for the preview shims, which the
+// existing previewSimplyPluralImport / previewSheafImport calls still use.
+
+/**
+ * One row from `/v1/imports`. The shape is source-agnostic; the
+ * source-specific counts (e.g. `members_imported`, `fronts_imported`)
+ * land inside [counts] under their canonical key names, so callers can
+ * decode straight into the source's result data class.
+ */
+@JsonClass(generateAdapter = true)
+data class ImportJobRead(
+    val id: String,
+    val source: String,
+    val status: String,
+    val counts: Map<String, Int> = emptyMap(),
+    val events: List<ImportJobEvent> = emptyList(),
+    @Json(name = "started_at") val startedAt: String? = null,
+    @Json(name = "finished_at") val finishedAt: String? = null,
+    @Json(name = "last_error") val lastError: String? = null,
+    @Json(name = "archived_at") val archivedAt: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "updated_at") val updatedAt: String? = null,
+)
+
+/**
+ * Per-record event captured during the import — warnings get surfaced
+ * to the user, errors get folded into the failure message.
+ *
+ * `recordRef` is source-specific (PK HID, SP member id, Sheaf UUID, etc.)
+ * and null for parse-level / general events that don't tie to one record.
+ */
+@JsonClass(generateAdapter = true)
+data class ImportJobEvent(
+    val level: String,
+    val stage: String,
+    val message: String,
+    @Json(name = "record_ref") val recordRef: String? = null,
+)
+
+/** String constants for ImportJobRead.status — pre-baked so callers don't
+ *  hand-roll string comparisons against backend enum values. */
+object ImportJobStatus {
+    const val PENDING = "pending"
+    const val RUNNING = "running"
+    const val COMPLETE = "complete"
+    const val FAILED = "failed"
+    const val CANCELLED = "cancelled"
+    val terminal = setOf(COMPLETE, FAILED, CANCELLED)
+}
+
+/** String constants for ImportJobRead.source / submit form field. */
+object ImportJobSource {
+    const val PLURALKIT_FILE = "pluralkit_file"
+    const val PLURALKIT_API = "pluralkit_api"
+    const val TUPPERBOX_FILE = "tupperbox_file"
+    const val SIMPLYPLURAL_FILE = "simplyplural_file"
+    const val SHEAF_FILE = "sheaf_file"
+}
+
+/**
+ * Lighter shape of [ImportJobRead] for the history list. Drops the
+ * events array which can run 10k entries on a large failing import;
+ * detail screen fetches the full ImportJobRead on tap.
+ */
+@JsonClass(generateAdapter = true)
+data class ImportJobSummary(
+    val id: String,
+    val source: String,
+    val status: String,
+    val counts: Map<String, Int> = emptyMap(),
+    @Json(name = "started_at") val startedAt: String? = null,
+    @Json(name = "finished_at") val finishedAt: String? = null,
+    @Json(name = "archived_at") val archivedAt: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null,
+)
+
+/** Cursor-paginated response from /v1/imports. */
+@JsonClass(generateAdapter = true)
+data class ImportJobList(
+    val items: List<ImportJobSummary>,
+    @Json(name = "next_cursor") val nextCursor: String? = null,
+)
+
 // ── Invite codes ─────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

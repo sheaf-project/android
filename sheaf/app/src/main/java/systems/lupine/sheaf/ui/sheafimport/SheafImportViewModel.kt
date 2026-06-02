@@ -6,16 +6,22 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.model.ImportJobRead
+import systems.lupine.sheaf.data.model.ImportJobSource
+import systems.lupine.sheaf.data.model.ImportJobStatus
 import systems.lupine.sheaf.data.model.SheafImportResult
 import systems.lupine.sheaf.data.model.SheafPreviewSummary
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.UUID
 import javax.inject.Inject
 
 data class SheafImportOptions(
@@ -97,18 +103,52 @@ class SheafImportViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isImporting = true, error = null) }
             runCatching {
-                api.runSheafImport(
-                    systemProfile = opts.systemProfile,
-                    fronts = opts.fronts,
-                    groups = opts.groups,
-                    tags = opts.tags,
-                    customFields = opts.customFields,
-                    memberIds = null,
+                val job = api.createFileImport(
                     file = bytes.toPart(name),
+                    source = ImportJobSource.SHEAF_FILE.toFormPart(),
+                    idempotencyKey = UUID.randomUUID().toString().toFormPart(),
+                    options = buildSheafOptionsJson(opts).toJsonPart(),
+                )
+                pollUntilTerminal(job)
+            }
+                .onSuccess { final -> handleTerminal(final) }
+                .onFailure { e -> _state.update { it.copy(isImporting = false, error = e.toUserMessage("Import failed — please try again")) } }
+        }
+    }
+
+    /** See [ImportViewModel.pollUntilTerminal] for the polling-loop rationale. */
+    private suspend fun pollUntilTerminal(initial: ImportJobRead): ImportJobRead {
+        var current = initial
+        while (current.status !in ImportJobStatus.terminal) {
+            delay(POLL_INTERVAL_MS)
+            current = api.getImportJob(current.id)
+        }
+        return current
+    }
+
+    private fun handleTerminal(job: ImportJobRead) {
+        when (job.status) {
+            ImportJobStatus.COMPLETE -> {
+                val counts = job.counts
+                val warnings = job.events
+                    .filter { it.level == "warning" }
+                    .map { e -> e.recordRef?.let { "$it: ${e.message}" } ?: e.message }
+                val result = SheafImportResult(
+                    membersImported = counts["members_imported"] ?: 0,
+                    frontsImported = counts["fronts_imported"] ?: 0,
+                    groupsImported = counts["groups_imported"] ?: 0,
+                    tagsImported = counts["tags_imported"] ?: 0,
+                    customFieldsImported = counts["custom_fields_imported"] ?: 0,
+                    warnings = warnings,
+                )
+                _state.update { it.copy(isImporting = false, result = result) }
+            }
+            else -> _state.update {
+                it.copy(
+                    isImporting = false,
+                    error = job.lastError ?: "Import didn't complete (status: ${job.status})",
                 )
             }
-                .onSuccess { result -> _state.update { it.copy(isImporting = false, result = result) } }
-                .onFailure { e -> _state.update { it.copy(isImporting = false, error = e.toUserMessage("Import failed — please try again")) } }
         }
     }
 
@@ -123,6 +163,12 @@ class SheafImportViewModel @Inject constructor(
         return MultipartBody.Part.createFormData("file", name, body)
     }
 
+    private fun String.toFormPart(): RequestBody =
+        toRequestBody("text/plain".toMediaType())
+
+    private fun String.toJsonPart(): RequestBody =
+        toRequestBody("application/json".toMediaType())
+
     private fun resolveFileName(uri: Uri): String? = runCatching {
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val col = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -130,4 +176,29 @@ class SheafImportViewModel @Inject constructor(
             cursor.getString(col)
         }
     }.getOrNull()
+
+    companion object {
+        private const val POLL_INTERVAL_MS: Long = 1500
+    }
+}
+
+/**
+ * Hand-built options JSON — the backend uses extra="forbid" so any
+ * typo'd field 422s; spelling it out keeps the field names visible
+ * at the call site rather than buried in a serializer.
+ *
+ * Only the toggles the existing Sheaf import screen exposes are
+ * surfaced. Other SheafImportOptions slots (journals, messages, polls,
+ * reminders, notifications) fall through to their backend defaults
+ * (currently True) — future UI work can add them as explicit toggles.
+ */
+private fun buildSheafOptionsJson(opts: SheafImportOptions): String {
+    val parts = listOf(
+        "\"system_profile\":${opts.systemProfile}",
+        "\"fronts\":${opts.fronts}",
+        "\"groups\":${opts.groups}",
+        "\"tags\":${opts.tags}",
+        "\"custom_fields\":${opts.customFields}",
+    )
+    return parts.joinToString(",", prefix = "{", postfix = "}")
 }

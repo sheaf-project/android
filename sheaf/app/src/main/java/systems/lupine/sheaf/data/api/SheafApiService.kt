@@ -381,7 +381,15 @@ interface SheafApiService {
     @GET("/v1/export")
     suspend fun exportAll(): okhttp3.ResponseBody
 
-    // ── Simply Plural import ──────────────────────────────────────────────────
+    // ── Imports (preview synchronous, submit async) ──────────────────────────
+    //
+    // Preview endpoints under `/v1/import/<source>/preview` are still
+    // synchronous: they parse + sniff the file and return a summary
+    // without committing anything. Submit endpoints moved to the
+    // unified async runner at `/v1/imports/file` (multipart) and
+    // `/v1/imports/api` (JSON, credential-based — PK only); the runner
+    // walks the file out-of-band and clients poll `/v1/imports/{id}`
+    // for status / counts / events.
 
     @Multipart
     @POST("/v1/import/simplyplural/preview")
@@ -390,36 +398,52 @@ interface SheafApiService {
     ): SPPreviewSummary
 
     @Multipart
-    @POST("/v1/import/simplyplural")
-    suspend fun runSimplyPluralImport(
-        @Query("system_profile") systemProfile: Boolean,
-        @Query("custom_fronts") customFronts: Boolean,
-        @Query("custom_fields") customFields: Boolean,
-        @Query("groups") groups: Boolean,
-        @Query("front_history") frontHistory: Boolean,
-        @Query("member_ids") memberIds: String?,
-        @Part file: MultipartBody.Part,
-    ): SPImportResult
-
-    // ── Sheaf import ──────────────────────────────────────────────────────────
-
-    @Multipart
     @POST("/v1/import/sheaf/preview")
     suspend fun previewSheafImport(
         @Part file: MultipartBody.Part,
     ): SheafPreviewSummary
 
+    /**
+     * Enqueue a file-based import. [source] is one of the
+     * [ImportJobSource] constants; [options] is a JSON-encoded
+     * source-specific options dict (or omit for backend defaults).
+     *
+     * Returns 202 + the freshly-minted [ImportJobRead] with
+     * `status = pending`. Poll [getImportJob] until status is in
+     * [ImportJobStatus.terminal] to see the result.
+     */
     @Multipart
-    @POST("/v1/import/sheaf")
-    suspend fun runSheafImport(
-        @Query("system_profile") systemProfile: Boolean,
-        @Query("fronts") fronts: Boolean,
-        @Query("groups") groups: Boolean,
-        @Query("tags") tags: Boolean,
-        @Query("custom_fields") customFields: Boolean,
-        @Query("member_ids") memberIds: String?,
+    @POST("/v1/imports/file")
+    suspend fun createFileImport(
         @Part file: MultipartBody.Part,
-    ): SheafImportResult
+        @Part("source") source: RequestBody,
+        @Part("idempotency_key") idempotencyKey: RequestBody,
+        @Part("options") options: RequestBody?,
+    ): ImportJobRead
+
+    @GET("/v1/imports/{jobId}")
+    suspend fun getImportJob(@Path("jobId") jobId: String): ImportJobRead
+
+    /**
+     * Paginated list of the current user's import jobs, most recent first.
+     * Pass [cursor] back from a prior response's `nextCursor` for the next
+     * page; null on the first call. [includeArchived] defaults false on the
+     * server, matching the "show only active" UI default.
+     */
+    @GET("/v1/imports")
+    suspend fun listImports(
+        @Query("limit") limit: Int = 25,
+        @Query("include_archived") includeArchived: Boolean = false,
+        @Query("cursor") cursor: String? = null,
+    ): ImportJobList
+
+    /**
+     * Pending jobs: cancel (204). Terminal jobs: archive — drops the
+     * row from the default history listing (204). Running jobs return
+     * 409 since v1 has no cooperative mid-flight cancel.
+     */
+    @DELETE("/v1/imports/{jobId}")
+    suspend fun cancelOrArchiveImport(@Path("jobId") jobId: String): Response<Unit>
 
     // ── Announcements ────────────────────────────────────────────────────────
 
