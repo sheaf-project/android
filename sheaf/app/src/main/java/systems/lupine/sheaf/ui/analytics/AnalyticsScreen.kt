@@ -283,7 +283,13 @@ private fun MemberRow(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    val pct = String.format(Locale.getDefault(), "%.1f%%", stats.percentOfWindow * 100)
+                    // Backend ships percent_of_window already as a percent
+                    // value (0..N, e.g. 52.93 for "52.9% of window"); it can
+                    // exceed 100 because co-fronting double-counts. Earlier
+                    // versions multiplied by 100 here on the mistaken
+                    // assumption it was a fraction, producing the "5293.0%
+                    // of window" output for a member with ~52% real share.
+                    val pct = String.format(Locale.getDefault(), "%.1f%%", stats.percentOfWindow)
                     Text(
                         "$pct of window",
                         style = MaterialTheme.typography.bodySmall,
