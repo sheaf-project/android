@@ -84,46 +84,17 @@ jobs:
             sheaf/app/build/test-results/
           if-no-files-found: ignore
 
-      - name: Build .open APKs (signed with dev CI keystore)
-        working-directory: sheaf
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-          VCODE: ${{ steps.version.outputs.version_code }}
-          VNAME: ${{ steps.version.outputs.version_name }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "ERROR: KEYSTORE_BASE64 secret missing — cannot build signed .open release"
-            exit 1
-          fi
-          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
-          ./gradlew :app:assembleOpenRelease :wear:assembleOpenRelease \
-            -PversionCode="$VCODE" \
-            -PversionName="$VNAME" \
-            -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
-            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
-            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
-          rm -f keystore.jks
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
 
-      - name: Stage .open APKs
-        run: |
-          set -euo pipefail
-          mkdir -p artefacts/open
-          VNAME="${{ steps.version.outputs.version_name }}"
-          APP_APK=$(find sheaf/app/build/outputs/apk/open/release -name "*.apk" | head -1)
-          WEAR_APK=$(find sheaf/wear/build/outputs/apk/open/release -name "*.apk" | head -1)
-          [ -n "$APP_APK" ] || { echo "ERROR: no app APK found"; exit 1; }
-          [ -n "$WEAR_APK" ] || { echo "ERROR: no wear APK found"; exit 1; }
-          cp "$APP_APK"  "artefacts/open/sheaf-${VNAME}-open.apk"
-          cp "$WEAR_APK" "artefacts/open/sheaf-wear-${VNAME}-open.apk"
-          ls -la artefacts/open/
-
-      - name: Clean release outputs before prod build
-        working-directory: sheaf
-        run: ./gradlew :app:clean :wear:clean
+      # ─────────────────────────────────────────────────────────────────────
+      # Prod (Play) build first — the unsigned AAB needs to come down to
+      # the release-ops box for offline YubiKey signing before Play Console
+      # upload. Putting it ahead of the .open build means the operator
+      # isn't waiting on the public-release build to finish before they
+      # can start the signing ceremony. The .open release publishes to
+      # GitHub Releases unattended afterwards.
+      # ─────────────────────────────────────────────────────────────────────
 
       - name: Drop Firebase config for the play flavour
         env:
@@ -171,13 +142,78 @@ jobs:
           cp "$WEAR_AAB" "artefacts/prod/sheaf-wear-${VNAME}-unsigned.aab"
           ls -la artefacts/prod/
 
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Cosign sign all artefacts
+      - name: Cosign sign prod artefacts
         run: |
           set -euo pipefail
-          for f in artefacts/open/*.apk artefacts/prod/*.apk artefacts/prod/*.aab; do
+          for f in artefacts/prod/*.apk artefacts/prod/*.aab; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes \
+              --output-signature "$f.sig" \
+              --output-certificate "$f.pem" \
+              "$f"
+            echo "Signed $f"
+          done
+
+      # This is the step that unblocks the release-ops box. Anything
+      # after this can run in the background; the operator pulls the
+      # artefact down and starts the YubiKey signing ceremony in parallel.
+      - name: Upload prod unsigned artefact (private)
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-unsigned-${{ steps.version.outputs.tag }}
+          path: artefacts/prod/
+          retention-days: 90
+          if-no-files-found: error
+
+      # ─────────────────────────────────────────────────────────────────────
+      # .open build second — the public GitHub Releases asset.
+      # ─────────────────────────────────────────────────────────────────────
+
+      - name: Clean release outputs before .open build
+        working-directory: sheaf
+        run: ./gradlew :app:clean :wear:clean
+
+      - name: Build .open APKs (signed with dev CI keystore)
+        working-directory: sheaf
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          VCODE: ${{ steps.version.outputs.version_code }}
+          VNAME: ${{ steps.version.outputs.version_name }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ERROR: KEYSTORE_BASE64 secret missing — cannot build signed .open release"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
+          ./gradlew :app:assembleOpenRelease :wear:assembleOpenRelease \
+            -PversionCode="$VCODE" \
+            -PversionName="$VNAME" \
+            -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          rm -f keystore.jks
+
+      - name: Stage .open APKs
+        run: |
+          set -euo pipefail
+          mkdir -p artefacts/open
+          VNAME="${{ steps.version.outputs.version_name }}"
+          APP_APK=$(find sheaf/app/build/outputs/apk/open/release -name "*.apk" | head -1)
+          WEAR_APK=$(find sheaf/wear/build/outputs/apk/open/release -name "*.apk" | head -1)
+          [ -n "$APP_APK" ] || { echo "ERROR: no app APK found"; exit 1; }
+          [ -n "$WEAR_APK" ] || { echo "ERROR: no wear APK found"; exit 1; }
+          cp "$APP_APK"  "artefacts/open/sheaf-${VNAME}-open.apk"
+          cp "$WEAR_APK" "artefacts/open/sheaf-wear-${VNAME}-open.apk"
+          ls -la artefacts/open/
+
+      - name: Cosign sign .open artefacts
+        run: |
+          set -euo pipefail
+          for f in artefacts/open/*.apk; do
             [ -f "$f" ] || continue
             cosign sign-blob --yes \
               --output-signature "$f.sig" \
@@ -208,11 +244,3 @@ jobs:
             For Play Store users: install via Play, not from here.
           files: |
             artefacts/open/*
-
-      - name: Upload prod unsigned artefact (private)
-        uses: actions/upload-artifact@v4
-        with:
-          name: prod-unsigned-${{ steps.version.outputs.tag }}
-          path: artefacts/prod/
-          retention-days: 90
-          if-no-files-found: error
