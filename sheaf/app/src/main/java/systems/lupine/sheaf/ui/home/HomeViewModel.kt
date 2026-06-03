@@ -56,6 +56,9 @@ data class HomeUiState(
     val showSwitchSheet: Boolean = false,
     val switchSelection: Set<String> = emptySet(),
     val switchEndCurrent: Boolean = true,
+    /** Optional custom_status the user types into the switch sheet —
+     *  rides along on the FrontCreate when confirmSwitch fires. */
+    val switchCustomStatus: String = "",
     val groups: List<GroupRead> = emptyList(),
     // memberId -> set of groupIds that contain that member, built from
     // /v1/groups/{id}/members on demand. Used by the switch sheet's group
@@ -358,6 +361,10 @@ class HomeViewModel @Inject constructor(
         _state.update { it.copy(switchEndCurrent = value) }
     }
 
+    fun setSwitchCustomStatus(value: String) {
+        _state.update { it.copy(switchCustomStatus = value) }
+    }
+
     /**
      * One-shot switch from the home-screen quick-switch carousel.
      * Bypasses the full switch sheet's selection-set machinery and
@@ -402,6 +409,7 @@ class HomeViewModel @Inject constructor(
         val sel = s.switchSelection
         if (sel.isEmpty()) return
         val replaceFronts = s.switchEndCurrent
+        val customStatus = s.switchCustomStatus.trim().ifEmpty { null }
         viewModelScope.launch {
             _state.update { it.copy(isSwitching = true, error = null) }
             if (networkMonitor.isOnline.first()) {
@@ -412,10 +420,17 @@ class HomeViewModel @Inject constructor(
                             memberIds = sel.toList(),
                             startedAt = Instant.now().toString(),
                             replaceFronts = replaceFronts,
+                            customStatus = customStatus,
                         )
                     )
                 }.onSuccess {
-                    _state.update { it.copy(isSwitching = false, showSwitchSheet = false) }
+                    _state.update {
+                        it.copy(
+                            isSwitching = false,
+                            showSwitchSheet = false,
+                            switchCustomStatus = "",
+                        )
+                    }
                     load()
                 }.onFailure { e ->
                     _state.update { it.copy(isSwitching = false, error = e.toUserMessage()) }
@@ -431,10 +446,17 @@ class HomeViewModel @Inject constructor(
                     PendingFrontSwitch(
                         memberIds = sel.joinToString(","),
                         replaceFronts = replaceFronts,
+                        customStatus = customStatus,
                     )
                 )
                 SyncWorker.schedule(appContext)
-                _state.update { it.copy(isSwitching = false, showSwitchSheet = false) }
+                _state.update {
+                    it.copy(
+                        isSwitching = false,
+                        showSwitchSheet = false,
+                        switchCustomStatus = "",
+                    )
+                }
             }
         }
     }

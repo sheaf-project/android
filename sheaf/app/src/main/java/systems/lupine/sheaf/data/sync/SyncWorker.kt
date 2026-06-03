@@ -62,6 +62,7 @@ class SyncWorker @AssistedInject constructor(
                         memberIds = memberIds,
                         startedAt = Instant.ofEpochMilli(switch.createdAt).toString(),
                         replaceFronts = switch.replaceFronts,
+                        customStatus = switch.customStatus,
                     )
                 )
             }.onSuccess {

@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [CacheEntry::class, PendingFrontSwitch::class, PendingFrontRemoval::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class SheafDatabase : RoomDatabase() {
@@ -23,6 +23,18 @@ abstract class SheafDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE pending_front_switches " +
                         "ADD COLUMN replace_fronts INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+
+        // v2 -> v3: add custom_status column to pending_front_switches.
+        // Nullable so existing queued rows from older offline-sessions
+        // keep their (implicit) null and replay without a custom status.
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE pending_front_switches " +
+                        "ADD COLUMN custom_status TEXT"
                 )
             }
         }

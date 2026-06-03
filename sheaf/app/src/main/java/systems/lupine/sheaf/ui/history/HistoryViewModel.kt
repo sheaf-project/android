@@ -334,10 +334,21 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    fun addFrontEntry(memberIds: List<String>, startedAt: String, endedAt: String?) {
+    fun addFrontEntry(
+        memberIds: List<String>,
+        startedAt: String,
+        endedAt: String?,
+        customStatus: String?,
+    ) {
         viewModelScope.launch {
             runCatching {
-                val front = api.createFront(FrontCreate(memberIds = memberIds, startedAt = startedAt))
+                val front = api.createFront(
+                    FrontCreate(
+                        memberIds = memberIds,
+                        startedAt = startedAt,
+                        customStatus = customStatus,
+                    )
+                )
                 if (endedAt != null) api.updateFront(front.id, FrontUpdate(endedAt = endedAt))
             }.onSuccess {
                 loadInitial()
@@ -347,10 +358,24 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    fun updateFrontEntry(id: String, memberIds: List<String>, startedAt: String, endedAt: String?) {
+    fun updateFrontEntry(
+        id: String,
+        memberIds: List<String>,
+        startedAt: String,
+        endedAt: String?,
+        customStatus: String?,
+    ) {
         viewModelScope.launch {
             runCatching {
-                api.updateFront(id, FrontUpdate(memberIds = memberIds, startedAt = startedAt, endedAt = endedAt))
+                api.updateFront(
+                    id,
+                    FrontUpdate(
+                        memberIds = memberIds,
+                        startedAt = startedAt,
+                        endedAt = endedAt,
+                        customStatus = customStatus,
+                    ),
+                )
             }.onSuccess { updated ->
                 _state.update { it.copy(fronts = it.fronts.map { f -> if (f.id == id) updated else f }) }
             }.onFailure { e ->

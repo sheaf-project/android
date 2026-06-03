@@ -159,8 +159,8 @@ fun HistoryScreen(
             groups = state.groups,
             memberGroups = state.memberGroups,
             onDismiss = { showAddSheet = false },
-            onConfirm = { memberIds, startedAt, endedAt ->
-                viewModel.addFrontEntry(memberIds, startedAt, endedAt)
+            onConfirm = { memberIds, startedAt, endedAt, customStatus ->
+                viewModel.addFrontEntry(memberIds, startedAt, endedAt, customStatus)
                 showAddSheet = false
             },
         )
@@ -173,8 +173,8 @@ fun HistoryScreen(
             groups = state.groups,
             memberGroups = state.memberGroups,
             onDismiss = { frontToEdit = null },
-            onConfirm = { memberIds, startedAt, endedAt ->
-                viewModel.updateFrontEntry(front.id, memberIds, startedAt, endedAt)
+            onConfirm = { memberIds, startedAt, endedAt, customStatus ->
+                viewModel.updateFrontEntry(front.id, memberIds, startedAt, endedAt, customStatus)
                 frontToEdit = null
             },
         )
@@ -662,6 +662,21 @@ private fun FrontHistoryCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            // Custom-status note when set. Italicised + quoted to read
+            // as the user's voice rather than chrome.
+            front.customStatus?.takeIf { it.isNotBlank() }?.let { status ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "“$status”",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -676,7 +691,7 @@ private fun FrontEntrySheet(
     groups: List<systems.lupine.sheaf.data.model.GroupRead>,
     memberGroups: Map<String, Set<String>>,
     onDismiss: () -> Unit,
-    onConfirm: (memberIds: List<String>, startedAt: String, endedAt: String?) -> Unit,
+    onConfirm: (memberIds: List<String>, startedAt: String, endedAt: String?, customStatus: String?) -> Unit,
 ) {
     var activeGroupId by remember { mutableStateOf<String?>(null) }
     val isEditing = initialFront != null
@@ -691,6 +706,9 @@ private fun FrontEntrySheet(
         }
     }
     var selectedIds by remember { mutableStateOf(initialFront?.memberIds?.toSet() ?: emptySet()) }
+    var customStatusDraft by remember(initialFront) {
+        mutableStateOf(initialFront?.customStatus ?: "")
+    }
     var startDate by remember { mutableStateOf(initialStart?.toLocalDate() ?: LocalDate.now()) }
     var startTime by remember { mutableStateOf(initialStart?.toLocalTime()?.withSecond(0)?.withNano(0) ?: LocalTime.now().withSecond(0).withNano(0)) }
     var stillOngoing by remember { mutableStateOf(if (isEditing) initialFront?.endedAt == null else false) }
@@ -833,13 +851,34 @@ private fun FrontEntrySheet(
                 TimeInputRow(time = endTime, onTimeChange = { endTime = it })
             }
 
+            HorizontalDivider()
+
+            // Optional custom status. Mirrors the same field on the
+            // home-screen switch sheet and the web edit-front dialog.
+            // Trimmed empty -> null, so saving an empty string clears
+            // the status when editing an entry that previously had one.
+            OutlinedTextField(
+                value = customStatusDraft,
+                onValueChange = { customStatusDraft = it },
+                label = { Text("Custom status (optional)") },
+                singleLine = false,
+                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             Button(
                 onClick = {
                     val zone = ZoneId.systemDefault()
                     val startInstant = LocalDateTime.of(startDate, startTime).atZone(zone).toInstant()
                     val endInstant = if (stillOngoing) null
                     else LocalDateTime.of(endDate, endTime).atZone(zone).toInstant()
-                    onConfirm(selectedIds.toList(), startInstant.toString(), endInstant?.toString())
+                    val statusOut = customStatusDraft.trim().ifEmpty { null }
+                    onConfirm(
+                        selectedIds.toList(),
+                        startInstant.toString(),
+                        endInstant?.toString(),
+                        statusOut,
+                    )
                 },
                 enabled = selectedIds.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth(),

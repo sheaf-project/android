@@ -443,6 +443,11 @@ data class FrontRead(
     @Json(name = "started_at") val startedAt: String,
     @Json(name = "ended_at") val endedAt: String?,
     @Json(name = "member_ids") val memberIds: List<String>,
+    // Optional per-entry "what was going on" note. Server-side it's
+    // called custom_status; UI labels match web / iOS which both use
+    // "Custom status". Surfaces on cards, in history, and in
+    // create / edit forms.
+    @Json(name = "custom_status") val customStatus: String? = null,
     // Per-member effective fronting-since (chain-aware) when the system has
     // coalesce_contiguous_fronts enabled. Keys are member ids; values are
     // ISO timestamps of the earliest started_at in each member's contiguous
@@ -459,6 +464,7 @@ data class FrontCreate(
     @Json(name = "started_at") val startedAt: String? = null,
     // null = let the server fall back to system.replace_fronts_default.
     @Json(name = "replace_fronts") val replaceFronts: Boolean? = null,
+    @Json(name = "custom_status") val customStatus: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -466,6 +472,15 @@ data class FrontUpdate(
     @Json(name = "ended_at") val endedAt: String? = null,
     @Json(name = "member_ids") val memberIds: List<String>? = null,
     @Json(name = "started_at") val startedAt: String? = null,
+    // Tristate via presence-in-body on the wire: omit to leave as-is,
+    // pass null to clear, pass a string to set. Moshi by default omits
+    // null fields from the JSON, which matches "leave as-is" — to
+    // clear we'd need a server-side convention. Web sends null to
+    // clear via an explicit serializer; the Android edit-front flow
+    // sends a non-empty trimmed string for set or skips the field
+    // entirely for "no change", and we'll add clear-on-empty as a
+    // follow-up when audit edit is wired up.
+    @Json(name = "custom_status") val customStatus: String? = null,
 )
 
 // ── Groups ────────────────────────────────────────────────────────────────────

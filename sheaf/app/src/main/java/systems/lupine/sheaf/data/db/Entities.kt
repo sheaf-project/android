@@ -18,6 +18,11 @@ data class PendingFrontSwitch(
     @ColumnInfo(name = "member_ids") val memberIds: String,
     @ColumnInfo(name = "replace_fronts") val replaceFronts: Boolean = true,
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
+    // Optional per-switch custom status. Sent through with the FrontCreate
+    // when SyncWorker drains the queue. Nullable column (added in DB v3) so
+    // existing queued rows from older builds keep their nulls and don't
+    // need a backfill.
+    @ColumnInfo(name = "custom_status") val customStatus: String? = null,
 )
 
 // Stores a pending remove-from-front: the member ID to remove.

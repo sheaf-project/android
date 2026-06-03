@@ -265,11 +265,13 @@ fun HomeScreen(
             members = state.allMembers,
             selected = state.switchSelection,
             endCurrent = state.switchEndCurrent,
+            customStatus = state.switchCustomStatus,
             groups = state.groups,
             memberGroups = state.memberGroups,
             activeGroupId = state.switchActiveGroupId,
             onToggle = { viewModel.toggleMemberSelection(it) },
             onSetEndCurrent = { viewModel.setSwitchEndCurrent(it) },
+            onSetCustomStatus = { viewModel.setSwitchCustomStatus(it) },
             onSetActiveGroup = { viewModel.setSwitchActiveGroup(it) },
             onConfirm = { viewModel.confirmSwitch() },
             onDismiss = { viewModel.closeSwitchSheet() },
@@ -409,6 +411,20 @@ private fun FrontingMemberCard(member: MemberRead, front: FrontRead?, onLongClic
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
+                // Custom-status note. Italicised, secondary tone so it
+                // reads as a quote next to the structural info above.
+                // Skipped entirely when the front carries no status —
+                // most fronts won't.
+                front?.customStatus?.takeIf { it.isNotBlank() }?.let { status ->
+                    Text(
+                        text = "“$status”",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
             ActiveDot()
         }
@@ -423,11 +439,13 @@ private fun SwitchFrontSheet(
     members: List<MemberRead>,
     selected: Set<String>,
     endCurrent: Boolean,
+    customStatus: String,
     groups: List<systems.lupine.sheaf.data.model.GroupRead>,
     memberGroups: Map<String, Set<String>>,
     activeGroupId: String?,
     onToggle: (String) -> Unit,
     onSetEndCurrent: (Boolean) -> Unit,
+    onSetCustomStatus: (String) -> Unit,
     onSetActiveGroup: (String?) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
@@ -527,6 +545,20 @@ private fun SwitchFrontSheet(
                     )
                 }
             }
+            // Optional per-front custom status. Same field as web's
+            // "Custom status" input on the edit-front dialog — rides
+            // along on the FrontCreate so the entry shows the same note
+            // on every client. Empty trim -> sent as null (server clears).
+            OutlinedTextField(
+                value = customStatus,
+                onValueChange = onSetCustomStatus,
+                label = { Text("Custom status (optional)") },
+                singleLine = false,
+                maxLines = 3,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
             Button(
                 onClick = onConfirm,
                 enabled = !isSwitching && selected.isNotEmpty(),
