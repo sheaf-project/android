@@ -727,7 +727,17 @@ private fun QuickSwitchCarousel(
     modifier: Modifier = Modifier,
 ) {
     if (members.isEmpty()) return
-    Column(modifier = modifier.padding(top = 4.dp)) {
+    // The Scaffold's bottomBar slot doesn't auto-inset for the system
+    // navigation bar, so the chip row was getting clipped a few pixels
+    // by the gesture/3-button nav. navigationBarsPadding lifts the
+    // whole carousel above the nav inset; a small extra 4dp at the
+    // bottom matches the gap above the row so the float doesn't read
+    // as glued to the nav.
+    Column(
+        modifier = modifier
+            .navigationBarsPadding()
+            .padding(top = 4.dp, bottom = 4.dp),
+    ) {
         Text(
             text = "Quick switch",
             style = MaterialTheme.typography.labelMedium,
