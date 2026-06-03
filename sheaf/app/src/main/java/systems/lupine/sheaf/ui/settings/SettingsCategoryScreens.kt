@@ -52,6 +52,8 @@ import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.*
@@ -111,6 +113,7 @@ fun AppearanceSettingsScreen(
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
     val themePalette by viewModel.themePalette.collectAsState()
+    val themeSynced by viewModel.themeSynced.collectAsState()
     CategoryScaffold(title = "Appearance", onNavigateUp = onNavigateUp) {
         val themeModes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
         val themeIcons = mapOf(
@@ -146,7 +149,50 @@ fun AppearanceSettingsScreen(
             themeMode = themeMode,
             onSelected = { viewModel.savePalette(it) },
         )
+        HorizontalDivider()
+        ThemeSyncRow(
+            synced = themeSynced,
+            onChange = { viewModel.setThemeSynced(it) },
+        )
     }
+}
+
+/**
+ * Sync-across-Android-devices toggle. Mirrors web's equivalent but
+ * lives in a separate client_settings blob (`client_id = "android"`)
+ * so palettes that only exist on Android (Material You) don't have to
+ * round-trip through web's settings shape.
+ */
+@Composable
+private fun ThemeSyncRow(
+    synced: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text("Sync theme across my Android devices") },
+        supportingContent = {
+            Text(
+                if (synced) {
+                    "Your mode and palette follow your account. Changes here apply " +
+                        "to every Android device logged in and synced."
+                } else {
+                    "This device keeps its own mode and palette. Other Android " +
+                        "devices follow their own picks (or your last synced choice)."
+                },
+            )
+        },
+        leadingContent = {
+            Icon(
+                if (synced) Icons.Outlined.CloudSync else Icons.Outlined.CloudOff,
+                contentDescription = null,
+                tint = if (synced) MaterialTheme.colorScheme.primary
+                       else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        trailingContent = {
+            Switch(checked = synced, onCheckedChange = onChange)
+        },
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

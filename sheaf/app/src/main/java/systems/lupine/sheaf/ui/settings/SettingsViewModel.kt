@@ -101,6 +101,9 @@ class SettingsViewModel @Inject constructor(
     val themePalette: StateFlow<String> = prefs.themePalette
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "purple")
 
+    val themeSynced: StateFlow<Boolean> = prefs.themeSynced
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val frontNotificationEnabled: StateFlow<Boolean> = prefs.frontNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -118,11 +121,17 @@ class SettingsViewModel @Inject constructor(
                 user to system
             }.onSuccess { (user, system) ->
                 _state.update { it.copy(user = user, system = system, isLoading = false) }
-                runCatching { api.getClientSettings(CLIENT_ID) }
-                    .onSuccess { resp ->
-                        val theme = resp.settings["theme"] as? String
-                        if (theme != null) prefs.saveTheme(theme)
-                    }
+                // Only pull theme + palette down when sync is on. With
+                // sync off, the local DataStore values are the device's
+                // explicit pin and we shouldn't surprise the user by
+                // overwriting them from the backend on every load.
+                if (prefs.themeSynced.first()) {
+                    runCatching { api.getClientSettings(CLIENT_ID) }
+                        .onSuccess { resp ->
+                            (resp.settings["theme"] as? String)?.let { prefs.saveTheme(it) }
+                            (resp.settings["theme_palette"] as? String)?.let { prefs.savePalette(it) }
+                        }
+                }
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
                 return@launch
@@ -160,24 +169,62 @@ class SettingsViewModel @Inject constructor(
     fun saveTheme(mode: String) {
         viewModelScope.launch {
             prefs.saveTheme(mode)
-            runCatching { api.saveClientSettings(CLIENT_ID, ClientSettingsBody(mapOf("theme" to mode))) }
+            // Only sync up to the backend when this device opted into
+            // the cross-Android-device default. PATCH (not PUT) keeps
+            // the palette key intact so toggling mode doesn't wipe it.
+            if (prefs.themeSynced.first()) {
+                runCatching {
+                    api.patchClientSettings(
+                        CLIENT_ID,
+                        ClientSettingsBody(mapOf("theme" to mode)),
+                    )
+                }
+            }
         }
     }
 
     fun savePalette(paletteId: String) {
         viewModelScope.launch {
             prefs.savePalette(paletteId)
-            // Mirror the persisted choice to the server's per-client
-            // settings bag so a future cross-device sync can read it,
-            // exactly as saveTheme does for the dark/light mode. Best-
-            // effort: a network failure here doesn't undo the local
-            // save, which is what the user just expressed intent on.
-            runCatching {
-                api.saveClientSettings(
-                    CLIENT_ID,
-                    ClientSettingsBody(mapOf("theme_palette" to paletteId)),
-                )
+            if (prefs.themeSynced.first()) {
+                runCatching {
+                    api.patchClientSettings(
+                        CLIENT_ID,
+                        ClientSettingsBody(mapOf("theme_palette" to paletteId)),
+                    )
+                }
             }
+        }
+    }
+
+    /**
+     * Flip the per-device vs sync-to-all-Android-devices toggle.
+     *
+     * Turning ON: push current local theme + palette up to the backend
+     * with a single PATCH so all this user's Android devices that are
+     * also synced converge on the same values. Done in one round trip
+     * to keep the on-state semantically "this device's current look is
+     * now the account default".
+     *
+     * Turning OFF: just flip the local flag. Backend keeps whatever
+     * it had so other synced devices aren't affected, and this device
+     * stops pushing changes up or pulling them down.
+     */
+    fun setThemeSynced(synced: Boolean) {
+        viewModelScope.launch {
+            if (synced) {
+                val mode = prefs.themeMode.first()
+                val palette = prefs.themePalette.first()
+                runCatching {
+                    api.patchClientSettings(
+                        CLIENT_ID,
+                        ClientSettingsBody(
+                            mapOf("theme" to mode, "theme_palette" to palette),
+                        ),
+                    )
+                }
+            }
+            prefs.saveThemeSynced(synced)
         }
     }
 

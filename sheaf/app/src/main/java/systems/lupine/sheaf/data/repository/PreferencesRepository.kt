@@ -28,6 +28,19 @@ class PreferencesRepository @Inject constructor(
         val KEY_REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val KEY_THEME = stringPreferencesKey("theme")
         val KEY_PALETTE = stringPreferencesKey("theme_palette")
+        // Theme stickiness toggle. When true, this device follows the
+        // account's shared Android theme (client_settings/android on the
+        // server) — saving on one Android device propagates to the
+        // others on next load. When false, this device pins to its
+        // local DataStore values and the backend isn't touched.
+        //
+        // Defaults to true: existing users already mirrored their last
+        // theme + palette choice up to the backend under a one-way
+        // write, so flipping sync ON by default means the backend value
+        // matches what they had locally — no surprise re-themes on
+        // upgrade. Users who want per-device control flip it off in
+        // Settings → Appearance.
+        val KEY_THEME_SYNCED = booleanPreferencesKey("theme_synced")
         val KEY_FRONT_NOTIFICATION = booleanPreferencesKey("front_notification")
         val KEY_CF_CLIENT_ID = stringPreferencesKey("cf_client_id")
         val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
@@ -69,6 +82,8 @@ class PreferencesRepository @Inject constructor(
     val themeMode: Flow<String> = context.dataStore.data.map { it[KEY_THEME] ?: "system" }
     val themePalette: Flow<String> =
         context.dataStore.data.map { it[KEY_PALETTE] ?: "purple" }
+    val themeSynced: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_THEME_SYNCED] ?: true }
     val frontNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_FRONT_NOTIFICATION] ?: false }
     val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
     val cfClientSecret: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_SECRET] }
@@ -133,6 +148,10 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun savePalette(paletteId: String) {
         context.dataStore.edit { it[KEY_PALETTE] = paletteId }
+    }
+
+    suspend fun saveThemeSynced(synced: Boolean) {
+        context.dataStore.edit { it[KEY_THEME_SYNCED] = synced }
     }
 
     suspend fun saveFrontNotification(enabled: Boolean) {

@@ -373,6 +373,19 @@ interface SheafApiService {
         @Body body: ClientSettingsBody,
     ): ClientSettingsResponse
 
+    /**
+     * Atomic top-level key merge — the only safe option when independent
+     * features (theme, dismissed announcements, etc.) each write their
+     * own subset of the blob. Using PUT here would clobber whichever key
+     * wasn't included in the latest write. Backend implements this as a
+     * single JSONB `||` UPDATE so concurrent callers don't race.
+     */
+    @PATCH("/v1/settings/client/{clientId}")
+    suspend fun patchClientSettings(
+        @Path("clientId") clientId: String,
+        @Body body: ClientSettingsBody,
+    ): ClientSettingsResponse
+
     @DELETE("/v1/settings/client/{clientId}")
     suspend fun deleteClientSettings(@Path("clientId") clientId: String)
 
