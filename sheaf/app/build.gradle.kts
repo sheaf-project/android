@@ -180,8 +180,15 @@ dependencies {
     // Images
     implementation(libs.coil.compose)
 
-    // Markdown rendering (Markwon under the hood — supports images via Coil)
-    implementation(libs.compose.markdown)
+    // Markdown rendering. We drive Markwon directly through SheafMarkdownText,
+    // which lets us plug in our own code-block syntax highlighter. The
+    // previous jeziellago compose-markdown wrapper baked its Markwon
+    // plugin chain into private internals — couldn't inject through it.
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.linkify)
+    implementation(libs.markwon.ext.strikethrough)
+    implementation(libs.markwon.ext.tables)
+    implementation(libs.markwon.image.coil)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
