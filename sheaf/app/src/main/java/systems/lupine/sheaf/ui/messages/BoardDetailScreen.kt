@@ -19,9 +19,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,10 +41,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -100,6 +106,15 @@ fun BoardDetailScreen(
                     // at the bottom so the composer is adjacent. Reverse here
                     // so the LazyColumn is in chronological order.
                     val ordered = state.messages.asReversed()
+                    // Lookup table for jump-to-parent. Built once per
+                    // message-list change so tapping a reply's quoted
+                    // parent card can animateScrollToItem cheaply.
+                    val indexById by remember(ordered) {
+                        derivedStateOf {
+                            ordered.withIndex().associate { (i, m) -> m.id to i }
+                        }
+                    }
+                    val scope = rememberCoroutineScope()
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -110,7 +125,16 @@ fun BoardDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(ordered, key = { it.id }) { msg ->
-                            MessageBubble(msg)
+                            MessageBubble(
+                                message = msg,
+                                onReply = { viewModel.setReplyTo(msg) },
+                                onJumpToParent = { parentId ->
+                                    indexById[parentId]?.let { idx ->
+                                        scope.launch { listState.animateScrollToItem(idx) }
+                                    }
+                                },
+                                parentIsOnPage = msg.parentMessageId?.let { it in indexById } == true,
+                            )
                         }
                     }
                 }
@@ -130,13 +154,22 @@ private fun Composer(state: BoardDetailUiState, vm: BoardDetailViewModel) {
                 .imePadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
+            state.replyTo?.let { reply ->
+                ReplyingToBanner(
+                    reply = reply,
+                    onClear = { vm.setReplyTo(null) },
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             AuthorDropdown(state, vm)
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 OutlinedTextField(
                     value = state.draft,
                     onValueChange = { vm.setDraft(it) },
-                    label = { Text("Write a message…") },
+                    label = {
+                        Text(if (state.replyTo != null) "Write a reply…" else "Write a message…")
+                    },
                     minLines = 1,
                     maxLines = 5,
                     modifier = Modifier.weight(1f),
@@ -161,6 +194,50 @@ private fun Composer(state: BoardDetailUiState, vm: BoardDetailViewModel) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Composer pre-banner shown when [BoardDetailUiState.replyTo] is set.
+ * Mirrors the web client's `Replying to X: <snippet>` row so the user
+ * has both a clear visual indicator that the next send goes under a
+ * specific parent and a one-tap way out.
+ */
+@Composable
+private fun ReplyingToBanner(
+    reply: systems.lupine.sheaf.data.model.MessageRead,
+    onClear: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Replying to ${reply.authorMemberName ?: "deleted member"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    reply.body,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = onClear) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Cancel reply",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -204,7 +281,12 @@ private fun AuthorDropdown(state: BoardDetailUiState, vm: BoardDetailViewModel) 
 }
 
 @Composable
-private fun MessageBubble(message: MessageRead) {
+private fun MessageBubble(
+    message: MessageRead,
+    onReply: () -> Unit,
+    onJumpToParent: (parentId: String) -> Unit,
+    parentIsOnPage: Boolean,
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -218,14 +300,46 @@ private fun MessageBubble(message: MessageRead) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.weight(1f))
+            // Compact reply trigger. Surface as a small icon button at
+            // the row's trailing edge — matches the chat-app convention
+            // of "lightweight per-message action" without dropping a
+            // full button below every message.
+            IconButton(
+                onClick = onReply,
+                modifier = Modifier.heightIn(max = 28.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Reply,
+                    contentDescription = "Reply to this message",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.height(18.dp),
+                )
+            }
         }
         if (message.parentMessageId != null && message.parentPreview != null) {
+            // Quoted-parent card. When the parent is in the loaded
+            // page, the whole card acts as a jump-to-parent affordance;
+            // tapping animates the LazyColumn up to that message. When
+            // the parent is off-page (older than the current batch),
+            // we still show the quote but the tap is a no-op rather
+            // than a broken-looking scroll. Pagination of older
+            // messages is a follow-up.
+            val parentId = message.parentMessageId
+            val cardModifier = if (parentIsOnPage) {
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 2.dp)
+                    .clickable { onJumpToParent(parentId) }
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 2.dp)
+            }
             Surface(
                 tonalElevation = 1.dp,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 2.dp),
+                modifier = cardModifier,
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     Text(

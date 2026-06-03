@@ -29,6 +29,10 @@ data class BoardDetailUiState(
     /** Member-of-this-system the new post is attributed to. */
     val authorMemberId: String? = null,
     val draft: String = "",
+    /** When non-null, [submit] sets parent_message_id on the new post so
+     *  the server records it as a reply. UI shows a "Replying to X" banner
+     *  above the composer and an × to clear. Mirrors web's `replyTo`. */
+    val replyTo: MessageRead? = null,
     val error: String? = null,
 )
 
@@ -112,11 +116,23 @@ class BoardDetailViewModel @Inject constructor(
         _state.update { it.copy(draft = text) }
     }
 
+    /**
+     * Set or clear the message that the composer's next post will reply to.
+     * Passing null clears the reply context — composer reverts to top-level
+     * post mode.
+     */
+    fun setReplyTo(message: MessageRead?) {
+        _state.update { it.copy(replyTo = message) }
+    }
+
     fun submit() {
         val s = _state.value
         val authorId = s.authorMemberId ?: return
         val body = s.draft.trim()
         if (body.isBlank()) return
+        // Capture parent id from state once so a concurrent setReplyTo
+        // can't change what we end up posting under.
+        val parentMessageId = s.replyTo?.id
         viewModelScope.launch {
             _state.update { it.copy(isPosting = true, error = null) }
             runCatching {
@@ -126,11 +142,14 @@ class BoardDetailViewModel @Inject constructor(
                         boardKind = boardKind,
                         boardMemberId = boardMemberId,
                         authorMemberId = authorId,
+                        parentMessageId = parentMessageId,
                     )
                 )
             }
                 .onSuccess {
-                    _state.update { it.copy(isPosting = false, draft = "") }
+                    _state.update {
+                        it.copy(isPosting = false, draft = "", replyTo = null)
+                    }
                     refresh()
                 }
                 .onFailure { e ->
