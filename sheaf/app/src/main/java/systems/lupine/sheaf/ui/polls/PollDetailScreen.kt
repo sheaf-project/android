@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -19,7 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -135,7 +138,35 @@ private fun Content(state: PollDetailUiState, vm: PollDetailViewModel) {
 private fun VotingPanel(state: PollDetailUiState, vm: PollDetailViewModel) {
     val poll = state.poll!!
     SectionHeader("Vote")
+    if (poll.restrictVotingToFronters) {
+        // Always surface the restriction at the top of the voting
+        // panel, even when the picked voter is currently in front —
+        // so the user knows the rule and isn't surprised when an
+        // out-of-front member can't vote later.
+        AssistChip(
+            onClick = {},
+            label = { Text("Only fronting members may vote") },
+            leadingIcon = {
+                Icon(
+                    Icons.Outlined.People,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+            },
+        )
+        Spacer(Modifier.height(8.dp))
+    }
     MemberDropdown(state, vm)
+    if (state.voterBlockedByRestriction) {
+        // Voter-specific explanation. Visible only when the picked
+        // member isn't in the current front and the poll restricts.
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "This member isn't currently fronting — voting is restricted to fronters on this poll.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
     Spacer(Modifier.height(12.dp))
     val isSingle = poll.kind == "single_choice"
     if (isSingle) {
@@ -160,7 +191,10 @@ private fun VotingPanel(state: PollDetailUiState, vm: PollDetailViewModel) {
     Spacer(Modifier.height(16.dp))
     Button(
         onClick = { vm.submitVote() },
-        enabled = !state.isVoting && state.selectedOptionIds.isNotEmpty() && state.votedAsMemberId != null,
+        enabled = !state.isVoting
+            && state.selectedOptionIds.isNotEmpty()
+            && state.votedAsMemberId != null
+            && !state.voterBlockedByRestriction,
         modifier = Modifier.fillMaxWidth(),
     ) {
         if (state.isVoting) {

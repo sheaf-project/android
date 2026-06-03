@@ -24,11 +24,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -135,6 +139,41 @@ fun PollEditorScreen(
             CloseDateField(state.closesAtIso) { iso ->
                 viewModel.update { copy(closesAtIso = iso) }
             }
+
+            Spacer(Modifier.height(20.dp))
+            SectionHeader("Who can vote")
+            // Voting restriction. Surfaced as a switch row so it's
+            // legible at a glance — radio rows above carry one
+            // selected-at-a-time choices, this one's a toggle on top
+            // of those.
+            ListItem(
+                headlineContent = {
+                    Text(
+                        "Only currently-fronting members",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        if (state.restrictVotingToFronters)
+                            "Members can only cast or withdraw a vote while they're in the active front."
+                        else
+                            "Any system member can vote regardless of whether they're fronting.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = state.restrictVotingToFronters,
+                        onCheckedChange = { v ->
+                            viewModel.update { copy(restrictVotingToFronters = v) }
+                        },
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.padding(horizontal = 0.dp),
+            )
 
             Spacer(Modifier.height(20.dp))
             SectionHeader("Options")

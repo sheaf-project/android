@@ -28,6 +28,10 @@ data class PollEditorState(
     val kind: String = "single_choice",
     val resultsVisibility: String = "live",
     val closesAtIso: String = defaultClosesAt(),
+    /** When on, only currently-fronting members can vote.
+     *  Default off — matches the journals/messages "any member may
+     *  author" model and what existed before the backend toggle. */
+    val restrictVotingToFronters: Boolean = false,
     val options: List<String> = listOf("", ""),
 )
 
@@ -83,6 +87,7 @@ class PollEditorViewModel @Inject constructor(
                         kind = s.kind,
                         resultsVisibility = s.resultsVisibility,
                         closesAt = s.closesAtIso,
+                        restrictVotingToFronters = s.restrictVotingToFronters,
                         options = s.options.map { PollOptionCreate(it.trim()) },
                     )
                 )

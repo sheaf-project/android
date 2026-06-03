@@ -24,6 +24,11 @@ data class PollCreate(
     @Json(name = "closes_at") val closesAt: String,  // ISO 8601 with tz offset
     @Json(name = "retention_days") val retentionDays: Int? = null,
     @Json(name = "include_custom_fronts") val includeCustomFronts: Boolean = false,
+    // When true, voting is gated on the voted-as member being part of
+    // the current front at vote/withdraw time. False (default) lets
+    // any system member vote regardless of fronting state, matching
+    // the journals/messages model.
+    @Json(name = "restrict_voting_to_fronters") val restrictVotingToFronters: Boolean = false,
     @Json(name = "options") val options: List<PollOptionCreate>,
 )
 
@@ -52,6 +57,7 @@ data class PollRead(
     @Json(name = "closes_at") val closesAt: String,
     @Json(name = "retention_days") val retentionDays: Int = 30,
     @Json(name = "include_custom_fronts") val includeCustomFronts: Boolean = false,
+    @Json(name = "restrict_voting_to_fronters") val restrictVotingToFronters: Boolean = false,
     @Json(name = "options") val options: List<PollOptionRead> = emptyList(),
     @Json(name = "is_closed") val isClosed: Boolean = false,
     @Json(name = "closed_since") val closedSince: String? = null,

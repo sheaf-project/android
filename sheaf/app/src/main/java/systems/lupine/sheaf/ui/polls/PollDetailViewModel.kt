@@ -25,9 +25,21 @@ data class PollDetailUiState(
     val selectedOptionIds: Set<String> = emptySet(),
     /** Which member they're voting as. Defaults to the first member. */
     val votedAsMemberId: String? = null,
+    /** Member ids currently fronting (any front, any member). Used to
+     *  gate the vote button when the poll has
+     *  restrict_voting_to_fronters set. Empty until the first refresh. */
+    val frontingMemberIds: Set<String> = emptySet(),
     val error: String? = null,
     val saved: Boolean = false,
-)
+) {
+    /** True when the poll restricts to fronters and the chosen
+     *  voted-as member isn't currently in the front. Used both to
+     *  disable the vote button and to show an inline explanation. */
+    val voterBlockedByRestriction: Boolean
+        get() = poll?.restrictVotingToFronters == true
+            && votedAsMemberId != null
+            && votedAsMemberId !in frontingMemberIds
+}
 
 @HiltViewModel
 class PollDetailViewModel @Inject constructor(
@@ -48,9 +60,17 @@ class PollDetailViewModel @Inject constructor(
             runCatching {
                 val poll = api.getPoll(pollId)
                 val members = runCatching { api.listMembers() }.getOrDefault(emptyList())
-                poll to members
+                // Fronts only matter when the poll restricts voting; skip
+                // the call otherwise so we don't fan out a /fronts/current
+                // request on every poll open.
+                val fronting = if (poll.restrictVotingToFronters) {
+                    runCatching { api.getCurrentFronts() }.getOrDefault(emptyList())
+                        .flatMap { it.memberIds }
+                        .toSet()
+                } else emptySet()
+                Triple(poll, members, fronting)
             }
-                .onSuccess { (poll, members) ->
+                .onSuccess { (poll, members, fronting) ->
                     _state.update {
                         // Prefer the first member that already voted (so the user
                         // can see and amend their existing vote) if the owner has
@@ -67,6 +87,7 @@ class PollDetailViewModel @Inject constructor(
                             isLoading = false,
                             poll = poll,
                             members = members,
+                            frontingMemberIds = fronting,
                             votedAsMemberId = it.votedAsMemberId ?: defaultMember,
                             selectedOptionIds = if (it.selectedOptionIds.isNotEmpty()) it.selectedOptionIds else staged,
                         )
