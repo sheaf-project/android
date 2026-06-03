@@ -62,12 +62,12 @@ class MemberTrackerWidget : GlanceAppWidget() {
         val KEY_ERROR          = booleanPreferencesKey("tracker_error")
         val KEY_UNCONFIGURED   = booleanPreferencesKey("tracker_unconfigured")
 
-        private val SMALL  = DpSize(150.dp, 70.dp)
-        private val MEDIUM = DpSize(220.dp, 130.dp)
-        private val LARGE  = DpSize(280.dp, 200.dp)
     }
 
-    override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE))
+    // See QuickSwitchWidget for the rationale on switching off
+    // SizeMode.Responsive — we want continuous size feedback, not three
+    // discrete buckets that leave space blank between them.
+    override val sizeMode = SizeMode.Exact
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -89,7 +89,12 @@ class MemberTrackerWidget : GlanceAppWidget() {
         val avatars: List<Bitmap?> = remember(ids) {
             ids.map { loadWidgetAvatar(context, it) }
         }
-        val compact = LocalSize.current.height < 100.dp
+        val height = LocalSize.current.height
+        val compact = height < 100.dp
+        val rowHeight = if (compact) 30.dp else 44.dp
+        val chrome = if (compact) 20.dp else 38.dp
+        val avail = (height - chrome).coerceAtLeast(rowHeight)
+        val maxRows = (avail.value / rowHeight.value).toInt().coerceAtLeast(1)
 
         GlanceTheme {
             Box(
@@ -105,7 +110,7 @@ class MemberTrackerWidget : GlanceAppWidget() {
                     isLoading -> StateLabel("Refreshing...", isError = false)
                     isError -> StateLabel("Tap to retry", isError = true)
                     names.isEmpty() -> StateLabel("No tracked members", isError = false)
-                    else -> TrackerGrid(names, colors, ids, fronting, avatars, compact)
+                    else -> TrackerGrid(names, colors, ids, fronting, avatars, compact, maxRows)
                 }
             }
         }
@@ -134,6 +139,7 @@ private fun TrackerGrid(
     fronting: Set<String>,
     avatars: List<Bitmap?>,
     compact: Boolean,
+    maxRows: Int,
 ) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
         if (!compact) {
@@ -143,7 +149,6 @@ private fun TrackerGrid(
             )
             Spacer(modifier = GlanceModifier.height(6.dp))
         }
-        val maxRows = if (compact) 2 else 4
         names.take(maxRows).forEachIndexed { i, name ->
             TrackerRow(
                 name = name,

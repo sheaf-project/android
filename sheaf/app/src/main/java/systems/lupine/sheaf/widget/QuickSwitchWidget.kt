@@ -57,12 +57,14 @@ class QuickSwitchWidget : GlanceAppWidget() {
         val KEY_ERROR         = booleanPreferencesKey("qs_error")
         val KEY_UNCONFIGURED  = booleanPreferencesKey("qs_unconfigured")
 
-        private val SMALL  = DpSize(150.dp, 70.dp)
-        private val MEDIUM = DpSize(220.dp, 140.dp)
-        private val LARGE  = DpSize(280.dp, 210.dp)
     }
 
-    override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE))
+    // Exact (not Responsive) so the composable reads the host's actual
+    // resized dimensions. Previously SizeMode.Responsive snapped LocalSize
+    // to one of three buckets — if the user resized between buckets the
+    // row count stayed pinned to the smallest one and most of the
+    // widget rendered blank.
+    override val sizeMode = SizeMode.Exact
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -90,7 +92,15 @@ class QuickSwitchWidget : GlanceAppWidget() {
         val avatars: List<Bitmap?> = remember(ids) {
             ids.map { loadWidgetAvatar(context, it) }
         }
-        val compact = LocalSize.current.height < 100.dp
+        val height = LocalSize.current.height
+        val compact = height < 100.dp
+        // Per-row height budget: rough but consistent across the three
+        // list widgets. Subtract the title + padding chrome from the
+        // visible height, divide by an empirical row height.
+        val rowHeight = if (compact) 34.dp else 40.dp
+        val chrome = if (compact) 16.dp else 36.dp  // padding + title
+        val avail = (height - chrome).coerceAtLeast(rowHeight)
+        val maxRows = (avail.value / rowHeight.value).toInt().coerceAtLeast(1)
 
         GlanceTheme {
             Box(
@@ -105,7 +115,7 @@ class QuickSwitchWidget : GlanceAppWidget() {
                     isLoading -> Status("Refreshing...", isError = false)
                     isError -> Status("Tap to retry", isError = true)
                     names.isEmpty() -> Status("No members picked", isError = false)
-                    else -> SwitchTiles(context, widgetId, ids, names, colors, avatars, compact)
+                    else -> SwitchTiles(context, widgetId, ids, names, colors, avatars, compact, maxRows)
                 }
             }
         }
@@ -135,6 +145,7 @@ private fun SwitchTiles(
     colors: List<String>,
     avatars: List<Bitmap?>,
     compact: Boolean,
+    maxRows: Int,
 ) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
         if (!compact) {
@@ -144,7 +155,6 @@ private fun SwitchTiles(
             )
             Spacer(modifier = GlanceModifier.height(6.dp))
         }
-        val maxRows = if (compact) 2 else 4
         ids.take(maxRows).forEachIndexed { i, memberId ->
             val name = names.getOrNull(i) ?: "Member"
             val intent = Intent(context, QuickSwitchTrampolineActivity::class.java).apply {

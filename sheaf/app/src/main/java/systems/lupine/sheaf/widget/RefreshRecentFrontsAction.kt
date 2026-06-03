@@ -24,9 +24,11 @@ class RefreshRecentFrontsAction : ActionCallback {
         RecentFrontsWidget().update(context, glanceId)
 
         try {
-            val api = EntryPointAccessors
+            val entryPoint = EntryPointAccessors
                 .fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-                .sheafApiService()
+            val api = entryPoint.sheafApiService()
+            val prefsRepo = entryPoint.preferencesRepository()
+            val http = entryPoint.okHttpClient()
 
             val members = api.listMembers().associateBy { it.id }
             // listFronts returns newest-first, which is the order we want.
@@ -40,8 +42,22 @@ class RefreshRecentFrontsAction : ActionCallback {
                     startedAt = f.startedAt,
                     endedAt = f.endedAt,
                     names = names,
+                    memberIds = f.memberIds,
                 )
             }
+
+            // Pre-render avatar PNGs for every member that appears in
+            // the visible entries so the widget can decode them
+            // synchronously from filesDir during render. The
+            // member-tracker / quick-switch widgets do the same and we
+            // happily share the same cache directory — re-rendering
+            // the same id twice on the same tick is cheap and avoids
+            // a per-widget bookkeeping pass to dedupe across them.
+            val members_in_view = entries
+                .flatMap { it.memberIds }
+                .distinct()
+                .mapNotNull { members[it] }
+            renderWidgetAvatars(context, prefsRepo, http, members_in_view)
 
             updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                 prefs.toMutablePreferences().apply {

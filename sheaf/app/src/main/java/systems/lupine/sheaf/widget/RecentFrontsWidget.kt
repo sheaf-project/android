@@ -2,10 +2,14 @@ package systems.lupine.sheaf.widget
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.DpSize
+import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.layout.size
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -52,22 +56,30 @@ class RecentFrontsWidget : GlanceAppWidget() {
         val KEY_LOADING   = booleanPreferencesKey("recent_loading")
         val KEY_ERROR     = booleanPreferencesKey("recent_error")
 
-        // Per-row format: startedAt \t names-joined-by-comma \t endedAt-or-empty.
-        // Rows joined by newlines. Tabs and newlines are excluded from both
-        // ISO-8601 timestamps and member display names so the encoding parses
+        // Per-row format:
+        //   startedAt \t names-joined-by-comma \t endedAt-or-empty \t memberIds-pipe-joined
+        // The memberIds field is appended (4th) so older queued state
+        // produced by builds pre-this-update still parses with three
+        // fields and just renders without avatars. Rows joined by
+        // newlines. Tabs and newlines are excluded from both ISO-8601
+        // timestamps and member display names so the encoding parses
         // unambiguously without escapes.
         internal const val ROW_SEP = "\n"
         internal const val FIELD_SEP = "\t"
         internal const val NAME_SEP = ", "
+        internal const val ID_SEP = "|"
 
-        internal const val MAX_VISIBLE = 6
-
-        private val SMALL  = DpSize(180.dp, 90.dp)
-        private val MEDIUM = DpSize(240.dp, 150.dp)
-        private val LARGE  = DpSize(280.dp, 230.dp)
+        // Server-side history fetch ceiling. Effective rows shown is
+        // computed from the host's current size at render time so a
+        // resized widget actually grows / shrinks rather than capping
+        // at a discrete bucket.
+        internal const val MAX_VISIBLE = 12
     }
 
-    override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE))
+    // See QuickSwitchWidget for why SizeMode.Exact: bucket-based responsive
+    // sizing pinned LocalSize to one of three values, leaving large
+    // resized hosts mostly blank with a misleading "+N more" tail.
+    override val sizeMode = SizeMode.Exact
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -84,11 +96,15 @@ class RecentFrontsWidget : GlanceAppWidget() {
         val entries = parseEntries(raw)
 
         val height = LocalSize.current.height
-        val maxRows = when {
-            height < 100.dp -> 2
-            height < 170.dp -> 4
-            else -> MAX_VISIBLE
-        }
+        // Continuous size → continuous row count. Subtract title +
+        // padding from the visible height and divide by a per-row
+        // budget; min 1 so we always show at least one entry.
+        val rowHeight = 36.dp
+        val chrome = 28.dp  // title + spacer + outer padding (top)
+        val avail = (height - chrome).coerceAtLeast(rowHeight)
+        val maxRows = (avail.value / rowHeight.value).toInt()
+            .coerceAtLeast(1)
+            .coerceAtMost(MAX_VISIBLE)
 
         GlanceTheme {
             Box(
@@ -126,6 +142,16 @@ private fun Centered(text: String, isError: Boolean) {
 
 @Composable
 private fun EntryList(entries: List<RecentEntry>, maxRows: Int) {
+    val context = LocalContext.current
+    // Pre-decode every avatar we'll render this pass so EntryRow stays
+    // synchronous. List of (id -> bitmap-or-null), keyed by entry order
+    // so we can hand each row only the bitmaps for its members.
+    val avatarsByMemberId: Map<String, Bitmap?> = remember(entries) {
+        entries.take(maxRows)
+            .flatMap { it.memberIds }
+            .distinct()
+            .associateWith { loadWidgetAvatar(context, it) }
+    }
     Column(modifier = GlanceModifier.fillMaxSize()) {
         Text(
             text = "Recent fronts",
@@ -133,7 +159,11 @@ private fun EntryList(entries: List<RecentEntry>, maxRows: Int) {
         )
         Spacer(modifier = GlanceModifier.height(6.dp))
         entries.take(maxRows).forEachIndexed { i, e ->
-            EntryRow(e, isCurrent = i == 0 && e.endedAt == null)
+            EntryRow(
+                entry = e,
+                isCurrent = i == 0 && e.endedAt == null,
+                avatarsByMemberId = avatarsByMemberId,
+            )
         }
         if (entries.size > maxRows) {
             Spacer(modifier = GlanceModifier.height(2.dp))
@@ -146,12 +176,31 @@ private fun EntryList(entries: List<RecentEntry>, maxRows: Int) {
 }
 
 @Composable
-private fun EntryRow(entry: RecentEntry, isCurrent: Boolean) {
+private fun EntryRow(
+    entry: RecentEntry,
+    isCurrent: Boolean,
+    avatarsByMemberId: Map<String, Bitmap?>,
+) {
     val nameColor = if (isCurrent) GlanceTheme.colors.primary else GlanceTheme.colors.onSurface
     Row(
         modifier = GlanceModifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Leading avatar for the first member. For co-fronts we just
+        // show the first PFP since horizontal space in the row is
+        // tight; the full comma-joined names text immediately to its
+        // right surfaces the rest. Fronting-now status indicated by
+        // the leading dot retained inside the name text.
+        val firstId = entry.memberIds.firstOrNull()
+        val firstAvatar = firstId?.let { avatarsByMemberId[it] }
+        if (firstAvatar != null) {
+            Image(
+                provider = ImageProvider(firstAvatar),
+                contentDescription = null,
+                modifier = GlanceModifier.size(20.dp),
+            )
+            Spacer(modifier = GlanceModifier.width(6.dp))
+        }
         Text(
             text = if (isCurrent) "● " else "○ ",
             style = TextStyle(color = nameColor, fontSize = 12.sp, fontWeight = FontWeight.Bold),
@@ -182,6 +231,7 @@ internal data class RecentEntry(
     val startedAt: String,
     val endedAt: String?,
     val names: String,
+    val memberIds: List<String> = emptyList(),
 )
 
 internal fun parseEntries(raw: String): List<RecentEntry> {
@@ -192,14 +242,22 @@ internal fun parseEntries(raw: String): List<RecentEntry> {
         val started = parts[0]
         val names = parts[1]
         val ended = parts.getOrNull(2)?.takeIf { it.isNotEmpty() }
-        RecentEntry(started, ended, names)
+        val memberIds = parts.getOrNull(3)
+            ?.split(RecentFrontsWidget.ID_SEP)
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
+        RecentEntry(started, ended, names, memberIds)
     }
 }
 
 internal fun encodeEntries(entries: List<RecentEntry>): String =
     entries.joinToString(RecentFrontsWidget.ROW_SEP) { e ->
-        listOf(e.startedAt, e.names, e.endedAt.orEmpty())
-            .joinToString(RecentFrontsWidget.FIELD_SEP)
+        listOf(
+            e.startedAt,
+            e.names,
+            e.endedAt.orEmpty(),
+            e.memberIds.joinToString(RecentFrontsWidget.ID_SEP),
+        ).joinToString(RecentFrontsWidget.FIELD_SEP)
     }
 
 private fun formatTimeAgo(iso: String): String = runCatching {
