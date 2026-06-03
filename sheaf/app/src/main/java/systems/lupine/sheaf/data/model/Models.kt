@@ -553,12 +553,24 @@ data class TagDeletePending(
 
 // ── Custom Fields ─────────────────────────────────────────────────────────────
 
+/**
+ * Per-field-type options. For SELECT / MULTISELECT, [choices] carries
+ * the predefined values the user can pick from; null = freeform tag
+ * mode (any string accepted server-side). Other field types don't
+ * carry options today.
+ */
+@JsonClass(generateAdapter = true)
+data class CustomFieldOptions(
+    val choices: List<String>? = null,
+)
+
 @JsonClass(generateAdapter = true)
 data class CustomFieldRead(
     val id: String,
     @Json(name = "system_id") val systemId: String,
     val name: String,
     @Json(name = "field_type") val fieldType: String,
+    val options: CustomFieldOptions? = null,
     val order: Int,
     val privacy: String,
     @Json(name = "created_at") val createdAt: String,
@@ -572,6 +584,7 @@ data class CustomFieldRead(
 data class CustomFieldCreate(
     val name: String,
     @Json(name = "field_type") val fieldType: String,
+    val options: CustomFieldOptions? = null,
     val order: Int? = null,
     val privacy: String = "private",
 )
@@ -579,6 +592,7 @@ data class CustomFieldCreate(
 @JsonClass(generateAdapter = true)
 data class CustomFieldUpdate(
     val name: String? = null,
+    val options: CustomFieldOptions? = null,
     val privacy: String? = null,
 )
 

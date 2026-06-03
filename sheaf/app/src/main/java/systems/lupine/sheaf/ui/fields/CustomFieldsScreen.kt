@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -122,8 +123,8 @@ fun CustomFieldsScreen(
         AddFieldSheet(
             isSaving = state.isSaving,
             onDismiss = { showAddSheet = false },
-            onSave = { name, fieldType, privacy ->
-                viewModel.createField(name, fieldType, privacy)
+            onSave = { name, fieldType, privacy, choices ->
+                viewModel.createField(name, fieldType, privacy, choices)
                 showAddSheet = false
             },
         )
@@ -136,8 +137,14 @@ fun CustomFieldsScreen(
             field = field,
             isSaving = state.isSaving,
             onDismiss = { editingField = null },
-            onSave = { name, privacy ->
-                viewModel.updateField(field.id, name, privacy)
+            onSave = { name, privacy, choices ->
+                viewModel.updateField(
+                    id = field.id,
+                    name = name,
+                    privacy = privacy,
+                    choices = choices,
+                    fieldType = field.fieldType,
+                )
                 editingField = null
             },
         )
@@ -213,6 +220,68 @@ private fun FieldListItem(
     HorizontalDivider()
 }
 
+/**
+ * Per-choice list editor for SELECT / MULTISELECT custom fields.
+ *
+ * Each row is a small text field with a remove (×) icon. An "Add
+ * choice" button at the bottom appends an empty row. An empty list
+ * is treated by the viewmodel as "freeform tag mode" — backend
+ * accepts any string for this field. So the editor sits comfortably
+ * with both "give me preset choices" and "I just want a tag input"
+ * intents.
+ */
+@Composable
+private fun ChoicesEditor(
+    choices: List<String>,
+    onChange: (List<String>) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Choices",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            if (choices.isEmpty())
+                "Leave empty for a freeform tag input (any value accepted)."
+            else
+                "Pick from this list. Reorder by editing.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        choices.forEachIndexed { i, value ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { v ->
+                        onChange(choices.toMutableList().also { it[i] = v })
+                    },
+                    singleLine = true,
+                    label = { Text("Choice ${i + 1}") },
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = {
+                    onChange(choices.toMutableList().also { it.removeAt(i) })
+                }) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Remove choice",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        TextButton(onClick = { onChange(choices + "") }) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(Modifier.width(4.dp))
+            Text(if (choices.isEmpty()) "Add a choice" else "Add another")
+        }
+    }
+}
+
 // ── Add field bottom sheet ────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -220,12 +289,15 @@ private fun FieldListItem(
 private fun AddFieldSheet(
     isSaving: Boolean,
     onDismiss: () -> Unit,
-    onSave: (name: String, fieldType: String, privacy: String) -> Unit,
+    onSave: (name: String, fieldType: String, privacy: String, choices: List<String>?) -> Unit,
 ) {
     var name      by remember { mutableStateOf("") }
     var fieldType by remember { mutableStateOf(fieldTypeOptions.first()) }
     var privacy   by remember { mutableStateOf(privacyOptions.first()) }
     var expanded  by remember { mutableStateOf(false) }
+    // Choices for select / multiselect. Empty list = freeform tag mode
+    // (server-side any string accepted). Hidden for non-choice types.
+    var choices   by remember { mutableStateOf(listOf<String>()) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -274,6 +346,13 @@ private fun AddFieldSheet(
                 }
             }
 
+            if (fieldType == "select" || fieldType == "multiselect") {
+                ChoicesEditor(
+                    choices = choices,
+                    onChange = { choices = it },
+                )
+            }
+
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     "Privacy",
@@ -297,7 +376,11 @@ private fun AddFieldSheet(
             }
 
             Button(
-                onClick = { onSave(name.trim(), fieldType, privacy) },
+                onClick = {
+                    val sendChoices = if (fieldType == "select" || fieldType == "multiselect") choices
+                                      else null
+                    onSave(name.trim(), fieldType, privacy, sendChoices)
+                },
                 enabled = !isSaving && name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
@@ -323,16 +406,23 @@ private fun EditFieldDialog(
     field: CustomFieldRead,
     isSaving: Boolean,
     onDismiss: () -> Unit,
-    onSave: (name: String, privacy: String) -> Unit,
+    onSave: (name: String, privacy: String, choices: List<String>?) -> Unit,
 ) {
     var name    by remember(field.id) { mutableStateOf(field.name) }
     var privacy by remember(field.id) { mutableStateOf(field.privacy) }
+    var choices by remember(field.id) {
+        mutableStateOf(field.options?.choices ?: emptyList())
+    }
+    val isChoiceField = field.fieldType == "select" || field.fieldType == "multiselect"
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Field") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -346,6 +436,13 @@ private fun EditFieldDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                if (isChoiceField) {
+                    ChoicesEditor(
+                        choices = choices,
+                        onChange = { choices = it },
+                    )
+                }
 
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
@@ -372,7 +469,10 @@ private fun EditFieldDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(name.trim(), privacy) },
+                onClick = {
+                    val sendChoices = if (isChoiceField) choices else null
+                    onSave(name.trim(), privacy, sendChoices)
+                },
                 enabled = !isSaving && name.isNotBlank(),
             ) {
                 if (isSaving) {

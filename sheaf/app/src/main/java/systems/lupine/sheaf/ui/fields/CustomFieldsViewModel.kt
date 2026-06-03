@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.CustomFieldCreate
+import systems.lupine.sheaf.data.model.CustomFieldOptions
 import systems.lupine.sheaf.data.model.CustomFieldRead
 import systems.lupine.sheaf.data.model.CustomFieldUpdate
 import systems.lupine.sheaf.util.toUserMessage
@@ -38,13 +39,19 @@ class CustomFieldsViewModel @Inject constructor(
         }
     }
 
-    fun createField(name: String, fieldType: String, privacy: String) {
+    fun createField(
+        name: String,
+        fieldType: String,
+        privacy: String,
+        choices: List<String>? = null,
+    ) {
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
             runCatching {
                 api.createField(CustomFieldCreate(
                     name = name,
                     fieldType = fieldType,
+                    options = choices.toOptionsOrNull(fieldType),
                     order = _state.value.fields.size,
                     privacy = privacy,
                 ))
@@ -56,10 +63,28 @@ class CustomFieldsViewModel @Inject constructor(
         }
     }
 
-    fun updateField(id: String, name: String, privacy: String) {
+    fun updateField(
+        id: String,
+        name: String,
+        privacy: String,
+        choices: List<String>? = null,
+        fieldType: String? = null,
+    ) {
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
-            runCatching { api.updateField(id, CustomFieldUpdate(name = name, privacy = privacy)) }
+            runCatching {
+                api.updateField(
+                    id,
+                    CustomFieldUpdate(
+                        name = name,
+                        privacy = privacy,
+                        // Carry options only for SELECT/MULTISELECT.
+                        // Non-choice field types: backend rejects a
+                        // non-null options dict with 422.
+                        options = choices.toOptionsOrNull(fieldType),
+                    ),
+                )
+            }
                 .onSuccess { updated ->
                     _state.update { s ->
                         s.copy(
@@ -70,6 +95,19 @@ class CustomFieldsViewModel @Inject constructor(
                 }
                 .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
         }
+    }
+
+    /**
+     * Build the options dict to send, given the user-edited list of
+     * choices and the field's type. Rules mirror what backend will
+     * accept: only SELECT/MULTISELECT carry options, and a null
+     * choices list signals "freeform tag mode" (server omits options).
+     */
+    private fun List<String>?.toOptionsOrNull(fieldType: String?): CustomFieldOptions? {
+        if (fieldType != "select" && fieldType != "multiselect") return null
+        val cleaned = this?.map { it.trim() }?.filter { it.isNotEmpty() } ?: return null
+        if (cleaned.isEmpty()) return null
+        return CustomFieldOptions(choices = cleaned)
     }
 
     fun deleteField(id: String) {
