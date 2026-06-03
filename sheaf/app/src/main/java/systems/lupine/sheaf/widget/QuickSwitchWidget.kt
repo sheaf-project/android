@@ -56,6 +56,10 @@ class QuickSwitchWidget : GlanceAppWidget() {
         val KEY_LOADING       = booleanPreferencesKey("qs_loading")
         val KEY_ERROR         = booleanPreferencesKey("qs_error")
         val KEY_UNCONFIGURED  = booleanPreferencesKey("qs_unconfigured")
+        // Display mode stored as the enum.name string. Falls through
+        // to AVATARS_AND_NAMES when missing so the upgrade path
+        // doesn't surprise anyone with a renderer change.
+        val KEY_DISPLAY_MODE  = stringPreferencesKey("qs_display_mode")
 
     }
 
@@ -88,6 +92,7 @@ class QuickSwitchWidget : GlanceAppWidget() {
         val isLoading = prefs[KEY_LOADING] ?: true
         val isError   = prefs[KEY_ERROR]   ?: false
         val unconfigured = prefs[KEY_UNCONFIGURED] ?: false
+        val displayMode = WidgetDisplayMode.fromStored(prefs[KEY_DISPLAY_MODE])
 
         val avatars: List<Bitmap?> = remember(ids) {
             ids.map { loadWidgetAvatar(context, it) }
@@ -115,7 +120,17 @@ class QuickSwitchWidget : GlanceAppWidget() {
                     isLoading -> Status("Refreshing...", isError = false)
                     isError -> Status("Tap to retry", isError = true)
                     names.isEmpty() -> Status("No members picked", isError = false)
-                    else -> SwitchTiles(context, widgetId, ids, names, colors, avatars, compact, maxRows)
+                    else -> SwitchTiles(
+                        context = context,
+                        widgetId = widgetId,
+                        ids = ids,
+                        names = names,
+                        colors = colors,
+                        avatars = avatars,
+                        compact = compact,
+                        maxRows = maxRows,
+                        displayMode = displayMode,
+                    )
                 }
             }
         }
@@ -146,6 +161,7 @@ private fun SwitchTiles(
     avatars: List<Bitmap?>,
     compact: Boolean,
     maxRows: Int,
+    displayMode: WidgetDisplayMode,
 ) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
         if (!compact) {
@@ -172,6 +188,7 @@ private fun SwitchTiles(
                 colorHex = colors.getOrNull(i),
                 compact = compact,
                 onClickIntent = intent,
+                displayMode = displayMode,
             )
         }
         if (ids.size > maxRows) {
@@ -191,7 +208,10 @@ private fun TileRow(
     colorHex: String?,
     compact: Boolean,
     onClickIntent: Intent,
+    displayMode: WidgetDisplayMode,
 ) {
+    val showAvatar = displayMode != WidgetDisplayMode.NAMES_ONLY
+    val showName   = displayMode != WidgetDisplayMode.AVATARS_ONLY
     val avatarSize = if (compact) 22.dp else 30.dp
     Row(
         modifier = GlanceModifier
@@ -200,41 +220,45 @@ private fun TileRow(
             .clickable(actionStartActivity(onClickIntent)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (bitmap != null) {
-            Image(
-                provider = ImageProvider(bitmap),
-                contentDescription = name,
-                modifier = GlanceModifier.size(avatarSize),
-            )
-        } else {
-            val avatarColor = parseQuickSwitchColor(colorHex ?: "#534AB7")
-            Box(
-                modifier = GlanceModifier
-                    .size(avatarSize)
-                    .cornerRadius(avatarSize / 2)
-                    .background(ColorProvider(day = avatarColor, night = avatarColor)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                    style = TextStyle(
-                        color = ColorProvider(day = Color.White, night = Color.White),
-                        fontSize = if (compact) 10.sp else 13.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
+        if (showAvatar) {
+            if (bitmap != null) {
+                Image(
+                    provider = ImageProvider(bitmap),
+                    contentDescription = name,
+                    modifier = GlanceModifier.size(avatarSize),
                 )
+            } else {
+                val avatarColor = parseQuickSwitchColor(colorHex ?: "#534AB7")
+                Box(
+                    modifier = GlanceModifier
+                        .size(avatarSize)
+                        .cornerRadius(avatarSize / 2)
+                        .background(ColorProvider(day = avatarColor, night = avatarColor)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                        style = TextStyle(
+                            color = ColorProvider(day = Color.White, night = Color.White),
+                            fontSize = if (compact) 10.sp else 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    )
+                }
             }
+            if (showName) Spacer(modifier = GlanceModifier.width(10.dp))
         }
-        Spacer(modifier = GlanceModifier.width(10.dp))
-        Text(
-            text = name,
-            style = TextStyle(
-                color = GlanceTheme.colors.onSurface,
-                fontSize = if (compact) 13.sp else 15.sp,
-                fontWeight = FontWeight.Medium,
-            ),
-            maxLines = 1,
-        )
+        if (showName) {
+            Text(
+                text = name,
+                style = TextStyle(
+                    color = GlanceTheme.colors.onSurface,
+                    fontSize = if (compact) 13.sp else 15.sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+                maxLines = 1,
+            )
+        }
     }
 }
 

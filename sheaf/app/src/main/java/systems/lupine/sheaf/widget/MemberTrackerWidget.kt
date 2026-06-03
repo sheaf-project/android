@@ -61,6 +61,7 @@ class MemberTrackerWidget : GlanceAppWidget() {
         val KEY_LOADING        = booleanPreferencesKey("tracker_loading")
         val KEY_ERROR          = booleanPreferencesKey("tracker_error")
         val KEY_UNCONFIGURED   = booleanPreferencesKey("tracker_unconfigured")
+        val KEY_DISPLAY_MODE   = stringPreferencesKey("tracker_display_mode")
 
     }
 
@@ -85,6 +86,7 @@ class MemberTrackerWidget : GlanceAppWidget() {
         val isLoading = prefs[KEY_LOADING] ?: true
         val isError   = prefs[KEY_ERROR]   ?: false
         val unconfigured = prefs[KEY_UNCONFIGURED] ?: false
+        val displayMode = WidgetDisplayMode.fromStored(prefs[KEY_DISPLAY_MODE])
 
         val avatars: List<Bitmap?> = remember(ids) {
             ids.map { loadWidgetAvatar(context, it) }
@@ -110,7 +112,16 @@ class MemberTrackerWidget : GlanceAppWidget() {
                     isLoading -> StateLabel("Refreshing...", isError = false)
                     isError -> StateLabel("Tap to retry", isError = true)
                     names.isEmpty() -> StateLabel("No tracked members", isError = false)
-                    else -> TrackerGrid(names, colors, ids, fronting, avatars, compact, maxRows)
+                    else -> TrackerGrid(
+                        names = names,
+                        colors = colors,
+                        ids = ids,
+                        fronting = fronting,
+                        avatars = avatars,
+                        compact = compact,
+                        maxRows = maxRows,
+                        displayMode = displayMode,
+                    )
                 }
             }
         }
@@ -140,6 +151,7 @@ private fun TrackerGrid(
     avatars: List<Bitmap?>,
     compact: Boolean,
     maxRows: Int,
+    displayMode: WidgetDisplayMode,
 ) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
         if (!compact) {
@@ -156,6 +168,7 @@ private fun TrackerGrid(
                 colorHex = colors.getOrNull(i),
                 isFronting = (ids.getOrNull(i) ?: "") in fronting,
                 compact = compact,
+                displayMode = displayMode,
             )
         }
         if (names.size > maxRows) {
@@ -178,59 +191,76 @@ private fun TrackerRow(
     colorHex: String?,
     isFronting: Boolean,
     compact: Boolean,
+    displayMode: WidgetDisplayMode,
 ) {
+    val showAvatar = displayMode != WidgetDisplayMode.NAMES_ONLY
+    val showName   = displayMode != WidgetDisplayMode.AVATARS_ONLY
     val avatarSize = if (compact) 22.dp else 28.dp
     Row(
         modifier = GlanceModifier.fillMaxWidth().padding(bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (bitmap != null) {
-            Image(
-                provider = ImageProvider(bitmap),
-                contentDescription = name,
-                modifier = GlanceModifier.size(avatarSize),
-            )
-        } else {
-            val avatarColor = parseTrackerColor(colorHex ?: "#534AB7")
+        if (showAvatar) {
+            if (bitmap != null) {
+                Image(
+                    provider = ImageProvider(bitmap),
+                    contentDescription = name,
+                    modifier = GlanceModifier.size(avatarSize),
+                )
+            } else {
+                val avatarColor = parseTrackerColor(colorHex ?: "#534AB7")
+                Box(
+                    modifier = GlanceModifier
+                        .size(avatarSize)
+                        .cornerRadius(avatarSize / 2)
+                        .background(ColorProvider(day = avatarColor, night = avatarColor)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                        style = TextStyle(
+                            color = ColorProvider(day = Color.White, night = Color.White),
+                            fontSize = if (compact) 10.sp else 12.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    )
+                }
+            }
+            if (showName) Spacer(modifier = GlanceModifier.width(10.dp))
+        }
+        if (showName) {
+            Column(modifier = GlanceModifier.fillMaxWidth()) {
+                Text(
+                    text = name,
+                    style = TextStyle(
+                        color = GlanceTheme.colors.onSurface,
+                        fontSize = if (compact) 13.sp else 14.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    maxLines = 1,
+                )
+                if (!compact) {
+                    Text(
+                        text = if (isFronting) "Fronting now" else "Not fronting",
+                        style = TextStyle(
+                            color = if (isFronting) GlanceTheme.colors.primary
+                                    else GlanceTheme.colors.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            fontWeight = if (isFronting) FontWeight.Medium else FontWeight.Normal,
+                        ),
+                    )
+                }
+            }
+        } else if (!compact && isFronting) {
+            // Avatars-only mode: still surface fronting status, but as
+            // a small primary-tinted dot rather than a row of text.
+            Spacer(modifier = GlanceModifier.width(6.dp))
             Box(
                 modifier = GlanceModifier
-                    .size(avatarSize)
-                    .cornerRadius(avatarSize / 2)
-                    .background(ColorProvider(day = avatarColor, night = avatarColor)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                    style = TextStyle(
-                        color = ColorProvider(day = Color.White, night = Color.White),
-                        fontSize = if (compact) 10.sp else 12.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-            }
-        }
-        Spacer(modifier = GlanceModifier.width(10.dp))
-        Column(modifier = GlanceModifier.fillMaxWidth()) {
-            Text(
-                text = name,
-                style = TextStyle(
-                    color = GlanceTheme.colors.onSurface,
-                    fontSize = if (compact) 13.sp else 14.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-                maxLines = 1,
-            )
-            if (!compact) {
-                Text(
-                    text = if (isFronting) "Fronting now" else "Not fronting",
-                    style = TextStyle(
-                        color = if (isFronting) GlanceTheme.colors.primary
-                                else GlanceTheme.colors.onSurfaceVariant,
-                        fontSize = 11.sp,
-                        fontWeight = if (isFronting) FontWeight.Medium else FontWeight.Normal,
-                    ),
-                )
-            }
+                    .size(8.dp)
+                    .cornerRadius(4.dp)
+                    .background(GlanceTheme.colors.primary),
+            ) {}
         }
     }
 }

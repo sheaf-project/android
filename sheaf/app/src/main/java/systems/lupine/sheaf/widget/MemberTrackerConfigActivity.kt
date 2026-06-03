@@ -67,9 +67,11 @@ class MemberTrackerConfigActivity : ComponentActivity() {
             SheafTheme {
                 ConfigScreen(
                     initialSelection = loadTrackerMembers(this, widgetId).toSet(),
+                    initialMode = loadTrackerDisplayMode(this, widgetId),
                     loadMembers = { runCatching { api.listMembers() }.getOrDefault(emptyList()) },
-                    onSave = { picked ->
+                    onSave = { picked, mode ->
                         saveTrackerMembers(this, widgetId, picked.toList())
+                        saveTrackerDisplayMode(this, widgetId, mode)
                         triggerWidgetRefresh(widgetId)
                         val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                         setResult(Activity.RESULT_OK, result)
@@ -102,12 +104,14 @@ class MemberTrackerConfigActivity : ComponentActivity() {
 @Composable
 private fun ConfigScreen(
     initialSelection: Set<String>,
+    initialMode: WidgetDisplayMode,
     loadMembers: suspend () -> List<MemberRead>,
-    onSave: (Set<String>) -> Unit,
+    onSave: (Set<String>, WidgetDisplayMode) -> Unit,
     onCancel: () -> Unit,
 ) {
     var members by remember { mutableStateOf<List<MemberRead>?>(null) }
     var selected by remember { mutableStateOf(initialSelection) }
+    var displayMode by remember { mutableStateOf(initialMode) }
 
     LaunchedEffect(Unit) {
         members = loadMembers()
@@ -129,6 +133,11 @@ private fun ConfigScreen(
                 "Each tracked member appears on the widget with a fronting/not-fronting indicator.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            DisplayModeRow(
+                selected = displayMode,
+                onSelect = { displayMode = it },
             )
             Spacer(Modifier.height(12.dp))
 
@@ -168,7 +177,7 @@ private fun ConfigScreen(
                     modifier = Modifier.weight(1f),
                 ) { Text("Cancel") }
                 Button(
-                    onClick = { onSave(selected) },
+                    onClick = { onSave(selected, displayMode) },
                     enabled = selected.isNotEmpty(),
                     modifier = Modifier.weight(1f),
                 ) { Text("Save (${selected.size})") }

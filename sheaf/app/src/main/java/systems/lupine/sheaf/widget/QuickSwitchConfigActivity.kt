@@ -63,9 +63,11 @@ class QuickSwitchConfigActivity : ComponentActivity() {
             SheafTheme {
                 ConfigScreen(
                     initialSelection = loadQuickSwitchMembers(this, widgetId).toSet(),
+                    initialMode = loadQuickSwitchDisplayMode(this, widgetId),
                     loadMembers = { runCatching { api.listMembers() }.getOrDefault(emptyList()) },
-                    onSave = { picked ->
+                    onSave = { picked, mode ->
                         saveQuickSwitchMembers(this, widgetId, picked.toList())
+                        saveQuickSwitchDisplayMode(this, widgetId, mode)
                         refreshQuickSwitchWidget(widgetId)
                         val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                         setResult(Activity.RESULT_OK, result)
@@ -98,12 +100,14 @@ class QuickSwitchConfigActivity : ComponentActivity() {
 @Composable
 private fun ConfigScreen(
     initialSelection: Set<String>,
+    initialMode: WidgetDisplayMode,
     loadMembers: suspend () -> List<MemberRead>,
-    onSave: (Set<String>) -> Unit,
+    onSave: (Set<String>, WidgetDisplayMode) -> Unit,
     onCancel: () -> Unit,
 ) {
     var members by remember { mutableStateOf<List<MemberRead>?>(null) }
     var selected by remember { mutableStateOf(initialSelection) }
+    var displayMode by remember { mutableStateOf(initialMode) }
 
     LaunchedEffect(Unit) {
         members = loadMembers()
@@ -125,6 +129,11 @@ private fun ConfigScreen(
                 "Each picked member becomes a tile on the widget. Tap a tile to switch.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            DisplayModeRow(
+                selected = displayMode,
+                onSelect = { displayMode = it },
             )
             Spacer(Modifier.height(12.dp))
 
@@ -174,7 +183,7 @@ private fun ConfigScreen(
                     modifier = Modifier.weight(1f),
                 ) { Text("Cancel") }
                 Button(
-                    onClick = { onSave(selected) },
+                    onClick = { onSave(selected, displayMode) },
                     enabled = selected.isNotEmpty(),
                     modifier = Modifier.weight(1f),
                 ) { Text("Save (${selected.size})") }

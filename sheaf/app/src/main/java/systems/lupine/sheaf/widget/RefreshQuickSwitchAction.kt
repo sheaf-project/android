@@ -54,11 +54,14 @@ class RefreshQuickSwitchAction : ActionCallback {
 
             renderWidgetAvatars(context, prefsRepo, http, picked)
 
+            val displayMode = if (widgetId > 0) loadQuickSwitchDisplayMode(context, widgetId)
+                              else WidgetDisplayMode.AVATARS_AND_NAMES
             updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                 prefs.toMutablePreferences().apply {
                     this[QuickSwitchWidget.KEY_PICKED_IDS]    = picked.joinToString("|") { it.id }
                     this[QuickSwitchWidget.KEY_PICKED_NAMES]  = picked.joinToString("|") { it.displayNameOrName }
                     this[QuickSwitchWidget.KEY_PICKED_COLORS] = picked.joinToString("|") { it.color ?: "" }
+                    this[QuickSwitchWidget.KEY_DISPLAY_MODE]  = displayMode.name
                     this[QuickSwitchWidget.KEY_LOADING] = false
                     this[QuickSwitchWidget.KEY_ERROR] = false
                 }

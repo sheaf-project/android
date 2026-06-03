@@ -59,6 +59,8 @@ class RefreshMemberTrackerAction : ActionCallback {
 
             renderWidgetAvatars(context, prefsRepo, http, tracked)
 
+            val displayMode = if (widgetId > 0) loadTrackerDisplayMode(context, widgetId)
+                              else WidgetDisplayMode.AVATARS_AND_NAMES
             updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                 prefs.toMutablePreferences().apply {
                     this[MemberTrackerWidget.KEY_TRACKED_IDS]    = tracked.joinToString("|") { it.id }
@@ -67,6 +69,7 @@ class RefreshMemberTrackerAction : ActionCallback {
                     this[MemberTrackerWidget.KEY_FRONTING_IDS]   = tracked
                         .filter { it.id in frontingIds }
                         .joinToString("|") { it.id }
+                    this[MemberTrackerWidget.KEY_DISPLAY_MODE]   = displayMode.name
                     this[MemberTrackerWidget.KEY_LOADING] = false
                     this[MemberTrackerWidget.KEY_ERROR] = false
                 }
