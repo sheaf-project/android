@@ -517,6 +517,21 @@ fun MemberDetailScreen(
                 onColorChange = { viewModel.updateForm { copy(color = it) } },
             )
 
+            // Per-field editor for every custom field defined on the
+            // system. Renders nothing when the system has no field
+            // definitions yet — keeps the form trim for users not using
+            // the feature.
+            if (state.customFields.isNotEmpty()) {
+                SectionHeader("Custom fields")
+                state.customFields.forEach { f ->
+                    CustomFieldEditor(
+                        field = f,
+                        value = state.customFieldValues[f.id],
+                        onChange = { v -> viewModel.setCustomFieldValue(f.id, v) },
+                    )
+                }
+            }
+
             SectionHeader("Privacy")
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 listOf("public", "friends", "private").forEachIndexed { index, level ->
@@ -724,6 +739,48 @@ fun MemberProfileScreen(
                             leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
                             colors = itemColors,
                         )
+                    }
+
+                    // Custom-field values. Only render when the viewer
+                    // can see at least one — server omits forbidden
+                    // entries via the per-field privacy gate, so an
+                    // empty customFieldValues for a member with defs
+                    // means "you can't see any of these" and we hide
+                    // the whole section rather than show a row of
+                    // em-dashes that reveals their existence.
+                    val visibleFields = state.customFields.filter {
+                        it.id in state.customFieldValues
+                    }
+                    if (visibleFields.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
+                        ) {
+                            val itemColors = ListItemDefaults.colors(
+                                containerColor = Color.Transparent,
+                            )
+                            visibleFields.forEachIndexed { idx, field ->
+                                if (idx > 0) {
+                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                }
+                                val display = customFieldValueDisplay(
+                                    field = field,
+                                    value = state.customFieldValues[field.id],
+                                )
+                                ListItem(
+                                    headlineContent = { Text(field.name) },
+                                    trailingContent = {
+                                        Text(
+                                            display,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                    },
+                                    colors = itemColors,
+                                )
+                            }
+                        }
                     }
 
                     // Fronting actions

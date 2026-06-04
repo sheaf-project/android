@@ -344,6 +344,30 @@ interface SheafApiService {
     @DELETE("/v1/fields/{id}")
     suspend fun deleteField(@Path("id") id: String)
 
+    /**
+     * Per-member custom field values. Server returns the decrypted
+     * plaintext list, gated by each field's privacy level — fields the
+     * viewer isn't allowed to see are omitted server-side. Values are
+     * type-erased on the wire; the matching field definition (via
+     * [listFields]) tells the client how to render each one.
+     */
+    @GET("/v1/members/{memberId}/fields")
+    suspend fun getMemberFieldValues(
+        @Path("memberId") memberId: String,
+    ): List<CustomFieldValueRead>
+
+    /**
+     * Bulk set / clear field values for one member. Server validates
+     * each value against the field's type + choices, encrypts at rest,
+     * and returns the full updated list (mirrors what GET would yield).
+     * Send `value = null` to clear a previously-set value.
+     */
+    @PUT("/v1/members/{memberId}/fields")
+    suspend fun setMemberFieldValues(
+        @Path("memberId") memberId: String,
+        @Body body: List<CustomFieldValueSet>,
+    ): List<CustomFieldValueRead>
+
     // ── Files ─────────────────────────────────────────────────────────────────
 
     @Multipart

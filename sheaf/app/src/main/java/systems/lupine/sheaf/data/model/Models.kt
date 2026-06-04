@@ -596,6 +596,33 @@ data class CustomFieldUpdate(
     val privacy: String? = null,
 )
 
+// Per-member custom field values. The value column on the wire is
+// type-erased (Any?) because the same endpoint carries booleans,
+// strings, numbers, lists, and dates depending on the field's type.
+// Moshi's KotlinJsonAdapterFactory (reflection adapter wired up in
+// NetworkModule) handles Any? round-trips without per-class codegen.
+// Read side: server returns the decrypted plaintext value. Write side:
+// server validates against the field's type/choices and encrypts at
+// rest. Field types map to value shapes:
+//   text/number(string-of-digits)/date(iso string) -> String
+//   boolean -> Boolean
+//   select  -> String (must be in choices when choices are set)
+//   multiselect -> List<String> (each must be in choices when set)
+//
+// Members the viewer isn't permitted to see fields for return an
+// empty list; the per-field privacy gate is enforced server-side.
+
+data class CustomFieldValueRead(
+    @Json(name = "field_id") val fieldId: String,
+    @Json(name = "member_id") val memberId: String,
+    val value: Any?,
+)
+
+data class CustomFieldValueSet(
+    @Json(name = "field_id") val fieldId: String,
+    val value: Any?,
+)
+
 // ── Files ─────────────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

@@ -241,6 +241,19 @@ data class MemberDetailUiState(
     val deleteSafety: MemberDeleteSafety = MemberDeleteSafety(),
     val deleteError: String? = null,
     val deleteQueued: Boolean = false,
+    /** Definitions for every custom field on the system. Loaded alongside
+     *  the member so the form can render type-appropriate editors. Order
+     *  follows the user's pick in Settings → Custom Fields. */
+    val customFields: List<systems.lupine.sheaf.data.model.CustomFieldRead> = emptyList(),
+    /** Per-field current value, keyed by field id. Server side the value
+     *  is type-erased (Any?) — Boolean, String, Number, or List<String>
+     *  depending on the field's type. Edits live here until save. */
+    val customFieldValues: Map<String, Any?> = emptyMap(),
+    /** Snapshot of customFieldValues at load time so save can diff and
+     *  only PUT what actually changed. Avoids re-sending all values on
+     *  every save (server tolerates it, but a no-op write still rotates
+     *  audit history and encryption ciphertexts). */
+    val customFieldValuesBaseline: Map<String, Any?> = emptyMap(),
 )
 
 @HiltViewModel
@@ -265,7 +278,23 @@ class MemberDetailViewModel @Inject constructor(
 
     init {
         markdownImages.loadUser(viewModelScope)
+        // Field definitions are needed for both create and edit modes —
+        // a new member can have field values set before its first save
+        // by composing the values into the form, then we replay them
+        // after createMember mints an id. (Create-flow value-stash is a
+        // small follow-up; for now we load definitions so the form can
+        // at least show the field rows.)
+        loadCustomFieldDefinitions()
         if (!isNewMember && memberId != null) loadMember()
+    }
+
+    private fun loadCustomFieldDefinitions() {
+        viewModelScope.launch {
+            runCatching { api.listFields() }
+                .onSuccess { defs ->
+                    _state.update { it.copy(customFields = defs) }
+                }
+        }
     }
 
     private fun loadMember() {
@@ -285,10 +314,32 @@ class MemberDetailViewModel @Inject constructor(
                         privacy     = m.privacy,
                         avatarUrl   = m.avatarUrl,
                     )
+                    // Pull current field values for this member after the
+                    // base member load so the editor has something to
+                    // populate against. Best-effort: if it fails the
+                    // editor still renders, just with empty values.
+                    runCatching { api.getMemberFieldValues(memberId!!) }
+                        .onSuccess { values ->
+                            val byId = values.associate { it.fieldId to it.value }
+                            _state.update {
+                                it.copy(
+                                    customFieldValues = byId,
+                                    customFieldValuesBaseline = byId,
+                                )
+                            }
+                        }
                 }
                 .onFailure { e ->
                     _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
                 }
+        }
+    }
+
+    /** Stage a new value for the named field. Save flushes the diff to
+     *  the server alongside the member's name/avatar/etc. */
+    fun setCustomFieldValue(fieldId: String, value: Any?) {
+        _state.update {
+            it.copy(customFieldValues = it.customFieldValues + (fieldId to value))
         }
     }
 
@@ -302,7 +353,7 @@ class MemberDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
             runCatching {
-                if (isNewMember) {
+                val savedMember = if (isNewMember) {
                     api.createMember(MemberCreate(
                         name        = f.name.trim(),
                         displayName = f.displayName.takeIf { it.isNotBlank() },
@@ -332,6 +383,24 @@ class MemberDetailViewModel @Inject constructor(
                         .toJson(update)
                         .toRequestBody("application/json".toMediaTypeOrNull()!!)
                     api.patchMemberRaw(memberId!!, body)
+                }
+                // Flush custom field values for the member. Diff against
+                // the load-time baseline so an unchanged field doesn't
+                // re-rotate its server-side ciphertext or audit row.
+                // For new members, baseline is empty so every staged
+                // value goes through.
+                val cur = _state.value
+                val targetMemberId = memberId ?: savedMember.id
+                val diff = cur.customFieldValues.entries
+                    .filter { (id, v) -> cur.customFieldValuesBaseline[id] != v }
+                    .map { (id, v) ->
+                        systems.lupine.sheaf.data.model.CustomFieldValueSet(
+                            fieldId = id,
+                            value = v,
+                        )
+                    }
+                if (diff.isNotEmpty()) {
+                    api.setMemberFieldValues(targetMemberId, diff)
                 }
             }
                 .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
@@ -453,6 +522,12 @@ data class MemberProfileUiState(
     val pendingRevisionId: String? = null,
     val pinError: String? = null,
     val unpinQueued: Boolean = false,
+    /** System-level field definitions, fetched once. */
+    val customFields: List<systems.lupine.sheaf.data.model.CustomFieldRead> = emptyList(),
+    /** This member's current values, keyed by field id. Fields not in
+     *  the map are unset (display as em-dash). Fields the viewer isn't
+     *  allowed to see are absent because the server omitted them. */
+    val customFieldValues: Map<String, Any?> = emptyMap(),
 )
 
 @HiltViewModel
@@ -480,7 +555,23 @@ class MemberProfileViewModel @Inject constructor(
                 runCatching {
                     val member = api.getMember(memberId)
                     val fronts = api.getCurrentFronts()
-                    _state.update { it.copy(member = member, currentFronts = fronts, isLoading = false) }
+                    // Custom fields are best-effort — a viewer with no
+                    // visibility into any of this member's fields gets
+                    // an empty list and we render nothing. Failure to
+                    // load either doesn't block the rest of the profile.
+                    val defs = runCatching { api.listFields() }.getOrDefault(emptyList())
+                    val vals = runCatching { api.getMemberFieldValues(memberId) }
+                        .getOrDefault(emptyList())
+                        .associate { it.fieldId to it.value }
+                    _state.update {
+                        it.copy(
+                            member = member,
+                            currentFronts = fronts,
+                            customFields = defs,
+                            customFieldValues = vals,
+                            isLoading = false,
+                        )
+                    }
                 }.onFailure { e ->
                     val cached = cache.getMember(memberId)
                     val fronts = cache.getFronts() ?: emptyList()
