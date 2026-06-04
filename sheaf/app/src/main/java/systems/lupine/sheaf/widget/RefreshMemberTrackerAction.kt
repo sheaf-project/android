@@ -19,6 +19,7 @@ class RefreshMemberTrackerAction : ActionCallback {
         // Resolve picked member ids for this specific widget instance. Glance
         // hands us a GlanceId; convert it back to the AppWidget id so we can
         // read the per-instance SharedPreferences slot.
+        writeWidgetPalette(context, glanceId)
         val widgetId = runCatching {
             GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
         }.getOrDefault(-1)

@@ -90,7 +90,7 @@ class FrontingAvatarsOnlyWidget : GlanceAppWidget() {
             ids.map { loadWidgetAvatar(context, it) }
         }
 
-        GlanceTheme {
+        SheafGlanceTheme {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()

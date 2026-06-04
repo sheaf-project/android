@@ -16,6 +16,7 @@ class RefreshQuickSwitchAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
+        writeWidgetPalette(context, glanceId)
         val widgetId = runCatching {
             GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
         }.getOrDefault(-1)

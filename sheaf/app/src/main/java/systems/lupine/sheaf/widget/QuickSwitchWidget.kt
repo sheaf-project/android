@@ -107,7 +107,7 @@ class QuickSwitchWidget : GlanceAppWidget() {
         val avail = (height - chrome).coerceAtLeast(rowHeight)
         val maxRows = (avail.value / rowHeight.value).toInt().coerceAtLeast(1)
 
-        GlanceTheme {
+        SheafGlanceTheme {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()

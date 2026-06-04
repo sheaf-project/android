@@ -15,6 +15,10 @@ class RefreshAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
+        // Mirror the user's currently-selected palette into the widget's
+        // Glance state before the first render so the loading-state chrome
+        // already paints in the right colours.
+        writeWidgetPalette(context, glanceId)
         // Show loading state
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
             prefs.toMutablePreferences().apply {

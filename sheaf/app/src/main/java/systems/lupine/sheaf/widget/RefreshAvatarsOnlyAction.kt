@@ -15,6 +15,9 @@ class RefreshAvatarsOnlyAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
+        // Mirror the user's selected palette into widget state before
+        // any render so the loading chrome already uses themed colours.
+        writeWidgetPalette(context, glanceId)
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
             prefs.toMutablePreferences().apply {
                 this[FrontingAvatarsOnlyWidget.KEY_LOADING] = true

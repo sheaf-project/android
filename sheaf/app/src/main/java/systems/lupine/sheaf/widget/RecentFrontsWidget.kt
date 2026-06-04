@@ -106,7 +106,7 @@ class RecentFrontsWidget : GlanceAppWidget() {
             .coerceAtLeast(1)
             .coerceAtMost(MAX_VISIBLE)
 
-        GlanceTheme {
+        SheafGlanceTheme {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()

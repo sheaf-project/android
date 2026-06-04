@@ -15,6 +15,7 @@ class RefreshRecentFrontsAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
+        writeWidgetPalette(context, glanceId)
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
             prefs.toMutablePreferences().apply {
                 this[RecentFrontsWidget.KEY_LOADING] = true

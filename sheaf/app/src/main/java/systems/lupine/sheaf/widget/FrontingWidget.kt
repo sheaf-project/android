@@ -75,7 +75,7 @@ class FrontingWidget : GlanceAppWidget() {
         val compact = LocalSize.current.height < 80.dp
         val showAvatars = !compact && LocalSize.current.width >= 200.dp
 
-        GlanceTheme {
+        SheafGlanceTheme {
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()

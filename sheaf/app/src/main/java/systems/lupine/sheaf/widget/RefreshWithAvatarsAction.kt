@@ -15,6 +15,7 @@ class RefreshWithAvatarsAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
+        writeWidgetPalette(context, glanceId)
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
             prefs.toMutablePreferences().apply {
                 this[FrontingWithAvatarsWidget.KEY_LOADING] = true
