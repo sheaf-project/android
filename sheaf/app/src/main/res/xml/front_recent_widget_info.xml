@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  History / recent fronts widget. Default cell layout deliberately small
-  (3w × 2h) so the widget doesn't dump itself into a giant block of
-  unused space when first dropped on the home screen — users add more
-  cells if they want more rows. Resizable freely once placed.
+  History / recent fronts widget. Default 2x2 — drops as a compact
+  card with room for 2-3 entries, user resizes up for more.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="180dp"
-    android:minHeight="60dp"
-    android:targetCellWidth="3"
+    android:minWidth="110dp"
+    android:minHeight="50dp"
+    android:targetCellWidth="2"
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"

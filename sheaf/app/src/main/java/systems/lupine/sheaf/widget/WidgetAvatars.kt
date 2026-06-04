@@ -43,10 +43,16 @@ internal suspend fun renderWidgetAvatars(
     http: OkHttpClient,
     members: List<MemberRead>,
 ) {
-    val dir = widgetAvatarDir(context)
-    val live = members.map { "${it.id}.png" }.toSet()
-    dir.listFiles()?.forEach { if (it.name !in live) it.delete() }
-
+    // No file pruning here on purpose. Multiple widgets share this
+    // cache directory and each widget refreshes independently with
+    // its own member list — an earlier "delete files not in `members`"
+    // step here meant each refresh wiped the avatars other widgets
+    // needed, leaving them with letter-fallback circles. UUIDs as
+    // file names means there's no name collision risk; size is ~9 KB
+    // each, so leaving stale files is cheap. A separate
+    // app-lifecycle-scope pass can sweep orphans later if it ever
+    // matters.
+    widgetAvatarDir(context)  // ensure exists
     if (members.isEmpty()) return
 
     val cdnBase = prefs.fileCdnBase.firstOrNull()?.trimEnd('/')?.ifBlank { null }

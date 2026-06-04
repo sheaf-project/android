@@ -87,12 +87,17 @@ class MemberTrackerConfigActivity : ComponentActivity() {
     }
 
     private fun triggerWidgetRefresh(widgetId: Int) {
-        lifecycleScope.launch {
+        // Capture applicationContext before finish() — lifecycleScope
+        // dies with the activity, so we spawn on WidgetRefreshScope
+        // (process-scoped). Otherwise the refresh fetch gets killed
+        // mid-flight and the widget hangs on "Refreshing..." forever.
+        val appCtx = applicationContext
+        WidgetRefreshScope.launch {
             runCatching {
-                val glanceManager = androidx.glance.appwidget.GlanceAppWidgetManager(applicationContext)
+                val glanceManager = androidx.glance.appwidget.GlanceAppWidgetManager(appCtx)
                 val glanceId = glanceManager.getGlanceIdBy(widgetId)
                 RefreshMemberTrackerAction().onAction(
-                    applicationContext,
+                    appCtx,
                     glanceId,
                     androidx.glance.action.actionParametersOf(),
                 )

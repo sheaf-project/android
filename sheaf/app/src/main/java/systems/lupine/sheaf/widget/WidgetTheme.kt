@@ -11,6 +11,9 @@ import androidx.glance.currentState
 import androidx.glance.material3.ColorProviders
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import systems.lupine.sheaf.ui.theme.SheafPalette
 
@@ -49,6 +52,19 @@ internal fun SheafGlanceTheme(content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+/**
+ * Process-scoped coroutine scope for firing widget refreshes from
+ * config activities. We can't use the activity's lifecycleScope —
+ * config activities finish() immediately after kicking off the
+ * refresh, which cancels lifecycleScope and kills the in-flight
+ * fetch, leaving the widget pinned on its "Refreshing..." state.
+ * This scope lives for the process lifetime; the work itself is
+ * a few hundred ms of network + I/O, well under any reasonable
+ * abandonment threshold.
+ */
+internal val WidgetRefreshScope: CoroutineScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 /**
  * Convenience for refresh actions — reads the user's currently-selected

@@ -98,6 +98,7 @@ class QuickSwitchWidget : GlanceAppWidget() {
             ids.map { loadWidgetAvatar(context, it) }
         }
         val height = LocalSize.current.height
+        val width = LocalSize.current.width
         val compact = height < 100.dp
         // Per-row height budget: rough but consistent across the three
         // list widgets. Subtract the title + padding chrome from the
@@ -106,6 +107,14 @@ class QuickSwitchWidget : GlanceAppWidget() {
         val chrome = if (compact) 16.dp else 36.dp  // padding + title
         val avail = (height - chrome).coerceAtLeast(rowHeight)
         val maxRows = (avail.value / rowHeight.value).toInt().coerceAtLeast(1)
+        // Tile width budget per display mode. AVATARS_ONLY is just a
+        // circle so cells pack tightly; the other modes need room for
+        // avatar + name. More width -> more columns of tap targets.
+        val cellWidth = when (displayMode) {
+            WidgetDisplayMode.AVATARS_ONLY -> 44.dp
+            else -> 140.dp
+        }
+        val columns = (width.value / cellWidth.value).toInt().coerceAtLeast(1)
 
         SheafGlanceTheme {
             Box(
@@ -129,6 +138,7 @@ class QuickSwitchWidget : GlanceAppWidget() {
                         avatars = avatars,
                         compact = compact,
                         maxRows = maxRows,
+                        columns = columns,
                         displayMode = displayMode,
                     )
                 }
@@ -161,6 +171,7 @@ private fun SwitchTiles(
     avatars: List<Bitmap?>,
     compact: Boolean,
     maxRows: Int,
+    columns: Int,
     displayMode: WidgetDisplayMode,
 ) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
@@ -171,30 +182,42 @@ private fun SwitchTiles(
             )
             Spacer(modifier = GlanceModifier.height(6.dp))
         }
-        ids.take(maxRows).forEachIndexed { i, memberId ->
-            val name = names.getOrNull(i) ?: "Member"
-            val intent = Intent(context, QuickSwitchTrampolineActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                putExtra(QuickSwitchTrampolineActivity.EXTRA_MEMBER_ID, memberId)
-                putExtra(QuickSwitchTrampolineActivity.EXTRA_MEMBER_NAME, name)
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                // Per-member unique Uri ensures the OS doesn't dedupe pending
-                // intents across rows when extras are otherwise equivalent.
-                data = android.net.Uri.parse("sheaf://widget/quickswitch/$memberId")
+        val capacity = (maxRows * columns).coerceAtLeast(1)
+        val visibleIndices = ids.indices.take(capacity).toList()
+        visibleIndices.chunked(columns).forEach { rowIndices ->
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                rowIndices.forEach { i ->
+                    val memberId = ids[i]
+                    val name = names.getOrNull(i) ?: "Member"
+                    val intent = Intent(context, QuickSwitchTrampolineActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        putExtra(QuickSwitchTrampolineActivity.EXTRA_MEMBER_ID, memberId)
+                        putExtra(QuickSwitchTrampolineActivity.EXTRA_MEMBER_NAME, name)
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                        // Per-member unique Uri ensures the OS doesn't dedupe pending
+                        // intents across rows when extras are otherwise equivalent.
+                        data = android.net.Uri.parse("sheaf://widget/quickswitch/$memberId")
+                    }
+                    Box(modifier = GlanceModifier.defaultWeight()) {
+                        TileRow(
+                            name = name,
+                            bitmap = avatars.getOrNull(i),
+                            colorHex = colors.getOrNull(i),
+                            compact = compact,
+                            onClickIntent = intent,
+                            displayMode = displayMode,
+                        )
+                    }
+                }
+                repeat(columns - rowIndices.size) {
+                    Spacer(modifier = GlanceModifier.defaultWeight())
+                }
             }
-            TileRow(
-                name = name,
-                bitmap = avatars.getOrNull(i),
-                colorHex = colors.getOrNull(i),
-                compact = compact,
-                onClickIntent = intent,
-                displayMode = displayMode,
-            )
         }
-        if (ids.size > maxRows) {
+        if (ids.size > capacity) {
             Spacer(modifier = GlanceModifier.height(2.dp))
             Text(
-                text = "+${ids.size - maxRows} more",
+                text = "+${ids.size - capacity} more",
                 style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp),
             )
         }

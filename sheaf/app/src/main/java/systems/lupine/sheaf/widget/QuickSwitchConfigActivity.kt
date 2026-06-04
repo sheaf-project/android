@@ -83,12 +83,15 @@ class QuickSwitchConfigActivity : ComponentActivity() {
     }
 
     private fun refreshQuickSwitchWidget(widgetId: Int) {
-        lifecycleScope.launch {
+        // See MemberTrackerConfigActivity.triggerWidgetRefresh — same
+        // rationale for using a process-scoped coroutine here.
+        val appCtx = applicationContext
+        WidgetRefreshScope.launch {
             runCatching {
-                val glanceManager = androidx.glance.appwidget.GlanceAppWidgetManager(applicationContext)
+                val glanceManager = androidx.glance.appwidget.GlanceAppWidgetManager(appCtx)
                 val glanceId = glanceManager.getGlanceIdBy(widgetId)
                 RefreshQuickSwitchAction().onAction(
-                    applicationContext,
+                    appCtx,
                     glanceId,
                     androidx.glance.action.actionParametersOf(),
                 )

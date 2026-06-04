@@ -92,11 +92,23 @@ class MemberTrackerWidget : GlanceAppWidget() {
             ids.map { loadWidgetAvatar(context, it) }
         }
         val height = LocalSize.current.height
+        val width = LocalSize.current.width
         val compact = height < 100.dp
         val rowHeight = if (compact) 30.dp else 44.dp
         val chrome = if (compact) 20.dp else 38.dp
         val avail = (height - chrome).coerceAtLeast(rowHeight)
         val maxRows = (avail.value / rowHeight.value).toInt().coerceAtLeast(1)
+        // Per-cell width budget. AVATARS_ONLY packs much tighter
+        // since each cell is just a circle; the other modes need
+        // room for an avatar + name. Slim columns when the widget
+        // is narrow (1 col, the original layout); grows horizontally
+        // when the user resizes wider, so a wide widget actually
+        // fills the space with more members per row.
+        val cellWidth = when (displayMode) {
+            WidgetDisplayMode.AVATARS_ONLY -> 44.dp
+            else -> 130.dp
+        }
+        val columns = (width.value / cellWidth.value).toInt().coerceAtLeast(1)
 
         SheafGlanceTheme {
             Box(
@@ -120,6 +132,7 @@ class MemberTrackerWidget : GlanceAppWidget() {
                         avatars = avatars,
                         compact = compact,
                         maxRows = maxRows,
+                        columns = columns,
                         displayMode = displayMode,
                     )
                 }
@@ -151,6 +164,7 @@ private fun TrackerGrid(
     avatars: List<Bitmap?>,
     compact: Boolean,
     maxRows: Int,
+    columns: Int,
     displayMode: WidgetDisplayMode,
 ) {
     Column(modifier = GlanceModifier.fillMaxSize()) {
@@ -161,20 +175,38 @@ private fun TrackerGrid(
             )
             Spacer(modifier = GlanceModifier.height(6.dp))
         }
-        names.take(maxRows).forEachIndexed { i, name ->
-            TrackerRow(
-                name = name,
-                bitmap = avatars.getOrNull(i),
-                colorHex = colors.getOrNull(i),
-                isFronting = (ids.getOrNull(i) ?: "") in fronting,
-                compact = compact,
-                displayMode = displayMode,
-            )
+        // Build (member-index) tuples then chunk into rows-of-columns.
+        // Capacity caps at maxRows * columns; overflow shows as a
+        // "+N more" trailer the way it did for the single-column
+        // layout, just measured against the grid's total slot count.
+        val capacity = (maxRows * columns).coerceAtLeast(1)
+        val visibleIndices = names.indices.take(capacity).toList()
+        visibleIndices.chunked(columns).forEach { rowIndices ->
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                rowIndices.forEach { i ->
+                    Box(modifier = GlanceModifier.defaultWeight()) {
+                        TrackerRow(
+                            name = names[i],
+                            bitmap = avatars.getOrNull(i),
+                            colorHex = colors.getOrNull(i),
+                            isFronting = (ids.getOrNull(i) ?: "") in fronting,
+                            compact = compact,
+                            displayMode = displayMode,
+                        )
+                    }
+                }
+                // Fill the row out if the last chunk was short, so
+                // partial rows don't stretch their tiles to the full
+                // remaining width.
+                repeat(columns - rowIndices.size) {
+                    Spacer(modifier = GlanceModifier.defaultWeight())
+                }
+            }
         }
-        if (names.size > maxRows) {
+        if (names.size > capacity) {
             Spacer(modifier = GlanceModifier.height(2.dp))
             Text(
-                text = "+${names.size - maxRows} more",
+                text = "+${names.size - capacity} more",
                 style = TextStyle(
                     color = GlanceTheme.colors.onSurfaceVariant,
                     fontSize = 10.sp,
