@@ -4,30 +4,95 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
-## [0.1.18] - 2026-06-02
+## [0.1.19] - 2026-06-04
 
 ### Added
 
-- **Avatar crop / pan editor.** Picking a photo for a member or system
-  avatar now opens a full-screen crop dialog with pinch-to-zoom and
-  drag-to-pan inside a circular preview window. The image is clamped
-  to always cover the crop area (no white space pannable into the
-  avatar) and EXIF rotation is honoured on decode so portrait photos
-  arrive right-side-up. Output is a square 512×512 JPEG, encoded off
-  the UI thread so the save tap doesn't stutter. Replaces the previous
-  pipe-it-straight-to-upload flow that left the display layer to
-  square-crop arbitrary inputs.
+- **Per-member custom field values.** Members edit screen gains a
+  Custom fields section with type-appropriate editors: text /
+  number / date picker / boolean switch / select dropdown /
+  multiselect chip group / freeform tag input. Member profile
+  surface displays them read-only with sensible formatting (date
+  → localised, boolean → Yes/No, multiselect → comma-joined). The
+  per-field privacy gate is enforced server-side; the profile
+  hides the whole section when the viewer has no visibility.
+
+- **Custom field choices editor.** Select / multiselect field types
+  now expose a choices editor in the create / edit dialogs.
+  Empty choices = freeform tag mode (server accepts any string);
+  non-empty = strict pick-from-list. Choices persist server-side
+  in the field definition's options blob.
+
+- **Polls: restrict voting to currently-fronting members.** Poll
+  create form gains a "Who can vote" section with a switch. When
+  on, voting (and withdrawing votes) is gated to members in the
+  active front; the detail screen shows an AssistChip explaining
+  the rule and an inline error when the picked voter isn't
+  currently fronting. Default off — matches the journals /
+  messages "any member may author" model.
+
+- **Markdown code-block syntax highlighting.** Journals, member bios,
+  board messages, and scratchpad notes now colour code blocks per
+  language. Built-in support for Kotlin, Java, Python, JavaScript /
+  TypeScript, JSON, YAML, bash, SQL, HTML, CSS. Unknown languages
+  still render monospaced on the themed background. Token colours
+  pull from the active palette so theme swaps recolour code live.
+
+- **Theme sync toggle.** Settings → Appearance gains a "Sync theme
+  across my Android devices" row. ON (default): theme mode + palette
+  follow the account so every Android device on the same account
+  converges on the latest choice. OFF: this device keeps its own
+  pin and the backend is untouched, leaving other devices on
+  whatever they had.
+
+- **Reply to board messages.** Each message gets a Reply icon at the
+  trailing edge of its header. Tapping it puts the composer into
+  reply mode with a "Replying to X" banner above the text field and
+  an × to clear. The quoted-parent card on a reply now scrolls to
+  the parent message in the loaded page when tapped (no-op when the
+  parent is older than the current batch — paginated load is a
+  follow-up).
+
+- **Widgets follow the in-app palette.** All six home-screen widgets
+  (Fronting, FrontingWithAvatars, FrontingAvatarsOnly, MemberTracker,
+  QuickSwitch, RecentFronts) now render in the user's selected
+  Sheaf palette rather than dynamic Material You colours. Material
+  You stays as a sentinel that falls through to wallpaper-derived
+  dynamic colours.
+
+- **Widget display-mode toggle.** QuickSwitch and MemberTracker
+  config screens gain a three-way choice (Avatar + name / Avatar
+  only / Name only) mirroring the wear tile. Per-widget-instance —
+  multiple widgets on the same home screen can each have a
+  different mode. Avatars-only MemberTracker still surfaces the
+  fronting indicator as a small primary dot.
+
+- **Recent-fronts widget shows avatars** for the leading member of
+  each row, alongside more responsive sizing — all three list
+  widgets (RecentFronts / QuickSwitch / MemberTracker) now use the
+  actual host-allocated space (SizeMode.Exact) instead of snapping
+  to three discrete buckets and wasting half the area. Smaller
+  default cell footprint (3×2) too, with the same resize-up
+  behaviour.
+
+- **Front custom status.** Front entries support an optional
+  per-entry note (server-side `custom_status`). Surfaces:
+  - "Custom status (optional)" input on the home switch sheet and
+    the history add / edit sheet.
+  - Italicised quoted line under the Fronting-for stamp on home
+    current-fronts cards.
+  - Same quoted italics under the time range on history rows.
+  Empty / whitespace trim → null on submit. Offline-queue replay
+  carries the status through to the eventual createFront call
+  (DB v2 → v3 migration nullable-by-default).
 
 ### Fixed
 
-- **Analytics percentages no longer 100× too large.** The
-  `percent_of_window` field on `/v1/analytics/fronting` is already a
-  percent value server-side (e.g. `52.93` for "53% of window"), but
-  the stats screen was multiplying by 100 again, producing labels
-  like "5293.0% of window" for a member with ~53% real share. Now
-  uses the value as-is; can still legitimately exceed 100 % under
-  co-fronting (two members fronting together for the whole window
-  each come back at 100 %).
+- **Quick-switch carousel no longer clips into the system nav bar.**
+  Scaffold's bottomBar slot doesn't auto-inset for the system
+  navigation bar, so the chip row was getting clipped a few pixels
+  by the gesture / 3-button nav. Now lifted with
+  navigationBarsPadding + a small breathing-room gap.
 
 ## [0.1.18] - 2026-06-02
 
