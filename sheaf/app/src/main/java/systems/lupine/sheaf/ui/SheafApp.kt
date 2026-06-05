@@ -389,6 +389,15 @@ fun SheafApp(
                 ChannelDetailScreen(
                     channelId = id,
                     onNavigateUp = { navController.popBackStack() },
+                    onChannelDuplicated = { newId ->
+                        // Replace current detail entry with the duplicate so
+                        // back goes to the channel list rather than the
+                        // original — matches the web app's navigate-on-
+                        // duplicate flow.
+                        navController.navigate("settings/notifications/owned/$newId") {
+                            popUpTo(Routes.NOTIFICATIONS_OWNED)
+                        }
+                    },
                 )
             }
             composable(Routes.NOTIFICATIONS_REMINDERS) {

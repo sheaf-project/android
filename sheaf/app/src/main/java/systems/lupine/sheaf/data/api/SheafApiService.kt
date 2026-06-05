@@ -656,6 +656,18 @@ interface SheafApiService {
     @POST("/v1/channels/{channelId}/reissue-activation")
     suspend fun reissueChannelActivation(@Path("channelId") channelId: String): ReissueActivationResponse
 
+    @PATCH("/v1/channels/{channelId}")
+    suspend fun updateChannel(
+        @Path("channelId") channelId: String,
+        @Body body: NotificationChannelUpdate,
+    ): NotificationChannelRead
+
+    @POST("/v1/channels/{channelId}/duplicate")
+    suspend fun duplicateChannel(@Path("channelId") channelId: String): NotificationChannelCreateResponse
+
+    @POST("/v1/channels/{channelId}/test")
+    suspend fun sendTestChannel(@Path("channelId") channelId: String): TestDispatchResponse
+
     // ── Reminders ──────────────────────────────────────────────────────────
 
     @GET("/v1/reminders")

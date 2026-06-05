@@ -4,6 +4,20 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+
+- **Editable notification channels.** Channel detail screen no longer
+  shows triggers as read-only — name, all three trigger toggles,
+  cofront redaction (when the cofront trigger is on), base set
+  (all members vs none + include-private), group rules, member
+  rules, payload sensitivity, debounce, aggregation window, and
+  quiet hours (start / end / IANA tz) are all editable. Sticky
+  Save / Discard bar at the bottom appears when a draft has
+  pending changes. Overflow menu adds Pause / Resume, Send test,
+  Duplicate, and Delete. Mirrors the web client's editor.
+
 ## [0.1.19] - 2026-06-04
 
 ### Added
