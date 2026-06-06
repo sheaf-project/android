@@ -16,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -85,6 +86,18 @@ fun SwitchScreen(navController: NavController) {
                 }
             }
             else -> {
+                // Round wears clip anything that pokes past the curved bezel.
+                // The confirm chip sits at the screen bottom, so on round we
+                // lift it up into the wider middle band and shrink its width
+                // so the corners stay inside the circle. Play rejected
+                // earlier builds for the rectangular layout clipping on a
+                // Pixel Watch in review.
+                val isRound = LocalConfiguration.current.isScreenRound
+                val confirmBottomInset = if (isRound) 18.dp else 4.dp
+                val confirmWidthFraction = if (isRound) 0.62f else 0.85f
+                // Lift the list's bottom padding to match so the last list
+                // item never lands behind the floating confirm chip.
+                val listBottomInset = confirmBottomInset + 60.dp
                 Box(modifier = Modifier.fillMaxSize()) {
                     // Bottom contentPadding leaves room for the pinned confirm
                     // chip overlay; the list scrolls behind it so the confirm
@@ -92,7 +105,7 @@ fun SwitchScreen(navController: NavController) {
                     ScalingLazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 72.dp),
+                        contentPadding = PaddingValues(bottom = listBottomInset),
                     ) {
                         item {
                             Text(
@@ -171,17 +184,27 @@ fun SwitchScreen(navController: NavController) {
                             backgroundColor = MaterialTheme.colors.secondary,
                             contentColor = MaterialTheme.colors.onSecondary,
                         ),
-                        // Narrower than the list chips so the round bezel
-                        // doesn't clip the label on Pixel Watch. Height is
-                        // shorter than the default Chip (~52dp) to free more
-                        // list real-estate above; bottom padding is small so
-                        // the chip sits low enough to feel attached to the
-                        // bezel rather than floating in dark space.
+                        // Round wears: corners get clipped by the curved
+                        // bezel if the chip sits at the very bottom edge or
+                        // is too wide. We lift it up into the wider middle
+                        // band and shrink the width so the rounded corners
+                        // stay inside the circle. On rectangular wears we
+                        // keep the original bottom-pinned look since there's
+                        // no curve to worry about. Height stays shorter than
+                        // the default Chip (~52dp) to free list real-estate.
+                        // Modifier order matters: the outer paddings reserve
+                        // safe-area below + horizontal slack first, then
+                        // the chip itself takes 0.62 width × 40dp inside
+                        // that reduced viewport. Reversed, the chip would
+                        // be 40dp but with 18dp of empty space *inside* its
+                        // bottom edge — the actual confirm hit-box would
+                        // shrink and the rendered chip would still clip.
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .fillMaxWidth(0.85f)
-                            .height(40.dp)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(bottom = confirmBottomInset)
+                            .padding(horizontal = 8.dp)
+                            .fillMaxWidth(confirmWidthFraction)
+                            .height(40.dp),
                     )
                 }
             }

@@ -6,6 +6,18 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Wear: switch-confirm button clipped on round watches.** The
+  pinned "Switch (N)" / "Clear Front" action chip on the Switch
+  Front screen used a fixed bottom-edge layout that worked on
+  rectangular wears but had its rounded corners cut off by the
+  curved bezel on Pixel Watch and other round devices (Play
+  caught this in review). On round screens the chip now lifts
+  ~18dp clear of the bottom edge and narrows to ~62% width so
+  its corners stay inside the circle; rectangular wears keep the
+  original bottom-pinned look.
+
 ### Added
 
 - **Editable notification channels.** Channel detail screen no longer
