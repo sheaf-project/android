@@ -630,6 +630,26 @@ interface SheafApiService {
         @Body body: AdminReasonBody,
     ): AdminRotateAllResponse
 
+    // ── Admin maintenance jobs + ops ──────────────────────────────────────────
+
+    @GET("/v1/admin/jobs")
+    suspend fun getAdminJobs(): List<AdminJobRead>
+
+    @POST("/v1/admin/jobs/{jobName}/run")
+    suspend fun runAdminJob(@Path("jobName") jobName: String): AdminJobRunResponse
+
+    @GET("/v1/admin/pushover-usage")
+    suspend fun getAdminPushoverUsage(): AdminPushoverUsage
+
+    @POST("/v1/admin/approvals/bulk-approve")
+    suspend fun bulkApprove(@Body body: BulkApproveRequest): BulkApproveResponse
+
+    @POST("/v1/admin/users/{id}/reset-safety")
+    suspend fun adminResetSafety(@Path("id") id: String, @Body body: AdminReasonBody): AdminResetSafetyResponse
+
+    @POST("/v1/admin/users/{id}/bypass-pending")
+    suspend fun adminBypassPending(@Path("id") id: String, @Body body: AdminReasonBody): AdminBypassPendingResponse
+
     // ── Admin audit log ─────────────────────────────────────────────────────
 
     @GET("/v1/admin/audit-events")

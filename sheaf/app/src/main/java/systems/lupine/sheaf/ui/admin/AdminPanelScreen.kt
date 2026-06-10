@@ -41,6 +41,7 @@ import systems.lupine.sheaf.ui.components.SheafTopAppBar
 fun AdminPanelScreen(
     onNavigateUp: () -> Unit,
     onNavigateToAudit: () -> Unit = {},
+    onNavigateToJobs: () -> Unit = {},
     onNavigateToUserDetail: (String) -> Unit = {},
     viewModel: AdminPanelViewModel = hiltViewModel(),
 ) {
@@ -162,6 +163,12 @@ fun AdminPanelScreen(
             // ── Approvals ─────────────────────────────────────────────────────
             if (state.approvals.isNotEmpty()) {
                 SectionHeader("Pending Approvals (${state.approvals.size})", modifier = Modifier.padding(horizontal = 16.dp))
+                if (state.approvals.size > 1) {
+                    OutlinedButton(
+                        onClick = { viewModel.bulkApprove() },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) { Text("Approve all (${state.approvals.size})") }
+                }
                 state.approvals.forEach { user ->
                     ListItem(
                         headlineContent = { Text(user.email, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -330,6 +337,10 @@ fun AdminPanelScreen(
 
             // ── Maintenance ───────────────────────────────────────────────────
             SectionHeader("Maintenance", modifier = Modifier.padding(horizontal = 16.dp))
+            OutlinedButton(
+                onClick = onNavigateToJobs,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            ) { Text("Maintenance jobs") }
             MaintenanceButton("Run Retention") { viewModel.runRetention() }
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             MaintenanceButton("Run Cleanup") { viewModel.runCleanup() }

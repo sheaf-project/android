@@ -86,6 +86,7 @@ object Routes {
     const val SESSIONS       = "settings/sessions"
     const val ADMIN_PANEL    = "settings/admin"
     const val ADMIN_AUDIT    = "settings/admin/audit"
+    const val ADMIN_JOBS     = "settings/admin/jobs"
     const val ADMIN_USER_DETAIL = "settings/admin/user/{userId}"
     const val SYSTEM_SAFETY  = "settings/safety"
     const val FILES          = "settings/files"
@@ -561,11 +562,17 @@ fun SheafApp(
                 AdminPanelScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
+                    onNavigateToJobs = { navController.navigate(Routes.ADMIN_JOBS) },
                     onNavigateToUserDetail = { id -> navController.navigate("settings/admin/user/$id") },
                 )
             }
             composable(Routes.ADMIN_AUDIT) {
                 systems.lupine.sheaf.ui.admin.AdminAuditScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.ADMIN_JOBS) {
+                systems.lupine.sheaf.ui.admin.AdminJobsScreen(
                     onNavigateUp = { navController.navigateUp() },
                 )
             }

@@ -8,6 +8,15 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Admin maintenance jobs + ops.** A Maintenance jobs screen lists
+  the backend's scheduled jobs with their last-run status and a
+  manual Run button, plus the shared-Pushover monthly usage. The
+  account-detail screen gains emergency operator overrides (reset
+  system safety, finalize pending safety actions), and the pending-
+  approvals list gains an Approve-all action. (The import-job event
+  viewer and GDPR dossier export are tracked separately as they need
+  file-handling UI.)
+
 - **Admin account detail / triage.** Each user row in the admin panel
   opens an account-detail screen: a one-shot dossier (status, tier,
   2FA, signup IP, session and API-key counts, system summary, recent

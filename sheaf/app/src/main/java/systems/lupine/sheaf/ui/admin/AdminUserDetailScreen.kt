@@ -124,6 +124,34 @@ class AdminUserDetailViewModel @Inject constructor(
         }
     }
 
+    fun resetSafety(userId: String, reason: String) {
+        viewModelScope.launch {
+            runCatching { api.adminResetSafety(userId, AdminReasonBody(reason)) }
+                .onSuccess { resp ->
+                    _state.update {
+                        it.copy(
+                            message = if (resp.changedFields.isEmpty()) {
+                                "System safety already at defaults"
+                            } else {
+                                "Reset: ${resp.changedFields.joinToString(", ")}"
+                            },
+                        )
+                    }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Couldn't reset system safety")) } }
+        }
+    }
+
+    fun bypassPending(userId: String, reason: String) {
+        viewModelScope.launch {
+            runCatching { api.adminBypassPending(userId, AdminReasonBody(reason)) }
+                .onSuccess { resp ->
+                    _state.update { it.copy(message = "Finalized ${resp.finalizedCount} pending action(s)") }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Couldn't finalize pending actions")) } }
+        }
+    }
+
     fun clearMessage() { _state.update { it.copy(message = null) } }
 }
 
@@ -137,6 +165,8 @@ fun AdminUserDetailScreen(
     val state by viewModel.state.collectAsState()
     var rotateKeys by remember { mutableStateOf(false) }
     var terminateTarget by remember { mutableStateOf<AdminSessionRow?>(null) }
+    var showResetSafety by remember { mutableStateOf(false) }
+    var showBypassPending by remember { mutableStateOf(false) }
 
     LaunchedEffect(userId) { viewModel.load(userId) }
     LaunchedEffect(state.message) {
@@ -184,6 +214,8 @@ fun AdminUserDetailScreen(
                     sessions = state.sessions,
                     onTerminate = { terminateTarget = it },
                     onRotateKeys = { rotateKeys = true },
+                    onResetSafety = { showResetSafety = true },
+                    onBypassPending = { showBypassPending = true },
                 )
             }
             Spacer(Modifier.height(24.dp))
@@ -213,6 +245,26 @@ fun AdminUserDetailScreen(
             onDismiss = { terminateTarget = null },
         )
     }
+    if (showResetSafety) {
+        AdminReasonDialog(
+            title = "Reset system safety?",
+            message = "Clears this account's System Safety toggles, zeroes the grace period, and resets delete confirmation. Does not touch already-queued pending actions.",
+            confirmLabel = "Reset",
+            destructive = true,
+            onConfirm = { reason, _ -> viewModel.resetSafety(userId, reason); showResetSafety = false },
+            onDismiss = { showResetSafety = false },
+        )
+    }
+    if (showBypassPending) {
+        AdminReasonDialog(
+            title = "Finalize pending actions?",
+            message = "Immediately finalizes every queued System Safety action on this account, bypassing the grace period. This cannot be undone.",
+            confirmLabel = "Finalize now",
+            destructive = true,
+            onConfirm = { reason, _ -> viewModel.bypassPending(userId, reason); showBypassPending = false },
+            onDismiss = { showBypassPending = false },
+        )
+    }
 }
 
 @Composable
@@ -221,6 +273,8 @@ private fun DetailBody(
     sessions: List<AdminSessionRow>,
     onTerminate: (AdminSessionRow) -> Unit,
     onRotateKeys: () -> Unit,
+    onResetSafety: () -> Unit,
+    onBypassPending: () -> Unit,
 ) {
     Spacer(Modifier.height(8.dp))
     Text(explain.email, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -287,6 +341,32 @@ private fun DetailBody(
             modifier = Modifier.fillMaxWidth(),
             enabled = explain.apiKeyCount > 0,
         ) { Text("Revoke all API keys") }
+    }
+
+    // Emergency ops live behind their own card, below the routine info, and
+    // are not offered for admin accounts (the backend refuses them there).
+    if (!explain.isAdmin) {
+        Spacer(Modifier.height(12.dp))
+        DetailCard("Emergency") {
+            Text(
+                "Operator overrides. Each writes an audit entry.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onResetSafety,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Reset system safety") }
+            Spacer(Modifier.height(6.dp))
+            OutlinedButton(
+                onClick = onBypassPending,
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+            ) { Text("Finalize pending actions now") }
+        }
     }
 
     if (explain.recentAdminAudit.isNotEmpty()) {

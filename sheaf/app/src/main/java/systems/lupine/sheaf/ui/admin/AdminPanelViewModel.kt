@@ -13,6 +13,7 @@ import systems.lupine.sheaf.data.model.AdminStepUpVerify
 import systems.lupine.sheaf.data.model.AdminUserRead
 import systems.lupine.sheaf.data.model.AdminUserUpdate
 import systems.lupine.sheaf.data.model.AnnouncementCreate
+import systems.lupine.sheaf.data.model.BulkApproveRequest
 import systems.lupine.sheaf.data.model.AnnouncementRead
 import systems.lupine.sheaf.data.model.AnnouncementUpdate
 import systems.lupine.sheaf.data.model.InviteCodeCreate
@@ -183,6 +184,27 @@ class AdminPanelViewModel @Inject constructor(
             runCatching { api.rejectUser(id) }
                 .onSuccess { _state.update { it.copy(approvals = it.approvals.filter { u -> u.id != id }) } }
                 .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to reject user")) } }
+        }
+    }
+
+    fun bulkApprove() {
+        val ids = _state.value.approvals.map { it.id }
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { api.bulkApprove(BulkApproveRequest(ids)) }
+                .onSuccess { resp ->
+                    // Drop only the ones the server actually approved; a partial
+                    // batch leaves the rest in the list with their failure reason
+                    // available server-side.
+                    val approvedIds = resp.results.filter { it.approved }.map { it.userId }.toSet()
+                    _state.update { s ->
+                        s.copy(
+                            approvals = s.approvals.filterNot { it.id in approvedIds },
+                            maintenanceMessage = "Approved ${resp.approvedCount} of ${ids.size}",
+                        )
+                    }
+                }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Bulk approve failed")) } }
         }
     }
 

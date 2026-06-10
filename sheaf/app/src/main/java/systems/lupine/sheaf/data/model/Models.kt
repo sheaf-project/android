@@ -1108,6 +1108,78 @@ data class AdminRotateAllResponse(
     @Json(name = "revoked_count") val revokedCount: Int = 0,
 )
 
+// ── Admin maintenance jobs ────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AdminJobLastRun(
+    @Json(name = "started_at") val startedAt: String,
+    @Json(name = "finished_at") val finishedAt: String? = null,
+    val status: String,
+    @Json(name = "items_processed") val itemsProcessed: Int = 0,
+    @Json(name = "duration_ms") val durationMs: Long? = null,
+    @Json(name = "error_message") val errorMessage: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminJobRead(
+    val name: String,
+    val description: String,
+    val enabled: Boolean = true,
+    @Json(name = "interval_seconds") val intervalSeconds: Int = 0,
+    @Json(name = "last_run") val lastRun: AdminJobLastRun? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminJobRunResponse(
+    @Json(name = "job_name") val jobName: String? = null,
+    val status: String,
+    @Json(name = "items_processed") val itemsProcessed: Int = 0,
+    @Json(name = "duration_ms") val durationMs: Long? = null,
+    @Json(name = "error_message") val errorMessage: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminPushoverUsage(
+    val month: String,
+    val count: Int,
+    val cap: Int,
+    val enforced: Boolean,
+)
+
+// ── Admin bulk approve ────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class BulkApproveRequest(
+    @Json(name = "user_ids") val userIds: List<String>,
+)
+
+@JsonClass(generateAdapter = true)
+data class BulkApproveResult(
+    @Json(name = "user_id") val userId: String,
+    val approved: Boolean,
+    val reason: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class BulkApproveResponse(
+    @Json(name = "approved_count") val approvedCount: Int = 0,
+    val results: List<BulkApproveResult> = emptyList(),
+)
+
+// ── Admin emergency ops ───────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AdminResetSafetyResponse(
+    val reset: Boolean = false,
+    @Json(name = "changed_fields") val changedFields: List<String> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminBypassPendingResponse(
+    @Json(name = "finalized_count") val finalizedCount: Int = 0,
+    @Json(name = "by_type") val byType: Map<String, Int> = emptyMap(),
+)
+
 // ── Admin audit log ─────────────────────────────────────────────────────────
 //
 // before_json / after_json are arbitrary state snapshots, so they're typed as
