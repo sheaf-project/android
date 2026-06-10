@@ -24,6 +24,11 @@ import java.io.FileOutputStream
 // for the small circle previews shown next to names.
 private const val AVATAR_PX = 96
 private const val AVATAR_DIR = "widget_avatars"
+// Grace period before an unused avatar PNG is swept. Every refresh rewrites
+// the files for the members it shows, so a file only gets this stale once no
+// widget has rendered that member for two weeks (member deleted, or widget
+// removed). Comfortably longer than any widget's refresh period.
+private const val AVATAR_MAX_AGE_MS = 14L * 24 * 60 * 60 * 1000
 
 internal fun widgetAvatarDir(context: Context): File =
     File(context.filesDir, AVATAR_DIR).also { it.mkdirs() }
@@ -37,22 +42,37 @@ internal fun loadWidgetAvatar(context: Context, memberId: String): Bitmap? {
     return runCatching { BitmapFactory.decodeFile(file.absolutePath) }.getOrNull()
 }
 
+/**
+ * Sweep avatar PNGs not touched within [AVATAR_MAX_AGE_MS]. Age-based so it's
+ * safe across the multiple widgets sharing this directory: a file in active
+ * use is rewritten (and its mtime bumped) on every refresh, so only avatars
+ * for deleted members or removed widgets ever go stale enough to delete.
+ */
+internal fun pruneStaleAvatars(context: Context) {
+    val cutoff = System.currentTimeMillis() - AVATAR_MAX_AGE_MS
+    runCatching {
+        widgetAvatarDir(context).listFiles()?.forEach { f ->
+            if (f.lastModified() < cutoff) runCatching { f.delete() }
+        }
+    }
+}
+
 internal suspend fun renderWidgetAvatars(
     context: Context,
     prefs: PreferencesRepository,
     http: OkHttpClient,
     members: List<MemberRead>,
 ) {
-    // No file pruning here on purpose. Multiple widgets share this
-    // cache directory and each widget refreshes independently with
-    // its own member list — an earlier "delete files not in `members`"
-    // step here meant each refresh wiped the avatars other widgets
-    // needed, leaving them with letter-fallback circles. UUIDs as
-    // file names means there's no name collision risk; size is ~9 KB
-    // each, so leaving stale files is cheap. A separate
-    // app-lifecycle-scope pass can sweep orphans later if it ever
-    // matters.
+    // Pruning is by file age, never by this widget's member list. Multiple
+    // widgets share this cache directory and refresh independently; an
+    // earlier "delete files not in `members`" step here meant each refresh
+    // wiped the avatars other widgets needed, leaving them with letter-
+    // fallback circles. Age-based sweeping can't do that: every refresh
+    // rewrites the files for the members it shows (freshening their mtime),
+    // so only genuinely-orphaned avatars age out. If a still-wanted one is
+    // ever swept, the next refresh just re-renders it.
     widgetAvatarDir(context)  // ensure exists
+    pruneStaleAvatars(context)
     if (members.isEmpty()) return
 
     val cdnBase = prefs.fileCdnBase.firstOrNull()?.trimEnd('/')?.ifBlank { null }

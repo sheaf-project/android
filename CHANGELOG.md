@@ -25,6 +25,12 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Widget avatar cache no longer grows without bound.** Stale avatar
+  PNGs (from deleted members or removed widgets) are now swept after a
+  two-week grace period. The sweep is age-based rather than keyed to
+  any single widget's member list, so it can't wipe avatars another
+  widget is still using.
+
 - **Offline switch queue no longer wedges on an un-replayable entry.**
   The sync worker retried the whole pending-switch / removal queue on
   any failure, so a single entry that could never succeed (a member
