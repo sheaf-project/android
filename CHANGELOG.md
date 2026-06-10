@@ -25,6 +25,13 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Wear: fronters complications wasted the slot on a "FRONT"
+  label.** The currently-fronting text complications rendered a
+  static "front" / "Fronting" title that, on a narrow SHORT_TEXT
+  slot, pushed the actual member names out of view (you'd see just
+  "FRONT" with no names). Dropped the title so the names fill the
+  slot; the accessibility description is unchanged.
+
 - **Wear: switch-confirm button clipped on round watches.** The
   pinned "Switch (N)" / "Clear Front" action chip on the Switch
   Front screen used a fixed bottom-edge layout that worked on

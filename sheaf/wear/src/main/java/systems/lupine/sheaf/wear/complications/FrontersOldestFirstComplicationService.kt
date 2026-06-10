@@ -43,26 +43,28 @@ internal fun SuspendingComplicationDataSourceService.buildFrontersComplication(
     val description = PlainComplicationText.Builder("Currently fronting").build()
     return when (type) {
         ComplicationType.SHORT_TEXT -> {
-            // Watchfaces render SHORT_TEXT in narrow slots — typically 6-7
-            // chars before the layout clips. Show the priority fronter's
-            // name truncated to fit alongside a "+N" overflow so the
-            // ordering choice (oldest- vs newest-first) is meaningful.
+            // No title. A SHORT_TEXT slot is only ~7 chars wide; spending a
+            // line on a static "front" label pushed the actual member name
+            // out of the slot (it rendered as just the uppercased title
+            // "FRONT" with the name clipped to nothing). The names ARE the
+            // information, so give them the whole slot. The content
+            // description still says "Currently fronting" for a11y.
             ShortTextComplicationData.Builder(
                 PlainComplicationText.Builder(fitFrontersShortText(names)).build(),
                 description,
             )
-                .setTitle(PlainComplicationText.Builder("front").build())
                 .setTapAction(tap)
                 .build()
         }
 
         ComplicationType.LONG_TEXT -> {
+            // Likewise no "Fronting" title; the names fill the line. Keep a
+            // legible empty state rather than a bare dash.
             val text = if (names.isEmpty()) "No one fronting" else fitNames(names, LONG_TEXT_BUDGET)
             LongTextComplicationData.Builder(
                 PlainComplicationText.Builder(text).build(),
                 description,
             )
-                .setTitle(PlainComplicationText.Builder("Fronting").build())
                 .setTapAction(tap)
                 .build()
         }
