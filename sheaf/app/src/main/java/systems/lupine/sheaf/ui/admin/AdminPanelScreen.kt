@@ -195,11 +195,15 @@ fun AdminPanelScreen(
                 UserListItem(
                     user = user,
                     onUpdate = { update -> viewModel.updateUser(user.id, update) },
-                    onResetPassword = { newPw -> viewModel.resetPassword(user.id, newPw) },
-                    onChangeEmail = { newEmail -> viewModel.changeEmail(user.id, newEmail) },
-                    onDisableTotp = { viewModel.disableTotp(user.id) },
-                    onVerifyEmail = { viewModel.verifyEmail(user.id) },
-                    onCancelDeletion = { viewModel.cancelDeletion(user.id) },
+                    onResetPassword = { reason, newPw -> viewModel.resetPassword(user.id, reason, newPw) },
+                    onChangeEmail = { reason, newEmail -> viewModel.changeEmail(user.id, reason, newEmail) },
+                    onDisableTotp = { reason -> viewModel.disableTotp(user.id, reason) },
+                    onVerifyEmail = { reason -> viewModel.verifyEmail(user.id, reason) },
+                    onCancelDeletion = { reason -> viewModel.cancelDeletion(user.id, reason) },
+                    onSuspend = { reason, days -> viewModel.suspendUser(user.id, reason, days) },
+                    onUnsuspend = { reason -> viewModel.unsuspendUser(user.id, reason) },
+                    onBan = { reason -> viewModel.banUser(user.id, reason) },
+                    onUnban = { reason -> viewModel.unbanUser(user.id, reason) },
                 )
                 HorizontalDivider()
             }
@@ -421,13 +425,19 @@ private fun StepUpSection(
 private fun UserListItem(
     user: systems.lupine.sheaf.data.model.AdminUserRead,
     onUpdate: (AdminUserUpdate) -> Unit,
-    onResetPassword: (String?) -> Unit,
-    onChangeEmail: (String) -> Unit,
-    onDisableTotp: () -> Unit,
-    onVerifyEmail: () -> Unit,
-    onCancelDeletion: () -> Unit,
+    onResetPassword: (String, String?) -> Unit,
+    onChangeEmail: (String, String) -> Unit,
+    onDisableTotp: (String) -> Unit,
+    onVerifyEmail: (String) -> Unit,
+    onCancelDeletion: (String) -> Unit,
+    onSuspend: (String, Int?) -> Unit,
+    onUnsuspend: (String) -> Unit,
+    onBan: (String) -> Unit,
+    onUnban: (String) -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    val suspended = user.accountStatus.equals("suspended", ignoreCase = true)
+    val banned = user.accountStatus.equals("banned", ignoreCase = true)
 
     Surface(onClick = { showDialog = true }, modifier = Modifier.fillMaxWidth()) {
         ListItem(
@@ -436,7 +446,12 @@ private fun UserListItem(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(user.tier, style = MaterialTheme.typography.bodySmall)
                     Text("·", style = MaterialTheme.typography.bodySmall)
-                    Text(user.accountStatus, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        user.accountStatus,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (suspended || banned) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     if (user.isAdmin) {
                         Text("·", style = MaterialTheme.typography.bodySmall)
                         Text("admin", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
@@ -451,11 +466,15 @@ private fun UserListItem(
             user = user,
             onDismiss = { showDialog = false },
             onSave = { update -> onUpdate(update); showDialog = false },
-            onResetPassword = { newPw -> onResetPassword(newPw); showDialog = false },
-            onChangeEmail = { newEmail -> onChangeEmail(newEmail); showDialog = false },
-            onDisableTotp = { onDisableTotp(); showDialog = false },
-            onVerifyEmail = { onVerifyEmail(); showDialog = false },
-            onCancelDeletion = { onCancelDeletion(); showDialog = false },
+            onResetPassword = { reason, newPw -> onResetPassword(reason, newPw); showDialog = false },
+            onChangeEmail = { reason, newEmail -> onChangeEmail(reason, newEmail); showDialog = false },
+            onDisableTotp = { reason -> onDisableTotp(reason); showDialog = false },
+            onVerifyEmail = { reason -> onVerifyEmail(reason); showDialog = false },
+            onCancelDeletion = { reason -> onCancelDeletion(reason); showDialog = false },
+            onSuspend = { reason, days -> onSuspend(reason, days); showDialog = false },
+            onUnsuspend = { reason -> onUnsuspend(reason); showDialog = false },
+            onBan = { reason -> onBan(reason); showDialog = false },
+            onUnban = { reason -> onUnban(reason); showDialog = false },
         )
     }
 }
@@ -465,11 +484,15 @@ private fun UserEditDialog(
     user: systems.lupine.sheaf.data.model.AdminUserRead,
     onDismiss: () -> Unit,
     onSave: (AdminUserUpdate) -> Unit,
-    onResetPassword: (String?) -> Unit,
-    onChangeEmail: (String) -> Unit,
-    onDisableTotp: () -> Unit,
-    onVerifyEmail: () -> Unit,
-    onCancelDeletion: () -> Unit,
+    onResetPassword: (String, String?) -> Unit,
+    onChangeEmail: (String, String) -> Unit,
+    onDisableTotp: (String) -> Unit,
+    onVerifyEmail: (String) -> Unit,
+    onCancelDeletion: (String) -> Unit,
+    onSuspend: (String, Int?) -> Unit,
+    onUnsuspend: (String) -> Unit,
+    onBan: (String) -> Unit,
+    onUnban: (String) -> Unit,
 ) {
     var tier by remember { mutableStateOf(user.tier) }
     var isAdmin by remember { mutableStateOf(user.isAdmin) }
@@ -480,6 +503,13 @@ private fun UserEditDialog(
     var confirmDisableTotp by remember { mutableStateOf(false) }
     var confirmVerifyEmail by remember { mutableStateOf(false) }
     var confirmCancelDeletion by remember { mutableStateOf(false) }
+    var showSuspend by remember { mutableStateOf(false) }
+    var showUnsuspend by remember { mutableStateOf(false) }
+    var showBan by remember { mutableStateOf(false) }
+    var showUnban by remember { mutableStateOf(false) }
+
+    val suspended = user.accountStatus.equals("suspended", ignoreCase = true)
+    val banned = user.accountStatus.equals("banned", ignoreCase = true)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -545,6 +575,48 @@ private fun UserEditDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Cancel Account Deletion") }
                 }
+
+                // Moderation is hidden for admin accounts: the backend rejects
+                // suspend/ban against admins, so don't offer a button that 403s.
+                if (!user.isAdmin) {
+                    HorizontalDivider()
+                    Text(
+                        "Moderation",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (suspended) {
+                        user.suspendedReason?.let {
+                            Text(
+                                "Suspended: $it",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showUnsuspend = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Lift Suspension") }
+                    } else if (!banned) {
+                        OutlinedButton(
+                            onClick = { showSuspend = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        ) { Text("Suspend") }
+                    }
+                    if (banned) {
+                        OutlinedButton(
+                            onClick = { showUnban = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Lift Ban") }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showBan = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        ) { Text("Ban Permanently") }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -562,63 +634,156 @@ private fun UserEditDialog(
 
     if (showResetPasswordDialog) {
         ResetPasswordDialog(
-            onConfirm = { newPw -> onResetPassword(newPw); showResetPasswordDialog = false },
+            onConfirm = { reason, newPw -> onResetPassword(reason, newPw); showResetPasswordDialog = false },
             onDismiss = { showResetPasswordDialog = false },
         )
     }
 
     if (showChangeEmailDialog) {
         ChangeEmailDialog(
-            onConfirm = { newEmail -> onChangeEmail(newEmail); showChangeEmailDialog = false },
+            onConfirm = { reason, newEmail -> onChangeEmail(reason, newEmail); showChangeEmailDialog = false },
             onDismiss = { showChangeEmailDialog = false },
         )
     }
 
     if (confirmDisableTotp) {
-        AlertDialog(
-            onDismissRequest = { confirmDisableTotp = false },
-            title = { Text("Disable TOTP?") },
-            text = { Text("This will remove two-factor authentication from the account. The user will need to re-enroll if they want it back.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { onDisableTotp(); confirmDisableTotp = false },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Disable") }
-            },
-            dismissButton = { TextButton(onClick = { confirmDisableTotp = false }) { Text("Cancel") } },
+        ReasonPromptDialog(
+            title = "Disable TOTP?",
+            message = "Removes two-factor authentication from the account. The user must re-enroll to restore it.",
+            confirmLabel = "Disable",
+            destructive = true,
+            onConfirm = { reason, _ -> onDisableTotp(reason); confirmDisableTotp = false },
+            onDismiss = { confirmDisableTotp = false },
         )
     }
 
     if (confirmVerifyEmail) {
-        AlertDialog(
-            onDismissRequest = { confirmVerifyEmail = false },
-            title = { Text("Verify Email?") },
-            text = { Text("Mark ${user.email} as verified without requiring the user to click a verification link.") },
-            confirmButton = {
-                TextButton(onClick = { onVerifyEmail(); confirmVerifyEmail = false }) { Text("Verify") }
-            },
-            dismissButton = { TextButton(onClick = { confirmVerifyEmail = false }) { Text("Cancel") } },
+        ReasonPromptDialog(
+            title = "Verify email?",
+            message = "Mark ${user.email} as verified without the user clicking a verification link.",
+            confirmLabel = "Verify",
+            onConfirm = { reason, _ -> onVerifyEmail(reason); confirmVerifyEmail = false },
+            onDismiss = { confirmVerifyEmail = false },
         )
     }
 
     if (confirmCancelDeletion) {
-        AlertDialog(
-            onDismissRequest = { confirmCancelDeletion = false },
-            title = { Text("Cancel Deletion?") },
-            text = { Text("Restore ${user.email} and cancel the scheduled account deletion.") },
-            confirmButton = {
-                TextButton(onClick = { onCancelDeletion(); confirmCancelDeletion = false }) { Text("Cancel Deletion") }
-            },
-            dismissButton = { TextButton(onClick = { confirmCancelDeletion = false }) { Text("Dismiss") } },
+        ReasonPromptDialog(
+            title = "Cancel deletion?",
+            message = "Restore ${user.email} and cancel the scheduled account deletion.",
+            confirmLabel = "Cancel deletion",
+            onConfirm = { reason, _ -> onCancelDeletion(reason); confirmCancelDeletion = false },
+            onDismiss = { confirmCancelDeletion = false },
+        )
+    }
+
+    if (showSuspend) {
+        ReasonPromptDialog(
+            title = "Suspend account?",
+            message = "Soft-bans ${user.email} and revokes their sessions. Leave duration blank for an indefinite suspension.",
+            confirmLabel = "Suspend",
+            destructive = true,
+            includeDuration = true,
+            onConfirm = { reason, days -> onSuspend(reason, days); showSuspend = false },
+            onDismiss = { showSuspend = false },
+        )
+    }
+
+    if (showUnsuspend) {
+        ReasonPromptDialog(
+            title = "Lift suspension?",
+            message = "Restores ${user.email} to active.",
+            confirmLabel = "Lift",
+            onConfirm = { reason, _ -> onUnsuspend(reason); showUnsuspend = false },
+            onDismiss = { showUnsuspend = false },
+        )
+    }
+
+    if (showBan) {
+        ReasonPromptDialog(
+            title = "Ban permanently?",
+            message = "Permanently bans ${user.email} and revokes their sessions. This does not auto-expire.",
+            confirmLabel = "Ban",
+            destructive = true,
+            onConfirm = { reason, _ -> onBan(reason); showBan = false },
+            onDismiss = { showBan = false },
+        )
+    }
+
+    if (showUnban) {
+        ReasonPromptDialog(
+            title = "Lift ban?",
+            message = "Restores ${user.email} to active.",
+            confirmLabel = "Lift",
+            onConfirm = { reason, _ -> onUnban(reason); showUnban = false },
+            onDismiss = { showUnban = false },
         )
     }
 }
 
+/**
+ * Collects an audit reason (required by the backend on these actions) and,
+ * for suspend, an optional duration in days. Confirm is disabled until a
+ * reason is entered.
+ */
 @Composable
-private fun ResetPasswordDialog(
-    onConfirm: (String?) -> Unit,
+private fun ReasonPromptDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    destructive: Boolean = false,
+    includeDuration: Boolean = false,
+    onConfirm: (reason: String, durationDays: Int?) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var reason by remember { mutableStateOf("") }
+    var durationText by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(message, style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it.take(500) },
+                    label = { Text("Reason (recorded in the audit log)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (includeDuration) {
+                    OutlinedTextField(
+                        value = durationText,
+                        onValueChange = { if (it.all { c -> c.isDigit() }) durationText = it },
+                        label = { Text("Duration in days (blank = indefinite)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(reason.trim(), durationText.toIntOrNull()) },
+                enabled = reason.isNotBlank(),
+                colors = if (destructive) {
+                    ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                } else {
+                    ButtonDefaults.textButtonColors()
+                },
+            ) { Text(confirmLabel) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun ResetPasswordDialog(
+    onConfirm: (reason: String, newPassword: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var reason by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -632,6 +797,12 @@ private fun ResetPasswordDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it.take(500) },
+                    label = { Text("Reason (recorded in the audit log)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
                     label = { Text("New password (optional)") },
@@ -642,7 +813,10 @@ private fun ResetPasswordDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(newPassword.ifBlank { null }) }) { Text("Reset") }
+            TextButton(
+                onClick = { onConfirm(reason.trim(), newPassword.ifBlank { null }) },
+                enabled = reason.isNotBlank(),
+            ) { Text("Reset") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -650,28 +824,37 @@ private fun ResetPasswordDialog(
 
 @Composable
 private fun ChangeEmailDialog(
-    onConfirm: (String) -> Unit,
+    onConfirm: (reason: String, newEmail: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var reason by remember { mutableStateOf("") }
     var newEmail by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Change Email") },
         text = {
-            OutlinedTextField(
-                value = newEmail,
-                onValueChange = { newEmail = it },
-                label = { Text("New email address") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it.take(500) },
+                    label = { Text("Reason (recorded in the audit log)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = newEmail,
+                    onValueChange = { newEmail = it },
+                    label = { Text("New email address") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(newEmail) },
-                enabled = newEmail.contains('@'),
+                onClick = { onConfirm(reason.trim(), newEmail) },
+                enabled = newEmail.contains('@') && reason.isNotBlank(),
             ) { Text("Change") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

@@ -8,6 +8,11 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Admin account moderation.** The admin user editor gains suspend
+  (with optional duration), permanent ban, and lift-suspension /
+  lift-ban actions, each prompting for an audited reason. The user
+  row shows suspended / banned status in the error colour.
+
 - **Admin audit log.** Settings → Account gains an "Admin activity"
   screen showing every administrative action taken on your account
   (who, when, why, and what changed), via the new

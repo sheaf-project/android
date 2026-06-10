@@ -1003,6 +1003,8 @@ data class AdminUserRead(
     @Json(name = "member_count") val memberCount: Int,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "last_login_at") val lastLoginAt: String?,
+    @Json(name = "suspended_until") val suspendedUntil: String? = null,
+    @Json(name = "suspended_reason") val suspendedReason: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -1024,12 +1026,31 @@ data class PendingUserRead(
 
 @JsonClass(generateAdapter = true)
 data class AdminResetPasswordRequest(
+    // Backend requires a reason (1-500 chars) for the audit trail.
+    val reason: String,
     @Json(name = "new_password") val newPassword: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
 data class AdminChangeEmailRequest(
+    val reason: String,
     @Json(name = "new_email") val newEmail: String,
+)
+
+/**
+ * Body shared by admin actions that require only an audited reason:
+ * disable-totp, verify-email, cancel-deletion, unsuspend, ban, unban.
+ */
+@JsonClass(generateAdapter = true)
+data class AdminReasonBody(
+    val reason: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminSuspendRequest(
+    val reason: String,
+    // Omitted = indefinite. Backend bounds it to 1-1825 days.
+    @Json(name = "duration_days") val durationDays: Int? = null,
 )
 
 // ── Admin audit log ─────────────────────────────────────────────────────────

@@ -584,13 +584,30 @@ interface SheafApiService {
     suspend fun adminChangeEmail(@Path("id") id: String, @Body body: AdminChangeEmailRequest)
 
     @POST("/v1/admin/users/{id}/disable-totp")
-    suspend fun adminDisableTotp(@Path("id") id: String)
+    suspend fun adminDisableTotp(@Path("id") id: String, @Body body: AdminReasonBody)
 
     @POST("/v1/admin/users/{id}/verify-email")
-    suspend fun adminVerifyEmail(@Path("id") id: String)
+    suspend fun adminVerifyEmail(@Path("id") id: String, @Body body: AdminReasonBody)
 
     @POST("/v1/admin/users/{id}/cancel-deletion")
-    suspend fun adminCancelDeletion(@Path("id") id: String)
+    suspend fun adminCancelDeletion(@Path("id") id: String, @Body body: AdminReasonBody)
+
+    // ── Admin account moderation ──────────────────────────────────────────────
+    // Suspend = reversible soft-ban (optional expiry); ban = permanent. Both
+    // revoke the target's sessions server-side. Responses carry status detail
+    // we don't currently consume; we reload the affected row instead.
+
+    @POST("/v1/admin/users/{id}/suspend")
+    suspend fun adminSuspendUser(@Path("id") id: String, @Body body: AdminSuspendRequest)
+
+    @POST("/v1/admin/users/{id}/unsuspend")
+    suspend fun adminUnsuspendUser(@Path("id") id: String, @Body body: AdminReasonBody)
+
+    @POST("/v1/admin/users/{id}/ban")
+    suspend fun adminBanUser(@Path("id") id: String, @Body body: AdminReasonBody)
+
+    @POST("/v1/admin/users/{id}/unban")
+    suspend fun adminUnbanUser(@Path("id") id: String, @Body body: AdminReasonBody)
 
     // ── Admin audit log ─────────────────────────────────────────────────────
 

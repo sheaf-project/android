@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.AdminAuthStatus
 import systems.lupine.sheaf.data.model.AdminChangeEmailRequest
+import systems.lupine.sheaf.data.model.AdminReasonBody
 import systems.lupine.sheaf.data.model.AdminResetPasswordRequest
+import systems.lupine.sheaf.data.model.AdminSuspendRequest
 import systems.lupine.sheaf.data.model.AdminStats
 import systems.lupine.sheaf.data.model.AdminStepUpVerify
 import systems.lupine.sheaf.data.model.AdminUserRead
@@ -208,9 +210,14 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
-    fun resetPassword(userId: String, newPassword: String?) {
+    fun resetPassword(userId: String, reason: String, newPassword: String?) {
         viewModelScope.launch {
-            runCatching { api.adminResetPassword(userId, AdminResetPasswordRequest(newPassword?.ifBlank { null })) }
+            runCatching {
+                api.adminResetPassword(
+                    userId,
+                    AdminResetPasswordRequest(reason = reason, newPassword = newPassword?.ifBlank { null }),
+                )
+            }
                 .onSuccess { _state.update { it.copy(recoveryMessage = "Password reset successfully") } }
                 .onFailure { e ->
                     val msg = if (e is HttpException && e.code() == 403) "Insufficient permissions"
@@ -220,9 +227,9 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
-    fun changeEmail(userId: String, newEmail: String) {
+    fun changeEmail(userId: String, reason: String, newEmail: String) {
         viewModelScope.launch {
-            runCatching { api.adminChangeEmail(userId, AdminChangeEmailRequest(newEmail)) }
+            runCatching { api.adminChangeEmail(userId, AdminChangeEmailRequest(reason = reason, newEmail = newEmail)) }
                 .onSuccess {
                     _state.update { s ->
                         s.copy(
@@ -239,9 +246,9 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
-    fun disableTotp(userId: String) {
+    fun disableTotp(userId: String, reason: String) {
         viewModelScope.launch {
-            runCatching { api.adminDisableTotp(userId) }
+            runCatching { api.adminDisableTotp(userId, AdminReasonBody(reason)) }
                 .onSuccess {
                     _state.update { s ->
                         s.copy(
@@ -254,9 +261,9 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
-    fun verifyEmail(userId: String) {
+    fun verifyEmail(userId: String, reason: String) {
         viewModelScope.launch {
-            runCatching { api.adminVerifyEmail(userId) }
+            runCatching { api.adminVerifyEmail(userId, AdminReasonBody(reason)) }
                 .onSuccess {
                     _state.update { s ->
                         s.copy(
@@ -269,9 +276,9 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
-    fun cancelDeletion(userId: String) {
+    fun cancelDeletion(userId: String, reason: String) {
         viewModelScope.launch {
-            runCatching { api.adminCancelDeletion(userId) }
+            runCatching { api.adminCancelDeletion(userId, AdminReasonBody(reason)) }
                 .onSuccess {
                     _state.update { s ->
                         s.copy(
@@ -281,6 +288,75 @@ class AdminPanelViewModel @Inject constructor(
                     }
                 }
                 .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to cancel deletion")) } }
+        }
+    }
+
+    // ── Moderation ──────────────────────────────────────────────────────────
+
+    fun suspendUser(userId: String, reason: String, durationDays: Int?) {
+        moderate(
+            userId = userId,
+            call = { api.adminSuspendUser(userId, AdminSuspendRequest(reason = reason, durationDays = durationDays)) },
+            newStatus = "suspended",
+            message = "Account suspended",
+            failure = "Failed to suspend account",
+        )
+    }
+
+    fun unsuspendUser(userId: String, reason: String) {
+        moderate(
+            userId = userId,
+            call = { api.adminUnsuspendUser(userId, AdminReasonBody(reason)) },
+            newStatus = "active",
+            message = "Suspension lifted",
+            failure = "Failed to lift suspension",
+        )
+    }
+
+    fun banUser(userId: String, reason: String) {
+        moderate(
+            userId = userId,
+            call = { api.adminBanUser(userId, AdminReasonBody(reason)) },
+            newStatus = "banned",
+            message = "Account banned",
+            failure = "Failed to ban account",
+        )
+    }
+
+    fun unbanUser(userId: String, reason: String) {
+        moderate(
+            userId = userId,
+            call = { api.adminUnbanUser(userId, AdminReasonBody(reason)) },
+            newStatus = "active",
+            message = "Ban lifted",
+            failure = "Failed to lift ban",
+        )
+    }
+
+    // Shared shape for the four moderation actions: run the call, optimistically
+    // reflect the new account_status in the loaded row, surface a result toast.
+    private fun moderate(
+        userId: String,
+        call: suspend () -> Unit,
+        newStatus: String,
+        message: String,
+        failure: String,
+    ) {
+        viewModelScope.launch {
+            runCatching { call() }
+                .onSuccess {
+                    _state.update { s ->
+                        s.copy(
+                            recoveryMessage = message,
+                            users = s.users.map { if (it.id == userId) it.copy(accountStatus = newStatus) else it },
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    val msg = if (e is HttpException && e.code() == 403) "Insufficient permissions"
+                              else e.toUserMessage(failure)
+                    _state.update { it.copy(error = msg) }
+                }
         }
     }
 
