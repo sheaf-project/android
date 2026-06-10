@@ -25,6 +25,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Offline switch queue no longer wedges on an un-replayable entry.**
+  The sync worker retried the whole pending-switch / removal queue on
+  any failure, so a single entry that could never succeed (a member
+  deleted server-side while offline, an empty member set, a rejected
+  payload) retried forever under backoff and blocked every later
+  queued switch behind it. Permanent failures (a 4xx that isn't auth
+  or rate-limiting) now drop that one entry and move on; genuinely
+  transient failures (no network, 5xx, auth, rate-limit) still retry
+  the queue intact.
+
 - **Wear: complications and tiles stopped updating until the app was
   opened.** When fronting changed, the phone sent the watch a
   content-free "re-sync" nudge and made the watch re-fetch the state
