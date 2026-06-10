@@ -25,6 +25,15 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Wear: member names with commas corrupted the watch snapshot.**
+  The fronter / member data the watch hands to its tiles and
+  complications was encoded with a hand-rolled JSON writer/parser
+  that split objects on commas and only escaped quotes, so a member
+  named e.g. "Bob, Jr." mangled the entire snapshot (wrong or
+  missing names across every tile and complication). Both sides now
+  go through Moshi, which escapes correctly. Existing snapshots
+  still decode, so no resync is forced.
+
 - **Wear: fronters complications wasted the slot on a "FRONT"
   label.** The currently-fronting text complications rendered a
   static "front" / "Fronting" title that, on a narrow SHORT_TEXT

@@ -5,6 +5,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import systems.lupine.sheaf.wear.MainActivity
 import java.time.Duration
 import java.time.Instant
@@ -16,11 +19,12 @@ import java.time.Instant
  * grow without breaking older complication services running across an app
  * upgrade.
  */
+@JsonClass(generateAdapter = true)
 internal data class FronterRow(
     val id: String,
     val name: String,
     /** ISO-8601 timestamp of the effective fronting-since, may be empty. */
-    val since: String,
+    val since: String = "",
 )
 
 /**
@@ -40,10 +44,11 @@ internal fun readFrontersSnapshot(context: Context): List<FronterRow>? {
  * just what's needed to display and select. The full WearMember is reachable
  * via the API once a member id is committed to a complication.
  */
+@JsonClass(generateAdapter = true)
 internal data class MemberRow(
     val id: String,
     val name: String,
-    val emoji: String,
+    val emoji: String = "",
 )
 
 /** Reads the full members list cached by WearStore. */
@@ -92,38 +97,42 @@ internal fun writeLoadStatus(context: Context, status: WearLoadStatus) {
         .apply()
 }
 
-internal fun parseMembersJson(raw: String): List<MemberRow> {
-    val trimmed = raw.trim()
-    if (trimmed == "[]" || trimmed.isEmpty()) return emptyList()
-    if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return emptyList()
-    val body = trimmed.substring(1, trimmed.length - 1)
-    val rows = mutableListOf<MemberRow>()
-    var i = 0
-    while (i < body.length) {
-        val start = body.indexOf('{', i)
-        if (start < 0) break
-        val end = body.indexOf('}', start)
-        if (end < 0) break
-        val obj = body.substring(start + 1, end)
-        var id = ""
-        var name = ""
-        var emoji = ""
-        obj.split(",").forEach { kv ->
-            val colon = kv.indexOf(':')
-            if (colon < 0) return@forEach
-            val key = kv.substring(0, colon).trim().trim('"')
-            val value = kv.substring(colon + 1).trim().trim('"').replace("\\\"", "\"").replace("\\\\", "\\")
-            when (key) {
-                "id" -> id = value
-                "name" -> name = value
-                "emoji" -> emoji = value
-            }
-        }
-        rows.add(MemberRow(id, name, emoji))
-        i = end + 1
-    }
-    return rows
-}
+// ── Snapshot JSON codec ────────────────────────────────────────────────────────
+//
+// The fronter / member snapshots are produced by WearStore in the wear app
+// process and read here in the (separate) watchface complication process via
+// the shared "tile_data" SharedPreferences. Both sides go through Moshi so a
+// member name containing the field delimiter (a comma) or an embedded quote
+// round-trips intact. An earlier hand-rolled encoder/parser split objects on
+// commas and only escaped quotes/backslashes, so a member named e.g.
+// "Bob, Jr." corrupted the whole snapshot parse. Moshi's generated adapters
+// (KSP, R8-safe) escape correctly. The wire shape is unchanged (a JSON array
+// of {id,name,...} objects), so snapshots written by the old encoder still
+// decode fine after upgrade.
+
+private val snapshotMoshi = Moshi.Builder().build()
+
+private val fronterListAdapter = snapshotMoshi.adapter<List<FronterRow>>(
+    Types.newParameterizedType(List::class.java, FronterRow::class.java),
+)
+private val memberListAdapter = snapshotMoshi.adapter<List<MemberRow>>(
+    Types.newParameterizedType(List::class.java, MemberRow::class.java),
+)
+
+internal fun encodeFrontersJson(rows: List<FronterRow>): String =
+    fronterListAdapter.toJson(rows)
+
+internal fun encodeMembersJson(rows: List<MemberRow>): String =
+    memberListAdapter.toJson(rows)
+
+// Tolerant of empty / malformed input: complications run on the watchface,
+// where a thrown exception is invisible to the user, so a bad snapshot
+// degrades to an empty list rather than crashing.
+internal fun parseMembersJson(raw: String): List<MemberRow> =
+    runCatching { memberListAdapter.fromJson(raw) }.getOrNull().orEmpty()
+
+internal fun parseFrontersJson(raw: String): List<FronterRow> =
+    runCatching { fronterListAdapter.fromJson(raw) }.getOrNull().orEmpty()
 
 // ── Per-instance config storage ───────────────────────────────────────────────
 //
@@ -144,50 +153,6 @@ internal fun saveMemberConfig(context: Context, instanceId: Int, memberId: Strin
 internal fun loadMemberConfig(context: Context, instanceId: Int): String? =
     context.getSharedPreferences(MEMBER_PREFS, Context.MODE_PRIVATE)
         .getString(memberKey(instanceId), null)
-
-/**
- * Tiny hand-written parser for the fronter-rows JSON array. Avoids dragging
- * Moshi into the complication services for one trivial structure. Tolerant
- * of empty / malformed input — returns empty list rather than throwing,
- * since complications run on the watchface where a crash is invisible to
- * the user.
- */
-internal fun parseFrontersJson(raw: String): List<FronterRow> {
-    val trimmed = raw.trim()
-    if (trimmed == "[]" || trimmed.isEmpty()) return emptyList()
-    if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return emptyList()
-    val body = trimmed.substring(1, trimmed.length - 1)
-    val rows = mutableListOf<FronterRow>()
-    var i = 0
-    while (i < body.length) {
-        val start = body.indexOf('{', i)
-        if (start < 0) break
-        val end = body.indexOf('}', start)
-        if (end < 0) break
-        val obj = body.substring(start + 1, end)
-        rows.add(parseRow(obj))
-        i = end + 1
-    }
-    return rows
-}
-
-private fun parseRow(obj: String): FronterRow {
-    var id = ""
-    var name = ""
-    var since = ""
-    obj.split(",").forEach { kv ->
-        val colon = kv.indexOf(':')
-        if (colon < 0) return@forEach
-        val key = kv.substring(0, colon).trim().trim('"')
-        val value = kv.substring(colon + 1).trim().trim('"').replace("\\\"", "\"").replace("\\\\", "\\")
-        when (key) {
-            "id" -> id = value
-            "name" -> name = value
-            "since" -> since = value
-        }
-    }
-    return FronterRow(id, name, since)
-}
 
 /** Earliest non-blank `since` across the snapshot, or null. */
 internal fun List<FronterRow>.earliestSince(): String? =

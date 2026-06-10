@@ -179,19 +179,29 @@ class WearStore(
         val sinceByMember = fronts.flatMap { f ->
             f.memberIds.map { id -> id to (f.memberSince[id] ?: f.startedAt) }
         }.toMap()
-        val frontersJson = members.joinToString(separator = ",", prefix = "[", postfix = "]") { m ->
-            val since = sinceByMember[m.id] ?: ""
-            "{\"id\":\"${jsonEscape(m.id)}\",\"name\":\"${jsonEscape(m.displayNameOrName)}\",\"since\":\"${jsonEscape(since)}\"}"
-        }
+        val frontersJson = systems.lupine.sheaf.wear.complications.encodeFrontersJson(
+            members.map { m ->
+                systems.lupine.sheaf.wear.complications.FronterRow(
+                    id = m.id,
+                    name = m.displayNameOrName,
+                    since = sinceByMember[m.id] ?: "",
+                )
+            }
+        )
 
         // Full members list for the per-member config activity. Subset of
         // WearMember (id, name, emoji) — anything else can be looked up by
         // id when needed.
         val allMembers = this.members.value
-        val membersJson = allMembers.joinToString(separator = ",", prefix = "[", postfix = "]") { m ->
-            val emoji = m.emoji?.takeIf { it.isNotBlank() }?.let { jsonEscape(it) } ?: ""
-            "{\"id\":\"${jsonEscape(m.id)}\",\"name\":\"${jsonEscape(m.displayNameOrName)}\",\"emoji\":\"$emoji\"}"
-        }
+        val membersJson = systems.lupine.sheaf.wear.complications.encodeMembersJson(
+            allMembers.map { m ->
+                systems.lupine.sheaf.wear.complications.MemberRow(
+                    id = m.id,
+                    name = m.displayNameOrName,
+                    emoji = m.emoji?.takeIf { it.isNotBlank() } ?: "",
+                )
+            }
+        )
 
         // last_front_change_at advances only when the *set* of fronting member
         // ids changes, so the "Last switch" complication is decoupled from the
@@ -270,9 +280,6 @@ class WearStore(
             systems.lupine.sheaf.wear.tile.FrontHistoryTileService::class.java,
         )
     }
-
-    private fun jsonEscape(s: String): String =
-        s.replace("\\", "\\\\").replace("\"", "\\\"")
 
     /**
      * Best-effort "when did this front composition last change?" using only
