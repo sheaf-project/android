@@ -8,6 +8,13 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Admin account detail / triage.** Each user row in the admin panel
+  opens an account-detail screen: a one-shot dossier (status, tier,
+  2FA, signup IP, session and API-key counts, system summary, recent
+  admin actions), the user's active sessions with per-session revoke,
+  and a revoke-all-API-keys action. Session and key actions prompt for
+  an audited reason.
+
 - **Admin account moderation.** The admin user editor gains suspend
   (with optional duration), permanent ban, and lift-suspension /
   lift-ban actions, each prompting for an audited reason. The user

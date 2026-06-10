@@ -1053,6 +1053,61 @@ data class AdminSuspendRequest(
     @Json(name = "duration_days") val durationDays: Int? = null,
 )
 
+// ── Admin user diagnostics (explain / sessions / keys) ────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AdminExplainSystem(
+    val id: String,
+    val name: String,
+    @Json(name = "member_count") val memberCount: Int,
+    @Json(name = "delete_confirmation") val deleteConfirmation: String,
+    @Json(name = "grace_period_days") val gracePeriodDays: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminExplainAuditRow(
+    val id: String,
+    val action: String,
+    @Json(name = "target_type") val targetType: String,
+    val reason: String? = null,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+/** One-shot triage dossier from GET /v1/admin/users/{id}/explain. */
+@JsonClass(generateAdapter = true)
+data class AdminExplainResponse(
+    @Json(name = "user_id") val userId: String,
+    val email: String,
+    val tier: String,
+    @Json(name = "is_admin") val isAdmin: Boolean,
+    @Json(name = "account_status") val accountStatus: String,
+    @Json(name = "email_verified") val emailVerified: Boolean,
+    @Json(name = "totp_enabled") val totpEnabled: Boolean,
+    @Json(name = "signup_ip") val signupIp: String? = null,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "last_login_at") val lastLoginAt: String? = null,
+    @Json(name = "active_session_count") val activeSessionCount: Int = 0,
+    @Json(name = "api_key_count") val apiKeyCount: Int = 0,
+    val system: AdminExplainSystem? = null,
+    @Json(name = "recent_admin_audit") val recentAdminAudit: List<AdminExplainAuditRow> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminSessionRow(
+    // Opaque handle (not the raw session id); used for the terminate call.
+    val id: String,
+    @Json(name = "user_agent") val userAgent: String? = null,
+    val ip: String? = null,
+    @Json(name = "created_at") val createdAt: String? = null,
+    @Json(name = "last_seen_at") val lastSeenAt: String? = null,
+    val nickname: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class AdminRotateAllResponse(
+    @Json(name = "revoked_count") val revokedCount: Int = 0,
+)
+
 // ── Admin audit log ─────────────────────────────────────────────────────────
 //
 // before_json / after_json are arbitrary state snapshots, so they're typed as

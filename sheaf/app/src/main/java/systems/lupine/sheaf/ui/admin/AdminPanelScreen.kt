@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,7 @@ import systems.lupine.sheaf.ui.components.SheafTopAppBar
 fun AdminPanelScreen(
     onNavigateUp: () -> Unit,
     onNavigateToAudit: () -> Unit = {},
+    onNavigateToUserDetail: (String) -> Unit = {},
     viewModel: AdminPanelViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -204,6 +206,7 @@ fun AdminPanelScreen(
                     onUnsuspend = { reason -> viewModel.unsuspendUser(user.id, reason) },
                     onBan = { reason -> viewModel.banUser(user.id, reason) },
                     onUnban = { reason -> viewModel.unbanUser(user.id, reason) },
+                    onViewDetail = { onNavigateToUserDetail(user.id) },
                 )
                 HorizontalDivider()
             }
@@ -434,6 +437,7 @@ private fun UserListItem(
     onUnsuspend: (String) -> Unit,
     onBan: (String) -> Unit,
     onUnban: (String) -> Unit,
+    onViewDetail: () -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     val suspended = user.accountStatus.equals("suspended", ignoreCase = true)
@@ -456,6 +460,11 @@ private fun UserListItem(
                         Text("·", style = MaterialTheme.typography.bodySmall)
                         Text("admin", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                     }
+                }
+            },
+            trailingContent = {
+                IconButton(onClick = onViewDetail) {
+                    Icon(Icons.Outlined.Info, contentDescription = "Account detail")
                 }
             },
         )
@@ -647,7 +656,7 @@ private fun UserEditDialog(
     }
 
     if (confirmDisableTotp) {
-        ReasonPromptDialog(
+        AdminReasonDialog(
             title = "Disable TOTP?",
             message = "Removes two-factor authentication from the account. The user must re-enroll to restore it.",
             confirmLabel = "Disable",
@@ -658,7 +667,7 @@ private fun UserEditDialog(
     }
 
     if (confirmVerifyEmail) {
-        ReasonPromptDialog(
+        AdminReasonDialog(
             title = "Verify email?",
             message = "Mark ${user.email} as verified without the user clicking a verification link.",
             confirmLabel = "Verify",
@@ -668,7 +677,7 @@ private fun UserEditDialog(
     }
 
     if (confirmCancelDeletion) {
-        ReasonPromptDialog(
+        AdminReasonDialog(
             title = "Cancel deletion?",
             message = "Restore ${user.email} and cancel the scheduled account deletion.",
             confirmLabel = "Cancel deletion",
@@ -678,7 +687,7 @@ private fun UserEditDialog(
     }
 
     if (showSuspend) {
-        ReasonPromptDialog(
+        AdminReasonDialog(
             title = "Suspend account?",
             message = "Soft-bans ${user.email} and revokes their sessions. Leave duration blank for an indefinite suspension.",
             confirmLabel = "Suspend",
@@ -690,7 +699,7 @@ private fun UserEditDialog(
     }
 
     if (showUnsuspend) {
-        ReasonPromptDialog(
+        AdminReasonDialog(
             title = "Lift suspension?",
             message = "Restores ${user.email} to active.",
             confirmLabel = "Lift",
@@ -700,7 +709,7 @@ private fun UserEditDialog(
     }
 
     if (showBan) {
-        ReasonPromptDialog(
+        AdminReasonDialog(
             title = "Ban permanently?",
             message = "Permanently bans ${user.email} and revokes their sessions. This does not auto-expire.",
             confirmLabel = "Ban",
@@ -711,7 +720,7 @@ private fun UserEditDialog(
     }
 
     if (showUnban) {
-        ReasonPromptDialog(
+        AdminReasonDialog(
             title = "Lift ban?",
             message = "Restores ${user.email} to active.",
             confirmLabel = "Lift",
@@ -721,62 +730,6 @@ private fun UserEditDialog(
     }
 }
 
-/**
- * Collects an audit reason (required by the backend on these actions) and,
- * for suspend, an optional duration in days. Confirm is disabled until a
- * reason is entered.
- */
-@Composable
-private fun ReasonPromptDialog(
-    title: String,
-    message: String,
-    confirmLabel: String,
-    destructive: Boolean = false,
-    includeDuration: Boolean = false,
-    onConfirm: (reason: String, durationDays: Int?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var reason by remember { mutableStateOf("") }
-    var durationText by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(message, style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it.take(500) },
-                    label = { Text("Reason (recorded in the audit log)") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (includeDuration) {
-                    OutlinedTextField(
-                        value = durationText,
-                        onValueChange = { if (it.all { c -> c.isDigit() }) durationText = it },
-                        label = { Text("Duration in days (blank = indefinite)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(reason.trim(), durationText.toIntOrNull()) },
-                enabled = reason.isNotBlank(),
-                colors = if (destructive) {
-                    ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                } else {
-                    ButtonDefaults.textButtonColors()
-                },
-            ) { Text(confirmLabel) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
 
 @Composable
 private fun ResetPasswordDialog(

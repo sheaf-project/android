@@ -609,6 +609,27 @@ interface SheafApiService {
     @POST("/v1/admin/users/{id}/unban")
     suspend fun adminUnbanUser(@Path("id") id: String, @Body body: AdminReasonBody)
 
+    // ── Admin user diagnostics ────────────────────────────────────────────────
+
+    @GET("/v1/admin/users/{id}/explain")
+    suspend fun getAdminUserExplain(@Path("id") id: String): AdminExplainResponse
+
+    @GET("/v1/admin/users/{id}/sessions")
+    suspend fun getAdminUserSessions(@Path("id") id: String): List<AdminSessionRow>
+
+    @POST("/v1/admin/users/{id}/sessions/{sessionId}/terminate")
+    suspend fun terminateAdminUserSession(
+        @Path("id") id: String,
+        @Path("sessionId") sessionId: String,
+        @Body body: AdminReasonBody,
+    )
+
+    @POST("/v1/admin/users/{id}/api-keys/rotate-all")
+    suspend fun rotateAllAdminUserApiKeys(
+        @Path("id") id: String,
+        @Body body: AdminReasonBody,
+    ): AdminRotateAllResponse
+
     // ── Admin audit log ─────────────────────────────────────────────────────
 
     @GET("/v1/admin/audit-events")
