@@ -6,9 +6,13 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.runBlocking
+import systems.lupine.sheaf.wear.complications.parseFrontersJson
+import systems.lupine.sheaf.wear.complications.requestAllComplicationUpdates
 import systems.lupine.sheaf.wear.data.WearApiClient
 import systems.lupine.sheaf.wear.data.WearAuthManager
 import systems.lupine.sheaf.wear.data.WearStore
+import systems.lupine.sheaf.wear.data.requestAllTileUpdates
+import systems.lupine.sheaf.wear.data.writeFronterTileData
 
 class WearDataLayerService : WearableListenerService() {
 
@@ -55,17 +59,40 @@ class WearDataLayerService : WearableListenerService() {
     }
 
     /**
-     * Handle a phone front-change nudge by re-syncing immediately. The
-     * sync writes the tile-data snapshot and fires tile + complication
-     * update requests (see [WearStore.refreshNow]). Run inline with
-     * [runBlocking]: the callback is already on a background thread, and
-     * blocking it keeps the service process alive through the refresh
-     * rather than racing teardown with a fire-and-forget coroutine.
+     * Handle a phone front-change nudge.
+     *
+     * The payload carries the current fronter snapshot the phone already
+     * computed. We apply it straight to the tile/complication cache and fire
+     * their update requests first, so watchface complications refresh even
+     * when the watch can't reach the backend at that moment (stale token,
+     * off-network, dozing). The previous design shipped only a timestamp and
+     * made the watch re-fetch, so a failed fetch left complications frozen.
+     * Applying pushed render-data needs no auth; it's data the trusted phone
+     * derived.
+     *
+     * A best-effort full network re-sync still runs afterwards to enrich the
+     * member roster, history and avatars that the lightweight payload doesn't
+     * carry. Run inline with [runBlocking]: the callback is already on a
+     * background thread, and blocking it keeps the service process alive
+     * through the refresh rather than racing teardown.
      */
     private fun handleRefreshNudge(event: DataEvent, authManager: WearAuthManager) {
         if (event.type != DataEvent.TYPE_CHANGED) return
+
+        val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+        val frontersJson = dataMap.getString("fronters_json")
+        if (frontersJson != null) {
+            runCatching {
+                val fronters = parseFrontersJson(frontersJson)
+                writeFronterTileData(applicationContext, fronters)
+                requestAllTileUpdates(applicationContext)
+                requestAllComplicationUpdates(applicationContext)
+                Log.i(TAG, "applied pushed fronter snapshot (${fronters.size} fronting)")
+            }.onFailure { Log.w(TAG, "applying pushed fronter snapshot failed", it) }
+        }
+
         if (!authManager.isAuthenticated) {
-            Log.d(TAG, "refresh nudge ignored: not authenticated")
+            Log.d(TAG, "refresh nudge: not authenticated, skipping network re-sync")
             return
         }
         Log.i(TAG, "refresh nudge received, re-syncing")

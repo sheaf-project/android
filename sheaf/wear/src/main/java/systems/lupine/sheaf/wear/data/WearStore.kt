@@ -168,33 +168,38 @@ class WearStore(
     }
 
     private fun cacheTileData() {
-        val members = frontingMembers
-        val names = members.joinToString(", ") { it.displayNameOrName }.ifEmpty { null }
-
-        // Build a JSON snapshot for complications to consume without spinning
-        // up an OkHttp client of their own. One row per fronter with the
+        // Fronter snapshot plus the keys derived from it (names, set
+        // signature, last-change timestamp) go through the shared writer so
+        // the phone-push fast path and the full network refresh stay in
+        // lockstep on the set-change logic. One row per fronter with the
         // effective fronting-since (chain-aware via member_since when present,
-        // else the front's started_at). Sort fields by id for stable diffing.
-        val fronts = currentFronts.value
-        val sinceByMember = fronts.flatMap { f ->
+        // else the front's started_at).
+        val sinceByMember = currentFronts.value.flatMap { f ->
             f.memberIds.map { id -> id to (f.memberSince[id] ?: f.startedAt) }
         }.toMap()
-        val frontersJson = systems.lupine.sheaf.wear.complications.encodeFrontersJson(
-            members.map { m ->
-                systems.lupine.sheaf.wear.complications.FronterRow(
-                    id = m.id,
-                    name = m.displayNameOrName,
-                    since = sinceByMember[m.id] ?: "",
-                )
+        val fronters = frontingMembers.map { m ->
+            systems.lupine.sheaf.wear.complications.FronterRow(
+                id = m.id,
+                name = m.displayNameOrName,
+                since = sinceByMember[m.id] ?: "",
+            )
+        }
+        // Seed the first-sync last-change from the newest front *entry* start
+        // (not the chain-aware since), preserving the original "Last switch"
+        // behaviour for coalesce-enabled systems.
+        val firstSyncSeed = currentFronts.value.mapNotNull { f ->
+            f.startedAt?.let {
+                runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
             }
-        )
+        }.maxOrNull()
+        writeFronterTileData(context, fronters, firstSyncSeed)
 
         // Full members list for the per-member config activity. Subset of
         // WearMember (id, name, emoji) — anything else can be looked up by
-        // id when needed.
-        val allMembers = this.members.value
+        // id when needed. Not time-critical, so it's not part of the push
+        // fast path; only the full refresh repopulates it.
         val membersJson = systems.lupine.sheaf.wear.complications.encodeMembersJson(
-            allMembers.map { m ->
+            this.members.value.map { m ->
                 systems.lupine.sheaf.wear.complications.MemberRow(
                     id = m.id,
                     name = m.displayNameOrName,
@@ -202,34 +207,8 @@ class WearStore(
                 )
             }
         )
-
-        // last_front_change_at advances only when the *set* of fronting member
-        // ids changes, so the "Last switch" complication is decoupled from the
-        // fronting-duration one (which uses started_at directly).
-        //
-        // On first sync (no cached signature yet) we derive the last-change
-        // timestamp from the freshest startedAt across current fronts rather
-        // than assuming "we just learned about this set means the set is
-        // brand new". Without that, a watch that pairs into an established
-        // long-running front would show "1m ago" right after sync and count
-        // up from there, rather than reflecting the actual switch time.
-        val newSetSig = members.map { it.id }.toSortedSet().joinToString(",")
-        val sp = context.getSharedPreferences("tile_data", Context.MODE_PRIVATE)
-        val previousSig = sp.getString("front_set_sig", null)
-        val previousLastChange = sp.getLong("last_front_change_at", 0L)
-        val lastChange = when {
-            previousSig == null -> deriveLastChangeFromFronts(fronts) ?: System.currentTimeMillis()
-            previousSig != newSetSig -> System.currentTimeMillis()
-            else -> previousLastChange
-        }
-
-        sp.edit()
-            .putString("fronting_names", names)
-            .putString("fronting_started_at", oldestFront?.startedAt)
-            .putString("fronters", frontersJson)
+        context.getSharedPreferences("tile_data", Context.MODE_PRIVATE).edit()
             .putString("members_full", membersJson)
-            .putString("front_set_sig", newSetSig)
-            .putLong("last_front_change_at", lastChange)
             .apply()
 
         // Cache the recent-fronts list as a tile-readable snapshot. The
@@ -258,40 +237,89 @@ class WearStore(
     }
 
     private fun requestTileUpdate() {
-        val updater = runCatching {
-            androidx.wear.tiles.TileService.getUpdater(context)
-        }.getOrNull() ?: return
-        for (cls in tileServices) {
-            runCatching { updater.requestUpdate(cls) }
-        }
+        requestAllTileUpdates(context)
         // Complications managed in the same package; their update requests
         // share the same fire-and-forget shape: if the watch isn't paired
         // or the complications aren't currently in use, no harm done.
         systems.lupine.sheaf.wear.complications.requestAllComplicationUpdates(context)
     }
-
-    private companion object {
-        val tileServices = listOf(
-            systems.lupine.sheaf.wear.tile.FrontingTileService::class.java,
-            systems.lupine.sheaf.wear.tile.FrontingWithAvatarsTileService::class.java,
-            systems.lupine.sheaf.wear.tile.FrontingAvatarsOnlyTileService::class.java,
-            systems.lupine.sheaf.wear.tile.MemberFrontingTileService::class.java,
-            systems.lupine.sheaf.wear.tile.QuickSwitchTileService::class.java,
-            systems.lupine.sheaf.wear.tile.FrontHistoryTileService::class.java,
-        )
-    }
-
-    /**
-     * Best-effort "when did this front composition last change?" using only
-     * the data the API gave us. The newest startedAt across current fronts
-     * is when the most recent member joined; for shrink-only changes
-     * (member ended out, no new entry) it's still our best estimate without
-     * a history endpoint.
-     */
-    private fun deriveLastChangeFromFronts(fronts: List<WearFront>): Long? =
-        fronts.mapNotNull { f ->
-            f.startedAt?.let {
-                runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
-            }
-        }.maxOrNull()
 }
+
+// ── Shared tile_data writers ────────────────────────────────────────────────
+//
+// Top-level so both the full network refresh ([WearStore.cacheTileData]) and
+// the phone-push fast path ([WearDataLayerService]) write the fronter snapshot
+// and fire tile updates through exactly the same code. The push path applies
+// the fronting state the phone hands it directly, so watchface complications
+// refresh even when the watch itself can't reach the backend at that moment.
+
+private val wearTileServices = listOf(
+    systems.lupine.sheaf.wear.tile.FrontingTileService::class.java,
+    systems.lupine.sheaf.wear.tile.FrontingWithAvatarsTileService::class.java,
+    systems.lupine.sheaf.wear.tile.FrontingAvatarsOnlyTileService::class.java,
+    systems.lupine.sheaf.wear.tile.MemberFrontingTileService::class.java,
+    systems.lupine.sheaf.wear.tile.QuickSwitchTileService::class.java,
+    systems.lupine.sheaf.wear.tile.FrontHistoryTileService::class.java,
+)
+
+/**
+ * Writes the fronter-derived tile_data keys (fronters snapshot, joined names,
+ * effective started_at, set signature, last-change timestamp) from an explicit
+ * fronter list, independent of in-memory state or the network.
+ *
+ * last_front_change_at advances only when the *set* of fronting member ids
+ * changes, so the "Last switch" complication is decoupled from the
+ * fronting-duration one. On first sync (no cached signature yet) it seeds from
+ * the newest fronting-since rather than "now", so a watch pairing into an
+ * established front reflects the real switch time instead of "just now".
+ */
+internal fun writeFronterTileData(
+    context: Context,
+    fronters: List<systems.lupine.sheaf.wear.complications.FronterRow>,
+    // Newest front-entry start (epoch ms) used only to seed last_front_change_at
+    // on the very first sync, so a watch pairing into an established front
+    // doesn't show "just now". The full refresh passes the actual front
+    // started_at here; the phone-push fast path leaves it null and falls back
+    // to the newest fronting-since, which is close enough for that cold case.
+    firstSyncSeedMs: Long? = null,
+) {
+    val names = fronters.joinToString(", ") { it.name }.ifEmpty { null }
+    val startedAt = fronters.mapNotNull { it.since.takeIf { s -> s.isNotBlank() } }.minOrNull()
+    val newSetSig = fronters.map { it.id }.toSortedSet().joinToString(",")
+    val sp = context.getSharedPreferences("tile_data", Context.MODE_PRIVATE)
+    val previousSig = sp.getString("front_set_sig", null)
+    val previousLastChange = sp.getLong("last_front_change_at", 0L)
+    val lastChange = when {
+        previousSig == null ->
+            firstSyncSeedMs ?: newestSinceEpoch(fronters) ?: System.currentTimeMillis()
+        previousSig != newSetSig -> System.currentTimeMillis()
+        else -> previousLastChange
+    }
+    sp.edit()
+        .putString("fronting_names", names)
+        .putString("fronting_started_at", startedAt)
+        .putString("fronters", systems.lupine.sheaf.wear.complications.encodeFrontersJson(fronters))
+        .putString("front_set_sig", newSetSig)
+        .putLong("last_front_change_at", lastChange)
+        .apply()
+}
+
+/** Fire a tile-refresh request at every tile we ship; no-op if unpaired/unused. */
+internal fun requestAllTileUpdates(context: Context) {
+    val updater = runCatching {
+        androidx.wear.tiles.TileService.getUpdater(context)
+    }.getOrNull() ?: return
+    for (cls in wearTileServices) {
+        runCatching { updater.requestUpdate(cls) }
+    }
+}
+
+/** Newest fronting-since across the snapshot in epoch ms, or null. */
+private fun newestSinceEpoch(
+    fronters: List<systems.lupine.sheaf.wear.complications.FronterRow>,
+): Long? =
+    fronters.mapNotNull { r ->
+        r.since.takeIf { it.isNotBlank() }?.let {
+            runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
+        }
+    }.maxOrNull()

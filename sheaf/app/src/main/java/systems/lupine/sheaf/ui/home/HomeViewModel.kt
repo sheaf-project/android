@@ -230,7 +230,22 @@ class HomeViewModel @Inject constructor(
                 val previousFrontingIds =
                     _state.value.currentFronts.flatMap { it.memberIds }.toSet()
                 if (frontingIds != previousFrontingIds) {
-                    WatchFrontSync.notifyFrontChanged(appContext)
+                    // Hand the watch the fronter snapshot directly so its
+                    // complications can refresh without its own backend call.
+                    // since = effective per-member fronting-since (chain-aware
+                    // member_since when present, else the front's started_at),
+                    // mirroring what the watch computes locally.
+                    val sinceByMember = newFronts.flatMap { f ->
+                        f.memberIds.map { id -> id to (f.memberSince[id] ?: f.startedAt) }
+                    }.toMap()
+                    val fronterPayload = frontingMembers.map { m ->
+                        WatchFrontSync.FronterPayload(
+                            id = m.id,
+                            name = m.displayNameOrName,
+                            since = sinceByMember[m.id] ?: "",
+                        )
+                    }
+                    WatchFrontSync.notifyFrontChanged(appContext, fronterPayload)
                 }
                 val safetyResp = safety.getOrNull()
                 val trimNotice = if (retention.isSuccess) {

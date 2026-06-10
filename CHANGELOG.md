@@ -25,6 +25,21 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Wear: complications and tiles stopped updating until the app was
+  opened.** When fronting changed, the phone sent the watch a
+  content-free "re-sync" nudge and made the watch re-fetch the state
+  over its own network. If that fetch failed (stale token, watch
+  off-network, the listener process killed mid-fetch), the snapshot
+  and the complication/tile refresh were both skipped, so the
+  watchface froze on old data even though the watch was paired. The
+  phone now ships the current fronter snapshot in the nudge payload;
+  the watch applies it to its tile/complication cache and refreshes
+  immediately, with no dependence on its own backend connectivity. A
+  best-effort network re-sync still runs afterwards to fill in the
+  roster, history and avatars. The push apply runs even when the
+  watch's session token has gone stale, since it's just rendering
+  data the phone already computed.
+
 - **Wear: member names with commas corrupted the watch snapshot.**
   The fronter / member data the watch hands to its tiles and
   complications was encoded with a hand-rolled JSON writer/parser
