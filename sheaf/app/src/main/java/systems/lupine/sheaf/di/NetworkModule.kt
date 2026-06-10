@@ -65,7 +65,23 @@ object NetworkModule {
             .addInterceptor(userAgentInterceptor)
             .addInterceptor(
                 HttpLoggingInterceptor().apply {
-                    level = HttpLoggingInterceptor.Level.BODY
+                    // Request/response bodies carry bearer + refresh tokens
+                    // (the /auth responses), watch-token activation codes,
+                    // and member names. Logging them at BODY level in a
+                    // release build would dump all of that into logcat,
+                    // where adb / USB-debugging / a captured bug report can
+                    // read it. Release logs nothing; debug keeps BODY for
+                    // local network debugging but still redacts the
+                    // credential-bearing headers so a shared debug log
+                    // doesn't leak a live session.
+                    level = if (BuildConfig.DEBUG) {
+                        HttpLoggingInterceptor.Level.BODY
+                    } else {
+                        HttpLoggingInterceptor.Level.NONE
+                    }
+                    redactHeader("Authorization")
+                    redactHeader("Cookie")
+                    redactHeader("Set-Cookie")
                 }
             )
 

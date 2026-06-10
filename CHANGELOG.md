@@ -6,6 +6,23 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Security
+
+- **No request/response logging in release builds.** The OkHttp
+  logging interceptor was set to BODY level unconditionally, so
+  release builds wrote full request and response bodies (bearer /
+  refresh tokens, watch-token activation codes, member names) to
+  logcat, where adb / a captured bug report could read them.
+  Release now logs nothing; debug keeps body logging for local work
+  but redacts the Authorization / Cookie headers.
+
+- **Wear credentials encrypted at rest.** The watch stored its
+  session access + refresh tokens in plaintext SharedPreferences,
+  readable from a rooted watch or over adb. They now live in
+  EncryptedSharedPreferences backed by a hardware-bound Keystore
+  key. Existing watches migrate their tokens transparently on
+  upgrade (no re-pair needed) and the old plaintext copy is wiped.
+
 ### Fixed
 
 - **Wear: switch-confirm button clipped on round watches.** The

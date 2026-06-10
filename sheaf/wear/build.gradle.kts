@@ -101,6 +101,9 @@ dependencies {
     implementation(libs.moshi.kotlin)
     ksp(libs.moshi.kotlin.codegen)
 
+    // Encrypted credential storage (access/refresh tokens at rest)
+    implementation(libs.androidx.security.crypto)
+
     // Image loading
     implementation(libs.coil.compose)
 
