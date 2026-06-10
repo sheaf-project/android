@@ -6,6 +6,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Added
+
+- **Admin audit log.** Settings → Account gains an "Admin activity"
+  screen showing every administrative action taken on your account
+  (who, when, why, and what changed), via the new
+  `/v1/auth/admin-activity` endpoint. Admins additionally get a
+  full audit-log viewer in the Admin panel, filterable by action
+  type, over `/v1/admin/audit-events`. Each entry expands to show
+  the reason and a before/after diff.
+
 ### Security
 
 - **No request/response logging in release builds.** The OkHttp

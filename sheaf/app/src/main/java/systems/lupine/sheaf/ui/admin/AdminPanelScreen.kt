@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
@@ -38,6 +39,7 @@ import systems.lupine.sheaf.ui.components.SheafTopAppBar
 @Composable
 fun AdminPanelScreen(
     onNavigateUp: () -> Unit,
+    onNavigateToAudit: () -> Unit = {},
     viewModel: AdminPanelViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -115,6 +117,13 @@ fun AdminPanelScreen(
                 )
                 return@Column
             }
+
+            // ── Audit log ───────────────────────────────────────────────────
+            SectionHeader("Audit", modifier = Modifier.padding(horizontal = 16.dp))
+            OutlinedButton(
+                onClick = onNavigateToAudit,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            ) { Text("View audit log") }
 
             // ── Stats ─────────────────────────────────────────────────────────
             state.stats?.let { stats ->

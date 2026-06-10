@@ -711,6 +711,7 @@ fun AccountSettingsScreen(
     onNavigateUp: () -> Unit,
     onNavigateToApiKeys: () -> Unit,
     onNavigateToSessions: () -> Unit,
+    onNavigateToAdminActivity: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -779,6 +780,13 @@ fun AccountSettingsScreen(
             title = "Active Sessions",
             subtitle = "View and revoke signed-in devices",
             onClick = onNavigateToSessions,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.History,
+            title = "Admin activity",
+            subtitle = "Actions administrators have taken on your account",
+            onClick = onNavigateToAdminActivity,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         var showWatchRepairDialog by remember { mutableStateOf(false) }

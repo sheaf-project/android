@@ -85,11 +85,13 @@ object Routes {
     const val API_KEYS       = "settings/keys"
     const val SESSIONS       = "settings/sessions"
     const val ADMIN_PANEL    = "settings/admin"
+    const val ADMIN_AUDIT    = "settings/admin/audit"
     const val SYSTEM_SAFETY  = "settings/safety"
     const val FILES          = "settings/files"
     const val DEBUG          = "settings/debug"
     // Categorized settings detail screens.
     const val SETTINGS_ACCOUNT       = "settings/account"
+    const val SETTINGS_ADMIN_ACTIVITY = "settings/account/admin-activity"
     const val SETTINGS_APPEARANCE    = "settings/appearance"
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_SERVER        = "settings/server"
@@ -347,6 +349,12 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToApiKeys = { navController.navigate(Routes.API_KEYS) },
                     onNavigateToSessions = { navController.navigate(Routes.SESSIONS) },
+                    onNavigateToAdminActivity = { navController.navigate(Routes.SETTINGS_ADMIN_ACTIVITY) },
+                )
+            }
+            composable(Routes.SETTINGS_ADMIN_ACTIVITY) {
+                systems.lupine.sheaf.ui.admin.AdminActivityScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.SETTINGS_APPEARANCE) {
@@ -549,7 +557,15 @@ fun SheafApp(
                 SessionsScreen(onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.ADMIN_PANEL) {
-                AdminPanelScreen(onNavigateUp = { navController.navigateUp() })
+                AdminPanelScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onNavigateToAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
+                )
+            }
+            composable(Routes.ADMIN_AUDIT) {
+                systems.lupine.sheaf.ui.admin.AdminAuditScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
             }
             composable(Routes.SYSTEM_SAFETY) {
                 SystemSafetyScreen(onNavigateUp = { navController.navigateUp() })

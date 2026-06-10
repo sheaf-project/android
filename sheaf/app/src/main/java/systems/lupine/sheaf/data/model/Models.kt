@@ -1032,6 +1032,46 @@ data class AdminChangeEmailRequest(
     @Json(name = "new_email") val newEmail: String,
 )
 
+// ── Admin audit log ─────────────────────────────────────────────────────────
+//
+// before_json / after_json are arbitrary state snapshots, so they're typed as
+// Any?-valued maps and (like CustomFieldValueRead) left as plain reflection-
+// adapter data classes rather than @JsonClass codegen, which doesn't handle
+// Any?. The model package is kept wholesale by proguard, so reflection
+// survives R8.
+
+data class AdminAuditEventRead(
+    val id: String,
+    @Json(name = "admin_user_id") val adminUserId: String? = null,
+    @Json(name = "admin_email") val adminEmail: String? = null,
+    val action: String,
+    @Json(name = "target_type") val targetType: String,
+    @Json(name = "target_id") val targetId: String? = null,
+    @Json(name = "target_user_id") val targetUserId: String? = null,
+    val reason: String? = null,
+    @Json(name = "before_json") val beforeJson: Map<String, Any?>? = null,
+    @Json(name = "after_json") val afterJson: Map<String, Any?>? = null,
+    @Json(name = "created_at") val createdAt: String,
+)
+
+/**
+ * The caller-facing slice of an audit event from GET /v1/auth/admin-activity:
+ * admin actions taken against the authenticated user's own account. Omits the
+ * acting admin's id and the (always-self) target_user_id that the admin view
+ * carries.
+ */
+data class UserAdminActivityRead(
+    val id: String,
+    @Json(name = "admin_email") val adminEmail: String? = null,
+    val action: String,
+    @Json(name = "target_type") val targetType: String,
+    @Json(name = "target_id") val targetId: String? = null,
+    val reason: String? = null,
+    @Json(name = "before_json") val beforeJson: Map<String, Any?>? = null,
+    @Json(name = "after_json") val afterJson: Map<String, Any?>? = null,
+    @Json(name = "created_at") val createdAt: String,
+)
+
 // ── Journals ──────────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)

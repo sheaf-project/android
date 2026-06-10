@@ -592,6 +592,28 @@ interface SheafApiService {
     @POST("/v1/admin/users/{id}/cancel-deletion")
     suspend fun adminCancelDeletion(@Path("id") id: String)
 
+    // ── Admin audit log ─────────────────────────────────────────────────────
+
+    @GET("/v1/admin/audit-events")
+    suspend fun getAdminAuditEvents(
+        @Query("target_user_id") targetUserId: String? = null,
+        @Query("admin_user_id") adminUserId: String? = null,
+        @Query("action") action: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50,
+    ): List<AdminAuditEventRead>
+
+    @GET("/v1/admin/audit-events/{eventId}")
+    suspend fun getAdminAuditEvent(@Path("eventId") eventId: String): AdminAuditEventRead
+
+    // User-facing transparency: admin actions taken against the caller's own
+    // account. No admin gate; every user can read their own.
+    @GET("/v1/auth/admin-activity")
+    suspend fun getMyAdminActivity(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50,
+    ): List<UserAdminActivityRead>
+
     // ── Mobile push device registration ────────────────────────────────────
     // Phase A: client-side stubs only. Endpoints aren't live until the
     // backend mobile-push work lands; calls will 404 until then. Design
