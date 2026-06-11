@@ -48,7 +48,7 @@ The same pattern applies to `wear-release.apk`.
 > base64 -d app-release.apk.pem | openssl x509 -noout -ext subjectAltName -issuer
 > ```
 >
-> The SAN URI is the workflow identity that signed the blob (e.g. `https://github.com/sheaf-project/android/.github/workflows/dev-release.yml@refs/heads/master`). The issuer should be `O=sigstore.dev, CN=sigstore-intermediate`.
+> The SAN URI is the workflow identity that signed the blob (e.g. `https://github.com/sheaf-project/android/.github/workflows/dev-release.yml@refs/heads/main`). The issuer should be `O=sigstore.dev, CN=sigstore-intermediate`.
 
 ### 2. APK signing certificate
 

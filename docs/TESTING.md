@@ -8,7 +8,7 @@ JVM unit tests under `sheaf/app/src/test/`. Run them with:
 cd sheaf && ./gradlew :app:test
 ```
 
-CI runs `./gradlew :app:test` on every push to `master` before assembling the release APK; failure blocks the build. Test reports are uploaded as the `unit-test-reports` artifact on each run for inspection.
+CI runs `./gradlew :app:test` on every push to `main` before assembling the release APK; failure blocks the build. Test reports are uploaded as the `unit-test-reports` artifact on each run for inspection.
 
 Current coverage:
 

@@ -5,7 +5,7 @@ Where we stand on getting Sheaf Android into the two distribution channels users
 ## Status today
 
 - **GitHub releases:**
-  - Rolling `dev` tag: every push to `master` produces a cosign-signed `.open` APK pair (phone + watch).
+  - Rolling `dev` tag: every push to `main` produces a cosign-signed `.open` APK pair (phone + watch).
   - Tagged `vX.Y.Z` releases: produce signed `.open` APKs publicly *and* unsigned prod APK + AAB privately as a workflow artefact for the offline signing ceremony.
 - **Google Play:** in progress. Developer account approved; tagged-release pipeline ready; first `v0.1.0` upload pending.
 - **F-Droid (main repo):** blocked by a proprietary dependency. See the F-Droid section.
@@ -25,7 +25,7 @@ The two install side-by-side on a device — different package names = different
 `versionCode` is derived per-build:
 
 - **Tagged releases** (`v*.*.*`): `MAJOR*10000 + MINOR*100 + PATCH`. v0.1.0 → 100, v1.0.0 → 10000. Caps at v99.99.99 → 999999. Bump the scheme before that bites.
-- **Dev (`master` head)**: `1000000 + git rev-list --count HEAD`. Always strictly greater than any tagged release, so `.open` users can keep updating from dev without ever being blocked by a tagged release downgrade.
+- **Dev (`main` head)**: `1000000 + git rev-list --count HEAD`. Always strictly greater than any tagged release, so `.open` users can keep updating from dev without ever being blocked by a tagged release downgrade.
 
 `versionName` mirrors the tag for tagged releases (`0.1.0`); dev uses `0.0.0-dev.<short-sha>`.
 

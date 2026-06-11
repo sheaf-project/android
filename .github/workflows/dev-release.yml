@@ -2,7 +2,7 @@ name: Dev Release
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
 
 permissions:
   contents: write

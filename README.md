@@ -1,6 +1,6 @@
 # Sheaf Android
 
-[![CI](https://img.shields.io/github/actions/workflow/status/sheaf-project/android/dev-release.yml?branch=master&style=plastic&logo=github&label=CI)](https://github.com/sheaf-project/android/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/sheaf-project/android/dev-release.yml?branch=main&style=plastic&logo=github&label=CI)](https://github.com/sheaf-project/android/actions)
 [![Latest dev build](https://img.shields.io/github/v/release/sheaf-project/android?include_prereleases&style=plastic&label=dev%20build)](https://github.com/sheaf-project/android/releases/tag/dev)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue?style=plastic)](LICENSE)
 
