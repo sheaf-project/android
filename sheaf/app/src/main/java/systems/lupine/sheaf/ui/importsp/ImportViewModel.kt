@@ -6,6 +6,7 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.api.streamingFilePart
 import systems.lupine.sheaf.data.model.ImportJobRead
 import systems.lupine.sheaf.data.model.ImportJobSource
 import systems.lupine.sheaf.data.model.ImportJobStatus
@@ -18,7 +19,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
@@ -52,30 +52,24 @@ class ImportViewModel @Inject constructor(
     private val _state = MutableStateFlow(ImportUiState())
     val state: StateFlow<ImportUiState> = _state.asStateFlow()
 
-    // Holds the file bytes across the preview → import flow so we don't re-read the URI.
-    private var fileBytes: ByteArray? = null
+    // Holds the picked file URI across the preview -> import flow; the upload
+    // streams from it rather than buffering the whole file in memory.
+    private var fileUri: Uri? = null
     private var cachedFileName: String? = null
 
     fun pickFile(uri: Uri) {
         viewModelScope.launch {
             _state.update { it.copy(isPreviewing = true, error = null, preview = null, result = null) }
-            runCatching {
-                val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-                val name = resolveFileName(uri) ?: "export.json"
-                bytes to name
-            }.onSuccess { (bytes, name) ->
-                fileBytes = bytes
-                cachedFileName = name
-                _state.update { it.copy(fileName = name) }
-                preview(bytes, name)
-            }.onFailure { e ->
-                _state.update { it.copy(isPreviewing = false, error = "Could not read the file") }
-            }
+            fileUri = uri
+            val name = resolveFileName(uri) ?: "export.json"
+            cachedFileName = name
+            _state.update { it.copy(fileName = name) }
+            preview(uri, name)
         }
     }
 
-    private suspend fun preview(bytes: ByteArray, name: String) {
-        runCatching { api.previewSimplyPluralImport(bytes.toPart(name)) }
+    private suspend fun preview(uri: Uri, name: String) {
+        runCatching { api.previewSimplyPluralImport(filePart(uri, name)) }
             .onSuccess { summary ->
                 _state.update {
                     it.copy(
@@ -108,7 +102,7 @@ class ImportViewModel @Inject constructor(
     }
 
     fun runImport() {
-        val bytes = fileBytes ?: return
+        val uri = fileUri ?: return
         val name = cachedFileName ?: "export.json"
         val opts = _state.value.options
         // member_ids: null = import every member, otherwise only the
@@ -125,7 +119,7 @@ class ImportViewModel @Inject constructor(
             _state.update { it.copy(isImporting = true, error = null) }
             runCatching {
                 val job = api.createFileImport(
-                    file = bytes.toPart(name),
+                    file = filePart(uri, name),
                     source = ImportJobSource.SIMPLYPLURAL_FILE.toFormPart(),
                     idempotencyKey = UUID.randomUUID().toString().toFormPart(),
                     options = buildSpOptionsJson(opts, narrowedMemberIds).toJsonPart(),
@@ -179,15 +173,13 @@ class ImportViewModel @Inject constructor(
     }
 
     fun reset() {
-        fileBytes = null
+        fileUri = null
         cachedFileName = null
         _state.value = ImportUiState()
     }
 
-    private fun ByteArray.toPart(name: String): MultipartBody.Part {
-        val body = toRequestBody("application/octet-stream".toMediaType())
-        return MultipartBody.Part.createFormData("file", name, body)
-    }
+    private fun filePart(uri: Uri, name: String) =
+        streamingFilePart(context.contentResolver, uri, name)
 
     private fun String.toFormPart(): RequestBody =
         toRequestBody("text/plain".toMediaType())

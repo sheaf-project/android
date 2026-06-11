@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.api.streamingFilePart
 import systems.lupine.sheaf.data.model.ImportJobRead
 import systems.lupine.sheaf.data.model.ImportJobSource
 import systems.lupine.sheaf.data.model.ImportJobStatus
@@ -58,29 +58,22 @@ class PluralKitFileImportViewModel @Inject constructor(
     private val _state = MutableStateFlow(PKFileImportUiState())
     val state: StateFlow<PKFileImportUiState> = _state.asStateFlow()
 
-    private var fileBytes: ByteArray? = null
+    private var fileUri: Uri? = null
     private var cachedFileName: String? = null
 
     fun pickFile(uri: Uri) {
         viewModelScope.launch {
             _state.update { it.copy(isPreviewing = true, error = null, preview = null, result = null) }
-            runCatching {
-                val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-                val name = resolveFileName(uri) ?: "export.json"
-                bytes to name
-            }.onSuccess { (bytes, name) ->
-                fileBytes = bytes
-                cachedFileName = name
-                _state.update { it.copy(fileName = name) }
-                preview(bytes, name)
-            }.onFailure {
-                _state.update { it.copy(isPreviewing = false, error = "Could not read the file") }
-            }
+            fileUri = uri
+            val name = resolveFileName(uri) ?: "export.json"
+            cachedFileName = name
+            _state.update { it.copy(fileName = name) }
+            preview(uri, name)
         }
     }
 
-    private suspend fun preview(bytes: ByteArray, name: String) {
-        runCatching { api.previewPluralKitFileImport(bytes.toPart(name)) }
+    private suspend fun preview(uri: Uri, name: String) {
+        runCatching { api.previewPluralKitFileImport(filePart(uri, name)) }
             .onSuccess { summary ->
                 _state.update {
                     it.copy(
@@ -118,7 +111,7 @@ class PluralKitFileImportViewModel @Inject constructor(
     }
 
     fun runImport() {
-        val bytes = fileBytes ?: return
+        val uri = fileUri ?: return
         val name = cachedFileName ?: "export.json"
         val opts = _state.value.options
         val narrowedMemberIds = _state.value.preview?.members
@@ -132,7 +125,7 @@ class PluralKitFileImportViewModel @Inject constructor(
             _state.update { it.copy(isImporting = true, error = null) }
             runCatching {
                 val job = api.createFileImport(
-                    file = bytes.toPart(name),
+                    file = filePart(uri, name),
                     source = ImportJobSource.PLURALKIT_FILE.toFormPart(),
                     idempotencyKey = UUID.randomUUID().toString().toFormPart(),
                     options = buildPkOptionsJson(opts, narrowedMemberIds).toJsonPart(),
@@ -180,15 +173,13 @@ class PluralKitFileImportViewModel @Inject constructor(
     }
 
     fun reset() {
-        fileBytes = null
+        fileUri = null
         cachedFileName = null
         _state.value = PKFileImportUiState()
     }
 
-    private fun ByteArray.toPart(name: String): MultipartBody.Part {
-        val body = toRequestBody("application/octet-stream".toMediaType())
-        return MultipartBody.Part.createFormData("file", name, body)
-    }
+    private fun filePart(uri: Uri, name: String) =
+        streamingFilePart(context.contentResolver, uri, name)
 
     private fun String.toFormPart(): RequestBody =
         toRequestBody("text/plain".toMediaType())

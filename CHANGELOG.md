@@ -6,6 +6,15 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Changed
+
+- **Imports stream the file instead of buffering it.** The Sheaf, Simply
+  Plural, PluralKit, and Tupperbox file importers used to read the whole
+  picked file into memory before upload. A complete Sheaf backup can run
+  to 100MB, so that was a heap allocation the size of the file. They now
+  stream straight from the picked URI, keeping memory flat regardless of
+  file size.
+
 ### Security
 
 - **Wear: quick-switch tile trampoline validates its intent.** The

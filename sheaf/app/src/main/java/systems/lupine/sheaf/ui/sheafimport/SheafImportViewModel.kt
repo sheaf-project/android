@@ -6,6 +6,7 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.api.streamingFilePart
 import systems.lupine.sheaf.data.model.ImportJobRead
 import systems.lupine.sheaf.data.model.ImportJobSource
 import systems.lupine.sheaf.data.model.ImportJobStatus
@@ -18,7 +19,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
@@ -51,29 +51,22 @@ class SheafImportViewModel @Inject constructor(
     private val _state = MutableStateFlow(SheafImportUiState())
     val state: StateFlow<SheafImportUiState> = _state.asStateFlow()
 
-    private var fileBytes: ByteArray? = null
+    private var fileUri: Uri? = null
     private var cachedFileName: String? = null
 
     fun pickFile(uri: Uri) {
         viewModelScope.launch {
             _state.update { it.copy(isPreviewing = true, error = null, preview = null, result = null) }
-            runCatching {
-                val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-                val name = resolveFileName(uri) ?: "sheaf_export.json"
-                bytes to name
-            }.onSuccess { (bytes, name) ->
-                fileBytes = bytes
-                cachedFileName = name
-                _state.update { it.copy(fileName = name) }
-                preview(bytes, name)
-            }.onFailure { e ->
-                _state.update { it.copy(isPreviewing = false, error = "Could not read the file") }
-            }
+            fileUri = uri
+            val name = resolveFileName(uri) ?: "sheaf_export.json"
+            cachedFileName = name
+            _state.update { it.copy(fileName = name) }
+            preview(uri, name)
         }
     }
 
-    private suspend fun preview(bytes: ByteArray, name: String) {
-        runCatching { api.previewSheafImport(bytes.toPart(name)) }
+    private suspend fun preview(uri: Uri, name: String) {
+        runCatching { api.previewSheafImport(filePart(uri, name)) }
             .onSuccess { summary ->
                 _state.update {
                     it.copy(
@@ -97,7 +90,7 @@ class SheafImportViewModel @Inject constructor(
     }
 
     fun runImport() {
-        val bytes = fileBytes ?: return
+        val uri = fileUri ?: return
         val name = cachedFileName ?: "sheaf_export.json"
         val opts = _state.value.options
         // The preview tells us whether this is a complete-backup zip; submit
@@ -111,7 +104,7 @@ class SheafImportViewModel @Inject constructor(
             _state.update { it.copy(isImporting = true, error = null) }
             runCatching {
                 val job = api.createFileImport(
-                    file = bytes.toPart(name),
+                    file = filePart(uri, name),
                     source = source.toFormPart(),
                     idempotencyKey = UUID.randomUUID().toString().toFormPart(),
                     options = buildSheafOptionsJson(opts).toJsonPart(),
@@ -161,15 +154,13 @@ class SheafImportViewModel @Inject constructor(
     }
 
     fun reset() {
-        fileBytes = null
+        fileUri = null
         cachedFileName = null
         _state.value = SheafImportUiState()
     }
 
-    private fun ByteArray.toPart(name: String): MultipartBody.Part {
-        val body = toRequestBody("application/octet-stream".toMediaType())
-        return MultipartBody.Part.createFormData("file", name, body)
-    }
+    private fun filePart(uri: Uri, name: String) =
+        streamingFilePart(context.contentResolver, uri, name)
 
     private fun String.toFormPart(): RequestBody =
         toRequestBody("text/plain".toMediaType())
