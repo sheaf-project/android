@@ -722,6 +722,11 @@ data class SheafPreviewSummary(
     @Json(name = "group_count") val groupCount: Int,
     @Json(name = "tag_count") val tagCount: Int,
     @Json(name = "custom_field_count") val customFieldCount: Int,
+    // True when the previewed file is a complete-backup zip (export.json +
+    // images/); imageCount is how many images it carries. Default to the
+    // plain-JSON shape so older backends that don't return these still parse.
+    val archive: Boolean = false,
+    @Json(name = "image_count") val imageCount: Int = 0,
 )
 
 @JsonClass(generateAdapter = true)
@@ -731,6 +736,7 @@ data class SheafImportResult(
     @Json(name = "groups_imported") val groupsImported: Int,
     @Json(name = "tags_imported") val tagsImported: Int,
     @Json(name = "custom_fields_imported") val customFieldsImported: Int,
+    @Json(name = "images_imported") val imagesImported: Int = 0,
     val warnings: List<String>,
 )
 
@@ -860,6 +866,9 @@ object ImportJobSource {
     const val TUPPERBOX_FILE = "tupperbox_file"
     const val SIMPLYPLURAL_FILE = "simplyplural_file"
     const val SHEAF_FILE = "sheaf_file"
+    // Complete Sheaf backup zip (export.json + images/). The preview endpoint
+    // sniffs the zip magic and reports archive=true; submit under this source.
+    const val SHEAF_ARCHIVE = "sheaf_archive"
 }
 
 /**

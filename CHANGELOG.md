@@ -4,6 +4,17 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+
+- **Import a complete Sheaf backup, with images.** The Sheaf import now
+  accepts the complete-backup zip (`export.json` + `images/`), not just
+  the plain JSON export. It auto-detects the archive, shows the image
+  count in the preview, submits it so the server unpacks the images, and
+  reports images imported in the result. Plain JSON exports work exactly
+  as before.
+
 ## [1.0.0] - 2026-06-11
 
 First production release.

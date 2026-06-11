@@ -107,13 +107,13 @@ private fun SheafFilePickSection(onPick: () -> Unit) {
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         )
         Text(
-            "Choose your Sheaf JSON export file to get started.",
+            "Choose your Sheaf export to get started: the JSON export, or a complete backup zip that includes images.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Button(onClick = onPick) { Text("Choose file") }
         Text(
-            "Export your data from Sheaf via Settings → Export All Data, then select the downloaded JSON file here.",
+            "Export your data from Sheaf, then select the downloaded file here. A JSON export brings your data across; a complete backup (zip) brings your images too.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
@@ -184,6 +184,18 @@ private fun SheafPreviewSection(
         )
     }
 
+    // Complete-backup zip: images ride with the records they belong to
+    // (avatars, banners, ...), so there's no separate toggle; surface the
+    // count so the user knows they're included.
+    if (preview.archive && preview.imageCount > 0) {
+        SheafImportToggleRow(
+            label = "Images (${preview.imageCount})",
+            checked = true,
+            onCheckedChange = {},
+            enabled = false,
+        )
+    }
+
     Spacer(Modifier.height(4.dp))
 
     Button(
@@ -219,6 +231,9 @@ private fun SheafResultSection(result: SheafImportResult, onImportAnother: () ->
             SheafResultRow("Groups imported", result.groupsImported)
             SheafResultRow("Tags imported", result.tagsImported)
             SheafResultRow("Custom fields imported", result.customFieldsImported)
+            if (result.imagesImported > 0) {
+                SheafResultRow("Images imported", result.imagesImported)
+            }
         }
     }
 

@@ -100,12 +100,19 @@ class SheafImportViewModel @Inject constructor(
         val bytes = fileBytes ?: return
         val name = cachedFileName ?: "sheaf_export.json"
         val opts = _state.value.options
+        // The preview tells us whether this is a complete-backup zip; submit
+        // under the matching source so the runner unpacks the images.
+        val source = if (_state.value.preview?.archive == true) {
+            ImportJobSource.SHEAF_ARCHIVE
+        } else {
+            ImportJobSource.SHEAF_FILE
+        }
         viewModelScope.launch {
             _state.update { it.copy(isImporting = true, error = null) }
             runCatching {
                 val job = api.createFileImport(
                     file = bytes.toPart(name),
-                    source = ImportJobSource.SHEAF_FILE.toFormPart(),
+                    source = source.toFormPart(),
                     idempotencyKey = UUID.randomUUID().toString().toFormPart(),
                     options = buildSheafOptionsJson(opts).toJsonPart(),
                 )
@@ -139,6 +146,7 @@ class SheafImportViewModel @Inject constructor(
                     groupsImported = counts["groups_imported"] ?: 0,
                     tagsImported = counts["tags_imported"] ?: 0,
                     customFieldsImported = counts["custom_fields_imported"] ?: 0,
+                    imagesImported = counts["images_imported"] ?: 0,
                     warnings = warnings,
                 )
                 _state.update { it.copy(isImporting = false, result = result) }
