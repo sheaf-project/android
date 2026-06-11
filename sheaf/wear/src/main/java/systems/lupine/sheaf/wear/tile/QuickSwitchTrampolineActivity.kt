@@ -48,6 +48,14 @@ class QuickSwitchTrampolineActivity : ComponentActivity() {
         if (memberId.isNullOrBlank()) {
             finish(); return
         }
+        // This activity is exported (the tile host must be able to launch it),
+        // so its intent is untrusted. A genuine tile tap can only ever toggle a
+        // member this tile was configured to show, so accept nothing else: that
+        // rejects a forged intent toggling an arbitrary or unknown member id,
+        // and any toggle against a tile id that has no configured set.
+        if (memberId !in loadTileMemberSet(this, tileId).toSet()) {
+            finish(); return
+        }
         val current = loadQuickSwitchSelected(this, tileId).toMutableSet()
         if (memberId in current) current.remove(memberId) else current.add(memberId)
         saveQuickSwitchSelected(this, tileId, current)
@@ -63,7 +71,12 @@ class QuickSwitchTrampolineActivity : ComponentActivity() {
     }
 
     private fun handleCommit(tileId: Int) {
-        val selected = loadQuickSwitchSelected(this, tileId).toList()
+        // Defence in depth alongside the toggle gate: intersect the persisted
+        // selection with this tile's configured member set, so a tampered
+        // selection (or one a forged toggle slipped in) can only ever commit
+        // members the user actually placed on this tile.
+        val configured = loadTileMemberSet(this, tileId).toSet()
+        val selected = loadQuickSwitchSelected(this, tileId).filter { it in configured }
         if (selected.isEmpty()) {
             Toast.makeText(applicationContext, "No members selected", Toast.LENGTH_SHORT).show()
             finish(); return

@@ -6,6 +6,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Security
+
+- **Wear: quick-switch tile trampoline validates its intent.** The
+  invisible activity the quick-switch tile launches to toggle and commit
+  switches is necessarily exported (the tile host launches it), so its
+  intent is now treated as untrusted: a toggle is accepted only for a
+  member the tile was actually configured to show, and a commit
+  intersects the selection with that configured set. A forged intent
+  can no longer queue or commit a switch to an arbitrary member or
+  against an unconfigured tile.
+
 ### Added
 
 - **Import a complete Sheaf backup, with images.** The Sheaf import now
