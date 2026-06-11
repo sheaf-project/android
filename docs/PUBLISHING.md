@@ -24,8 +24,8 @@ The two install side-by-side on a device — different package names = different
 
 `versionCode` is derived per-build:
 
-- **Tagged releases** (`v*.*.*`): `MAJOR*10000 + MINOR*100 + PATCH`. v0.1.0 → 100, v1.0.0 → 10000. Caps at v99.99.99 → 999999. Bump the scheme before that bites.
-- **Dev (`main` head)**: `1000000 + git rev-list --count HEAD`. Always strictly greater than any tagged release, so `.open` users can keep updating from dev without ever being blocked by a tagged release downgrade.
+- **Tagged releases** (`v*.*.*`): `(MAJOR*10000 + MINOR*100 + PATCH) * 10`, with the low digit reserved for a form-factor index (phone `0`, wear `1`; future TV/Auto `2`, `3`). v0.1.0 → phone 1000 / wear 1001; v1.0.0 → phone 100000 / wear 100001. Minor and patch cap at 99 each; bump the scheme before that bites.
+- **Dev (`main` head)**: `1000000 + git rev-list --count HEAD`. Strictly greater than any tagged release below v10.0.0 (where the tagged scheme reaches 1000000), so `.open` users can keep updating from dev without being blocked by a tagged-release downgrade. Lift the dev base if the app ever approaches v10.
 
 `versionName` mirrors the tag for tagged releases (`0.1.0`); dev uses `0.0.0-dev.<short-sha>`.
 
