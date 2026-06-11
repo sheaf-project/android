@@ -4,9 +4,41 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
-## [Unreleased]
+## [1.0.0] - 2026-06-11
+
+First production release.
 
 ### Added
+
+- **Editable notification channels.** Channel detail screen no longer
+  shows triggers as read-only: name, all three trigger toggles,
+  cofront redaction (when the cofront trigger is on), base set
+  (all members vs none + include-private), group rules, member
+  rules, payload sensitivity, debounce, aggregation window, and
+  quiet hours (start / end / IANA tz) are all editable. Sticky
+  Save / Discard bar at the bottom appears when a draft has
+  pending changes. Overflow menu adds Pause / Resume, Send test,
+  Duplicate, and Delete. Mirrors the web client's editor.
+
+- **Admin audit log.** Settings → Account gains an "Admin activity"
+  screen showing every administrative action taken on your account
+  (who, when, why, and what changed), via the new
+  `/v1/auth/admin-activity` endpoint. Admins additionally get a
+  full audit-log viewer in the Admin panel, filterable by action
+  type, over `/v1/admin/audit-events`. Each entry expands to show
+  the reason and a before/after diff.
+
+- **Admin account moderation.** The admin user editor gains suspend
+  (with optional duration), permanent ban, and lift-suspension /
+  lift-ban actions, each prompting for an audited reason. The user
+  row shows suspended / banned status in the error colour.
+
+- **Admin account detail / triage.** Each user row in the admin panel
+  opens an account-detail screen: a one-shot dossier (status, tier,
+  2FA, signup IP, session and API-key counts, system summary, recent
+  admin actions), the user's active sessions with per-session revoke,
+  and a revoke-all-API-keys action. Session and key actions prompt for
+  an audited reason.
 
 - **Admin maintenance jobs + ops.** A Maintenance jobs screen lists
   the backend's scheduled jobs with their last-run status and a
@@ -17,44 +49,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   viewer and GDPR dossier export are tracked separately as they need
   file-handling UI.)
 
-- **Admin account detail / triage.** Each user row in the admin panel
-  opens an account-detail screen: a one-shot dossier (status, tier,
-  2FA, signup IP, session and API-key counts, system summary, recent
-  admin actions), the user's active sessions with per-session revoke,
-  and a revoke-all-API-keys action. Session and key actions prompt for
-  an audited reason.
-
-- **Admin account moderation.** The admin user editor gains suspend
-  (with optional duration), permanent ban, and lift-suspension /
-  lift-ban actions, each prompting for an audited reason. The user
-  row shows suspended / banned status in the error colour.
-
-- **Admin audit log.** Settings → Account gains an "Admin activity"
-  screen showing every administrative action taken on your account
-  (who, when, why, and what changed), via the new
-  `/v1/auth/admin-activity` endpoint. Admins additionally get a
-  full audit-log viewer in the Admin panel, filterable by action
-  type, over `/v1/admin/audit-events`. Each entry expands to show
-  the reason and a before/after diff.
-
-### Security
-
-- **No request/response logging in release builds.** The OkHttp
-  logging interceptor was set to BODY level unconditionally, so
-  release builds wrote full request and response bodies (bearer /
-  refresh tokens, watch-token activation codes, member names) to
-  logcat, where adb / a captured bug report could read them.
-  Release now logs nothing; debug keeps body logging for local work
-  but redacts the Authorization / Cookie headers.
-
-- **Wear credentials encrypted at rest.** The watch stored its
-  session access + refresh tokens in plaintext SharedPreferences,
-  readable from a rooted watch or over adb. They now live in
-  EncryptedSharedPreferences backed by a hardware-bound Keystore
-  key. Existing watches migrate their tokens transparently on
-  upgrade (no re-pair needed) and the old plaintext copy is wiped.
-
 ### Fixed
+
+- **Widgets: profile pictures, stuck loading, and sizing.** After a
+  real-device pass: avatars now display on all widgets (not just the
+  recent-switches list); the member-tracker widget no longer hangs on
+  "loading" forever; widgets resize responsively in width (columns) as
+  well as height; and default placement sizes are smaller, so a widget
+  drops in at a sane size and expands from there.
 
 - **Widget avatar cache no longer grows without bound.** Stale avatar
   PNGs (from deleted members or removed widgets) are now swept after a
@@ -113,17 +115,22 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   its corners stay inside the circle; rectangular wears keep the
   original bottom-pinned look.
 
-### Added
+### Security
 
-- **Editable notification channels.** Channel detail screen no longer
-  shows triggers as read-only — name, all three trigger toggles,
-  cofront redaction (when the cofront trigger is on), base set
-  (all members vs none + include-private), group rules, member
-  rules, payload sensitivity, debounce, aggregation window, and
-  quiet hours (start / end / IANA tz) are all editable. Sticky
-  Save / Discard bar at the bottom appears when a draft has
-  pending changes. Overflow menu adds Pause / Resume, Send test,
-  Duplicate, and Delete. Mirrors the web client's editor.
+- **No request/response logging in release builds.** The OkHttp
+  logging interceptor was set to BODY level unconditionally, so
+  release builds wrote full request and response bodies (bearer /
+  refresh tokens, watch-token activation codes, member names) to
+  logcat, where adb / a captured bug report could read them.
+  Release now logs nothing; debug keeps body logging for local work
+  but redacts the Authorization / Cookie headers.
+
+- **Wear credentials encrypted at rest.** The watch stored its
+  session access + refresh tokens in plaintext SharedPreferences,
+  readable from a rooted watch or over adb. They now live in
+  EncryptedSharedPreferences backed by a hardware-bound Keystore
+  key. Existing watches migrate their tokens transparently on
+  upgrade (no re-pair needed) and the old plaintext copy is wiped.
 
 ## [0.1.19] - 2026-06-04
 
