@@ -572,6 +572,8 @@ fun DataSettingsScreen(
     onNavigateToPkFileImport: () -> Unit,
     onNavigateToPkApiImport: () -> Unit,
     onNavigateToTupperboxImport: () -> Unit,
+    onNavigateToPluralSpaceImport: () -> Unit,
+    onNavigateToPrismImport: () -> Unit,
     onNavigateToImportHistory: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -674,6 +676,20 @@ fun DataSettingsScreen(
             title = "Import from Tupperbox",
             subtitle = "Use a Tupperbox export JSON from `tul!export`",
             onClick = onNavigateToTupperboxImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from PluralSpace",
+            subtitle = "Use a PluralSpace .zip data export",
+            onClick = onNavigateToPluralSpaceImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from Prism",
+            subtitle = "Use an encrypted .prism export and its passphrase",
+            onClick = onNavigateToPrismImport,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
