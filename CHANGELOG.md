@@ -6,7 +6,23 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-12
+
 ### Added
+
+- **Two more import sources: PluralSpace and Prism.** PluralSpace imports
+  from a `.zip` data export (no credential), mirroring the Simply Plural
+  flow with a preview, member selection, and per-entity toggles. Prism
+  imports a passphrase-encrypted `.prism` export; the passphrase is sent
+  only as the import job's per-source credential and cleared from memory
+  once the server holds the encrypted copy.
+
+- **Import a complete Sheaf backup, with images.** The Sheaf import now
+  accepts the complete-backup zip (`export.json` + `images/`), not just
+  the plain JSON export. It auto-detects the archive, shows the image
+  count in the preview, submits it so the server unpacks the images, and
+  reports images imported in the result. Plain JSON exports work exactly
+  as before.
 
 - **Admin: import-job inspection and GDPR data export.** The account
   detail screen now lists a user's import jobs; opening one fetches the
@@ -29,6 +45,15 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   stream straight from the picked URI, keeping memory flat regardless of
   file size.
 
+### Fixed
+
+- **Front history edit: marking a front ongoing now works, and time
+  entry no longer jumps to the start.** Toggling a front back to ongoing
+  sent an empty update the server read as "no change", so the old end
+  time stuck; it now explicitly clears the end time. Editing a start or
+  end time reset the cursor to the first character on every keystroke;
+  the field is now the source of truth while you type.
+
 ### Security
 
 - **Wear: quick-switch tile trampoline validates its intent.** The
@@ -39,15 +64,6 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   intersects the selection with that configured set. A forged intent
   can no longer queue or commit a switch to an arbitrary member or
   against an unconfigured tile.
-
-### Added
-
-- **Import a complete Sheaf backup, with images.** The Sheaf import now
-  accepts the complete-backup zip (`export.json` + `images/`), not just
-  the plain JSON export. It auto-detects the archive, shows the image
-  count in the preview, submits it so the server unpacks the images, and
-  reports images imported in the result. Plain JSON exports work exactly
-  as before.
 
 ## [1.0.0] - 2026-06-11
 
