@@ -467,20 +467,22 @@ data class FrontCreate(
     @Json(name = "custom_status") val customStatus: String? = null,
 )
 
-@JsonClass(generateAdapter = true)
+// Serialized by the hand-written FrontUpdateJsonAdapter rather than codegen,
+// because the wire contract is tristate-by-presence (omit = leave as-is,
+// JSON null = clear, value = set) and Moshi cannot emit an explicit null on
+// its own. Field names are mapped in that adapter.
 data class FrontUpdate(
-    @Json(name = "ended_at") val endedAt: String? = null,
-    @Json(name = "member_ids") val memberIds: List<String>? = null,
-    @Json(name = "started_at") val startedAt: String? = null,
-    // Tristate via presence-in-body on the wire: omit to leave as-is,
-    // pass null to clear, pass a string to set. Moshi by default omits
-    // null fields from the JSON, which matches "leave as-is" — to
-    // clear we'd need a server-side convention. Web sends null to
-    // clear via an explicit serializer; the Android edit-front flow
-    // sends a non-empty trimmed string for set or skips the field
-    // entirely for "no change", and we'll add clear-on-empty as a
-    // follow-up when audit edit is wired up.
-    @Json(name = "custom_status") val customStatus: String? = null,
+    val endedAt: String? = null,
+    // When true, emit an explicit `ended_at: null` to CLEAR the end time
+    // (i.e. mark the front still ongoing). This is not itself a wire field;
+    // it is consumed by FrontUpdateJsonAdapter and is mutually exclusive
+    // with a non-null endedAt. Leaving both unset omits ended_at entirely.
+    val clearEndedAt: Boolean = false,
+    val memberIds: List<String>? = null,
+    val startedAt: String? = null,
+    // null still omits the field (leave as-is). Clearing a custom status via
+    // edit remains a follow-up to be wired up alongside audit edit.
+    val customStatus: String? = null,
 )
 
 // ── Groups ────────────────────────────────────────────────────────────────────

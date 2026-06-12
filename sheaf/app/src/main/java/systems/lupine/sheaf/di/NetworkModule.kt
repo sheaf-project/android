@@ -4,6 +4,8 @@ import android.content.Context
 import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
+import systems.lupine.sheaf.data.api.FrontUpdateJsonAdapter
+import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.api.TokenAuthenticator
 import systems.lupine.sheaf.data.api.TrustedDeviceCookieJar
@@ -39,6 +41,7 @@ object NetworkModule {
     @Singleton
     fun provideMoshi(): Moshi = Moshi.Builder()
         .add(Date::class.java, Rfc3339DateJsonAdapter().nullSafe())
+        .add(FrontUpdate::class.java, FrontUpdateJsonAdapter())
         .addLast(KotlinJsonAdapterFactory())
         .build()
 

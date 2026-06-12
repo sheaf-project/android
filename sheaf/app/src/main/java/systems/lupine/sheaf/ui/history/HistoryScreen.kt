@@ -889,9 +889,14 @@ private fun FrontEntrySheet(
 
 @Composable
 private fun TimeInputRow(time: LocalTime, onTimeChange: (LocalTime) -> Unit) {
-    var hourText by remember(time) { mutableStateOf(time.format(DateTimeFormatter.ofPattern("h"))) }
-    var minuteText by remember(time) { mutableStateOf(time.format(DateTimeFormatter.ofPattern("mm"))) }
-    var isPm by remember(time) { mutableStateOf(time.hour >= 12) }
+    // These must NOT be keyed on `time`: every accepted keystroke calls
+    // onTimeChange, which updates the parent `time`, which would re-key the
+    // remember, replace this text state, and snap the cursor back to the
+    // start — making the field impossible to type into. The fields are the
+    // source of truth while editing and `time` only ever changes via them.
+    var hourText by remember { mutableStateOf(time.format(DateTimeFormatter.ofPattern("h"))) }
+    var minuteText by remember { mutableStateOf(time.format(DateTimeFormatter.ofPattern("mm"))) }
+    var isPm by remember { mutableStateOf(time.hour >= 12) }
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
