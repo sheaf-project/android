@@ -101,6 +101,8 @@ internal fun importSourceLabel(source: String): String = when (source) {
     "pluralkit_file"    -> "PluralKit (file)"
     "pluralkit_api"     -> "PluralKit (API)"
     "tupperbox_file"    -> "Tupperbox"
+    "pluralspace_file"  -> "PluralSpace"
+    "prism_file"        -> "Prism"
     else                -> source
 }
 

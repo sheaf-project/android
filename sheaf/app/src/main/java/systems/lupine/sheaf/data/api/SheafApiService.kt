@@ -462,10 +462,31 @@ interface SheafApiService {
         @Part file: MultipartBody.Part,
     ): TBPreviewSummary
 
+    @Multipart
+    @POST("/v1/import/pluralspace/preview")
+    suspend fun previewPluralSpaceImport(
+        @Part file: MultipartBody.Part,
+    ): PluralSpacePreviewSummary
+
+    /**
+     * Preview a Prism (.prism) export. The PRISM1 envelope is decrypted
+     * server-side with [passphrase]; nothing is persisted. Submit goes
+     * through [createFileImport] with the same passphrase as `credential`.
+     */
+    @Multipart
+    @POST("/v1/import/prism/preview")
+    suspend fun previewPrismImport(
+        @Part file: MultipartBody.Part,
+        @Part("passphrase") passphrase: RequestBody,
+    ): PrismPreviewSummary
+
     /**
      * Enqueue a file-based import. [source] is one of the
      * [ImportJobSource] constants; [options] is a JSON-encoded
      * source-specific options dict (or omit for backend defaults).
+     * [credential] is a per-source secret (currently only Prism's PRISM1
+     * passphrase); omit it for sources that don't need one. The server
+     * encrypts it at rest until the runner finalises the job.
      *
      * Returns 202 + the freshly-minted [ImportJobRead] with
      * `status = pending`. Poll [getImportJob] until status is in
@@ -478,6 +499,7 @@ interface SheafApiService {
         @Part("source") source: RequestBody,
         @Part("idempotency_key") idempotencyKey: RequestBody,
         @Part("options") options: RequestBody?,
+        @Part("credential") credential: RequestBody? = null,
     ): ImportJobRead
 
     @GET("/v1/imports/{jobId}")

@@ -805,6 +805,83 @@ data class TBImportResult(
     val warnings: List<String> = emptyList(),
 )
 
+// ── PluralSpace import ────────────────────────────────────────────────────────
+//
+// PluralSpace exports a zip (members + custom fronts + groups + custom fields +
+// front history + journal + chat + polls + media). The preview opens the zip
+// server-side and reports counts; submit goes through the unified file runner
+// under source = pluralspace_file. No credential — the zip isn't encrypted.
+
+@JsonClass(generateAdapter = true)
+data class PluralSpacePreviewMember(
+    val id: String,
+    val name: String,
+    @Json(name = "is_custom_front") val isCustomFront: Boolean = false,
+    @Json(name = "is_archived") val isArchived: Boolean = false,
+    @Json(name = "has_avatar") val hasAvatar: Boolean = false,
+    val roles: List<String> = emptyList(),
+    val groups: List<String> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class PluralSpacePreviewSummary(
+    @Json(name = "system_name") val systemName: String? = null,
+    @Json(name = "format_version") val formatVersion: String? = null,
+    @Json(name = "export_date") val exportDate: String? = null,
+    @Json(name = "member_count") val memberCount: Int = 0,
+    @Json(name = "custom_front_count") val customFrontCount: Int = 0,
+    val members: List<PluralSpacePreviewMember> = emptyList(),
+    @Json(name = "group_count") val groupCount: Int = 0,
+    @Json(name = "custom_field_count") val customFieldCount: Int = 0,
+    @Json(name = "front_count") val frontCount: Int = 0,
+    @Json(name = "journal_entry_count") val journalEntryCount: Int = 0,
+    @Json(name = "chat_channel_count") val chatChannelCount: Int = 0,
+    @Json(name = "chat_message_count") val chatMessageCount: Int = 0,
+    @Json(name = "poll_count") val pollCount: Int = 0,
+    @Json(name = "thought_count") val thoughtCount: Int = 0,
+    @Json(name = "media_file_count") val mediaFileCount: Int = 0,
+)
+
+// ── Prism import ──────────────────────────────────────────────────────────────
+//
+// Prism exports a passphrase-encrypted .prism file (PRISM1 envelope). The
+// preview decrypts it server-side using the supplied passphrase; submit goes
+// through the unified file runner under source = prism_file with the passphrase
+// passed as the `credential` form field (encrypted at rest until the job runs).
+
+@JsonClass(generateAdapter = true)
+data class PrismPreviewMember(
+    val id: String,
+    val name: String,
+    @Json(name = "is_archived") val isArchived: Boolean = false,
+    @Json(name = "has_avatar") val hasAvatar: Boolean = false,
+    @Json(name = "pluralkit_id") val pluralkitId: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PrismPreviewSummary(
+    @Json(name = "system_name") val systemName: String? = null,
+    @Json(name = "format_version") val formatVersion: String? = null,
+    @Json(name = "export_date") val exportDate: String? = null,
+    @Json(name = "app_name") val appName: String? = null,
+    @Json(name = "member_count") val memberCount: Int = 0,
+    val members: List<PrismPreviewMember> = emptyList(),
+    @Json(name = "group_count") val groupCount: Int = 0,
+    @Json(name = "custom_field_count") val customFieldCount: Int = 0,
+    @Json(name = "front_session_count") val frontSessionCount: Int = 0,
+    @Json(name = "sleep_session_count") val sleepSessionCount: Int = 0,
+    @Json(name = "conversation_count") val conversationCount: Int = 0,
+    @Json(name = "message_count") val messageCount: Int = 0,
+    @Json(name = "poll_count") val pollCount: Int = 0,
+    @Json(name = "poll_option_count") val pollOptionCount: Int = 0,
+    @Json(name = "note_count") val noteCount: Int = 0,
+    @Json(name = "reminder_count") val reminderCount: Int = 0,
+    @Json(name = "habit_count") val habitCount: Int = 0,
+    @Json(name = "member_board_post_count") val memberBoardPostCount: Int = 0,
+    @Json(name = "media_attachment_count") val mediaAttachmentCount: Int = 0,
+    @Json(name = "media_blob_count") val mediaBlobCount: Int = 0,
+)
+
 // ── Async import job runner ──────────────────────────────────────────────────
 //
 // Backend wrapped every importer (SP / Sheaf / PK / TB) in a shared async
@@ -871,6 +948,9 @@ object ImportJobSource {
     // Complete Sheaf backup zip (export.json + images/). The preview endpoint
     // sniffs the zip magic and reports archive=true; submit under this source.
     const val SHEAF_ARCHIVE = "sheaf_archive"
+    const val PLURALSPACE_FILE = "pluralspace_file"
+    // Passphrase-encrypted .prism export; the passphrase rides as `credential`.
+    const val PRISM_FILE = "prism_file"
 }
 
 /**
