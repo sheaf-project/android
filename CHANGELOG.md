@@ -6,6 +6,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Added
+
+- **Admin: import-job inspection and GDPR data export.** The account
+  detail screen now lists a user's import jobs; opening one fetches the
+  full event log behind a reason prompt (a logged, privacy-sensitive
+  read). A "Data export" action builds the GDPR Article 15 metadata
+  dossier and saves it as a JSON file via the system file picker.
+
 ### Changed
 
 - **Imports stream the file instead of buffering it.** The Sheaf, Simply

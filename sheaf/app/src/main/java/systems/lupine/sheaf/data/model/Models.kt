@@ -1189,6 +1189,39 @@ data class AdminBypassPendingResponse(
     @Json(name = "by_type") val byType: Map<String, Int> = emptyMap(),
 )
 
+// ── Admin import-job inspection ───────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class AdminImportJobSummary(
+    val id: String,
+    val source: String,
+    val status: String,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "started_at") val startedAt: String? = null,
+    @Json(name = "finished_at") val finishedAt: String? = null,
+    val counts: Map<String, Int> = emptyMap(),
+    @Json(name = "last_error") val lastError: String? = null,
+)
+
+/**
+ * Full import-job view including the event log; from POST
+ * /v1/admin/import-jobs/{id}. Reading it is privacy-sensitive (the events
+ * can quote a member's data), so the endpoint requires a reason and writes
+ * an audit row. Reuses [ImportJobEvent] for the events.
+ */
+@JsonClass(generateAdapter = true)
+data class AdminImportJobDetail(
+    val id: String,
+    val source: String,
+    val status: String,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "started_at") val startedAt: String? = null,
+    @Json(name = "finished_at") val finishedAt: String? = null,
+    val counts: Map<String, Int> = emptyMap(),
+    @Json(name = "last_error") val lastError: String? = null,
+    val events: List<ImportJobEvent> = emptyList(),
+)
+
 // ── Admin audit log ─────────────────────────────────────────────────────────
 //
 // before_json / after_json are arbitrary state snapshots, so they're typed as

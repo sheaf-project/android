@@ -650,6 +650,24 @@ interface SheafApiService {
     @POST("/v1/admin/users/{id}/bypass-pending")
     suspend fun adminBypassPending(@Path("id") id: String, @Body body: AdminReasonBody): AdminBypassPendingResponse
 
+    // Import-job inspection. The list is browse-only; the per-job detail
+    // (with events) is a privacy-sensitive read, hence POST + reason.
+    @GET("/v1/admin/users/{id}/import-jobs")
+    suspend fun getAdminUserImportJobs(@Path("id") id: String): List<AdminImportJobSummary>
+
+    @POST("/v1/admin/import-jobs/{jobId}")
+    suspend fun getAdminImportJobDetail(
+        @Path("jobId") jobId: String,
+        @Body body: AdminReasonBody,
+    ): AdminImportJobDetail
+
+    // GDPR Article 15 metadata export; returns a downloadable JSON document.
+    @POST("/v1/admin/users/{id}/dossier")
+    suspend fun exportUserDossier(
+        @Path("id") id: String,
+        @Body body: AdminReasonBody,
+    ): okhttp3.ResponseBody
+
     // ── Admin audit log ─────────────────────────────────────────────────────
 
     @GET("/v1/admin/audit-events")
