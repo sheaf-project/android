@@ -7,7 +7,7 @@ Every APK published from this repo is signed twice over:
 
 The first protects you against drive-by update tampering once the app is installed. The second is what lets you confirm, before installing, that the APK you're about to run was built from public source by Sheaf's CI rather than handed to you by some intermediary.
 
-For the broader threat model and how this relates to Sheaf's backend / web verifiability story, see the main repo's [`docs/VERIFYING.md`](https://github.com/sheaf-project/sheaf/blob/master/docs/VERIFYING.md).
+For the broader threat model and how this relates to Sheaf's backend / web verifiability story, see the main repo's [`docs/VERIFYING.md`](https://github.com/sheaf-project/sheaf/blob/main/docs/VERIFYING.md).
 
 ## What you can check
 
