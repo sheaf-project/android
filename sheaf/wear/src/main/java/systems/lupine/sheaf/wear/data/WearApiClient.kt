@@ -131,6 +131,24 @@ class WearApiClient(private val auth: WearAuthManager) {
         return moshi.adapter<List<WearMember>>(type).fromJson(body)!!
     }
 
+    /**
+     * Members ranked for quick switching: quick-switch pins first, then a
+     * recency-weighted fronting score. Used to order the switch picker so the
+     * members you reach for most are at the top, matching the phone's
+     * quick-switch carousel. limit=50 (the endpoint's max) gives a long enough
+     * ranked prefix to order the whole roster on top of.
+     */
+    suspend fun getTopFronters(limit: Int = 50): List<WearMember> {
+        val body = execute {
+            Request.Builder()
+                .url(url("/v1/members/top-fronters?limit=$limit"))
+                .header("Authorization", "Bearer ${auth.accessToken}")
+                .build()
+        }
+        val type = Types.newParameterizedType(List::class.java, WearMember::class.java)
+        return moshi.adapter<List<WearMember>>(type).fromJson(body)!!
+    }
+
     suspend fun getCurrentFronts(): List<WearFront> {
         val body = execute {
             Request.Builder()

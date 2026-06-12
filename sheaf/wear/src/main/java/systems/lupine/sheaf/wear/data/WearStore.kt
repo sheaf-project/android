@@ -16,6 +16,10 @@ class WearStore(
     val currentFronts = MutableStateFlow<List<WearFront>>(emptyList())
     val recentFronts  = MutableStateFlow<List<WearFront>>(emptyList())
     val groups        = MutableStateFlow<List<WearGroup>>(emptyList())
+    // Quick-switch ranking (pins first, then recency-weighted score) used to
+    // order the switch picker. Best-effort: stays empty on failure and the
+    // picker falls back to the plain member order.
+    val topFronters   = MutableStateFlow<List<WearMember>>(emptyList())
     val isLoading     = MutableStateFlow(false)
     val error         = MutableStateFlow<String?>(null)
     // Tracked separately from the generic `error` because the recent-fronts
@@ -81,6 +85,10 @@ class WearStore(
             runCatching { apiClient.getRecentFronts() }
                 .onSuccess { recentFronts.value = it; recentFrontsError.value = null }
                 .onFailure { recentFrontsError.value = it.message ?: "Failed to load history" }
+            // Quick-switch ranking, best-effort: a failure just leaves the
+            // switch picker in plain member order.
+            runCatching { apiClient.getTopFronters() }
+                .onSuccess { topFronters.value = it }
             cacheTileData()
             cacheTileAvatars()
             requestTileUpdate()
