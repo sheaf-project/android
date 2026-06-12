@@ -1,0 +1,57 @@
+name: PR Checks
+
+# Runs the unit tests on every pull request so the result can be required as a
+# status check (e.g. for auto-merge). Builds nothing shippable; just the tests.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Cancel an in-flight run when the PR is updated, so only the latest commit's
+  # result gates the merge.
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Generate Gradle wrapper JAR
+        working-directory: sheaf
+        run: gradle wrapper
+
+      - name: Make gradlew executable
+        run: chmod +x sheaf/gradlew
+
+      - name: Run unit tests (app + wear, play-release variant)
+        working-directory: sheaf
+        run: ./gradlew :app:testPlayReleaseUnitTest :wear:testPlayReleaseUnitTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-test-reports
+          path: |
+            sheaf/app/build/reports/tests/
+            sheaf/app/build/test-results/
+            sheaf/wear/build/reports/tests/
+            sheaf/wear/build/test-results/
+          if-no-files-found: ignore
