@@ -40,7 +40,21 @@ fun SwitchScreen(navController: NavController) {
     val store = LocalWearStore.current
     val settings = LocalWearSettings.current
     val members by store.members.collectAsState()
+    val topFronters by store.topFronters.collectAsState()
     val fronts by store.currentFronts.collectAsState()
+    // Order the picker by the quick-switch ranking (pins + recency-weighted
+    // score) so the members reached for most sit at the top, then the rest of
+    // the roster in its existing order. Empty ranking falls back to plain order.
+    val orderedMembers = remember(members, topFronters) {
+        if (topFronters.isEmpty()) {
+            members
+        } else {
+            val present = members.associateBy { it.id }
+            val ranked = topFronters.mapNotNull { present[it.id] }
+            val rankedIds = ranked.mapTo(HashSet()) { it.id }
+            ranked + members.filterNot { it.id in rankedIds }
+        }
+    }
     val error by store.error.collectAsState()
     val endExistingDefault by settings.endExistingFronts.collectAsState()
     val scope = rememberCoroutineScope()
@@ -140,7 +154,7 @@ fun SwitchScreen(navController: NavController) {
                             )
                         }
 
-                        items(members) { member ->
+                        items(orderedMembers) { member ->
                             val isSelected = member.id in selected
                             val emoji = member.emoji?.takeIf { it.isNotBlank() }
                             Chip(

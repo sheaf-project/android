@@ -16,6 +16,12 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Changed
 
+- **Wear: switch picker ordered by quick-switch ranking.** The watch's
+  Switch Front screen now lists members in the same pins-then-recency
+  order the phone uses for its quick-switch carousel (the top-fronters
+  endpoint), so the members you switch to most sit at the top. Falls
+  back to plain roster order if the ranking can't be fetched.
+
 - **Imports stream the file instead of buffering it.** The Sheaf, Simply
   Plural, PluralKit, and Tupperbox file importers used to read the whole
   picked file into memory before upload. A complete Sheaf backup can run
