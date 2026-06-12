@@ -373,6 +373,10 @@ class HistoryViewModel @Inject constructor(
                         memberIds = memberIds,
                         startedAt = startedAt,
                         endedAt = endedAt,
+                        // The edit dialog always submits a definite end state,
+                        // so a null endedAt here means "still ongoing" — clear
+                        // it on the server rather than leaving it untouched.
+                        clearEndedAt = endedAt == null,
                         customStatus = customStatus,
                     ),
                 )
