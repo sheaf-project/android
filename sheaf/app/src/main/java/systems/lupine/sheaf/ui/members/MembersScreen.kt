@@ -2,6 +2,7 @@
 
 package systems.lupine.sheaf.ui.members
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -303,6 +304,7 @@ fun MemberDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
+    val baseline by viewModel.baselineForm.collectAsState()
     var showAvatarMenu by remember { mutableStateOf(false) }
     var showBannerMenu by remember { mutableStateOf(false) }
     // Holds the URI of the just-picked image while the cropper dialog
@@ -352,6 +354,51 @@ fun MemberDetailScreen(
         if (state.saved) onNavigateUp()
     }
 
+    // Unsaved-changes guard. The form is a long scroll and the only Save
+    // control is a button at the very bottom, so leaving (back arrow or
+    // system back) with pending edits is easy to do by accident. Compare
+    // the live form + staged field values against the load-time baseline.
+    val dirty = form != baseline ||
+        state.customFieldValues != state.customFieldValuesBaseline
+    var showUnsavedDialog by remember { mutableStateOf(false) }
+    val attemptExit: () -> Unit = {
+        if (dirty) showUnsavedDialog = true else onNavigateUp()
+    }
+    BackHandler(enabled = dirty) { showUnsavedDialog = true }
+
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("Unsaved changes") },
+            text = { Text("You have unsaved changes to this member. Save them before leaving?") },
+            confirmButton = {
+                TextButton(
+                    // Save flips state.saved, which the LaunchedEffect above
+                    // turns into the navigate-up, so this both saves and exits.
+                    onClick = {
+                        showUnsavedDialog = false
+                        viewModel.save()
+                    },
+                    enabled = form.name.isNotBlank() && !state.isSaving,
+                ) { Text("Save and exit") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showUnsavedDialog = false
+                        onNavigateUp()
+                    }) {
+                        Text("Discard", color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    TextButton(onClick = { showUnsavedDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            },
+        )
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         modifier = if (!viewModel.isNewMember) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier,
@@ -360,7 +407,7 @@ fun MemberDetailScreen(
                 SheafTopAppBar(
                     title = { Text("New Member") },
                     navigationIcon = {
-                        IconButton(onClick = onNavigateUp) {
+                        IconButton(onClick = attemptExit) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
@@ -369,7 +416,7 @@ fun MemberDetailScreen(
                 SheafLargeFlexibleTopAppBar(
                     title = { Text(form.name.ifBlank { "Member" }) },
                     navigationIcon = {
-                        IconButton(onClick = onNavigateUp) {
+                        IconButton(onClick = attemptExit) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },

@@ -17,6 +17,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   kept transparent. Avatars use the same editor, so they gain rotation
   and zoom-out too.
 
+### Fixed
+
+- **Member edit no longer loses unsaved changes silently.** Leaving the
+  member editor (back arrow or system back) with pending edits now
+  prompts to save, discard, or stay, instead of dropping the changes
+  without warning. The editor is a long scroll with its Save button at
+  the bottom, so this was easy to trip over.
+
 ## [1.1.0] - 2026-06-12
 
 ### Added

@@ -278,6 +278,12 @@ class MemberDetailViewModel @Inject constructor(
     private val _form = MutableStateFlow(MemberFormState())
     val form: StateFlow<MemberFormState> = _form.asStateFlow()
 
+    // Snapshot of the form as last loaded (or the empty initial for a new
+    // member). The edit screen compares against this to know whether there
+    // are unsaved changes before letting the user navigate away.
+    private val _baselineForm = MutableStateFlow(MemberFormState())
+    val baselineForm: StateFlow<MemberFormState> = _baselineForm.asStateFlow()
+
     init {
         markdownImages.loadUser(viewModelScope)
         // Field definitions are needed for both create and edit modes —
@@ -305,7 +311,7 @@ class MemberDetailViewModel @Inject constructor(
             runCatching { api.getMember(memberId!!) }
                 .onSuccess { m ->
                     _state.update { it.copy(member = m, isLoading = false) }
-                    _form.value = MemberFormState(
+                    val loaded = MemberFormState(
                         name        = m.name,
                         displayName = m.displayName ?: "",
                         pronouns    = m.pronouns ?: "",
@@ -317,6 +323,8 @@ class MemberDetailViewModel @Inject constructor(
                         avatarUrl   = m.avatarUrl,
                         bannerUrl   = m.bannerUrl,
                     )
+                    _form.value = loaded
+                    _baselineForm.value = loaded
                     // Pull current field values for this member after the
                     // base member load so the editor has something to
                     // populate against. Best-effort: if it fails the
