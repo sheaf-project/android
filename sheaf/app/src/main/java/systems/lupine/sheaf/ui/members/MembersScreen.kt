@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
@@ -303,9 +304,10 @@ fun MemberDetailScreen(
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
     var showAvatarMenu by remember { mutableStateOf(false) }
+    var showBannerMenu by remember { mutableStateOf(false) }
     // Holds the URI of the just-picked image while the cropper dialog
     // is on screen. Null means no crop in progress. The crop dialog
-    // confirms with JPEG bytes which then go to uploadAvatarBytes;
+    // confirms with PNG bytes which then go to uploadAvatarBytes;
     // the legacy uploadAndSetAvatar(uri) path on the viewmodel is
     // kept around but no longer reachable from the UI now that every
     // upload goes through the cropper.
@@ -321,6 +323,23 @@ fun MemberDetailScreen(
             onConfirm = { bytes ->
                 pendingCropUri = null
                 viewModel.uploadAvatarBytes(bytes)
+            },
+        )
+    }
+
+    // Separate crop pipeline for the wide 3:1 banner.
+    var pendingBannerCropUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val bannerPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri -> pendingBannerCropUri = uri }
+
+    pendingBannerCropUri?.let { uri ->
+        systems.lupine.sheaf.ui.avatar.BannerCropDialog(
+            sourceUri = uri,
+            onCancel = { pendingBannerCropUri = null },
+            onConfirm = { bytes ->
+                pendingBannerCropUri = null
+                viewModel.uploadBannerBytes(bytes)
             },
         )
     }
@@ -374,6 +393,91 @@ fun MemberDetailScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+
+            // Banner (wide 3:1 header, shown on the profile only, not in lists).
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(3f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable { showBannerMenu = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (!form.bannerUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = form.bannerUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Image,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Add banner", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .clickable { showBannerMenu = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit banner",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+
+                if (state.isUploadingBanner) {
+                    Box(
+                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(strokeWidth = 3.dp)
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = showBannerMenu,
+                    onDismissRequest = { showBannerMenu = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Choose photo") },
+                        leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
+                        onClick = {
+                            showBannerMenu = false
+                            bannerPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                    )
+                    if (!form.bannerUrl.isNullOrEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("Remove banner", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            },
+                            onClick = {
+                                showBannerMenu = false
+                                viewModel.removeBanner()
+                            },
+                        )
+                    }
+                }
+            }
 
             // Avatar
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -639,6 +743,20 @@ fun MemberProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    // Banner header (3:1), shown only when set. Profile-only;
+                    // member lists deliberately omit it to stay scannable.
+                    if (!member.bannerUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = member.bannerUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(3f)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+
                     // Avatar hero
                     if (member.avatarUrl != null) {
                         AsyncImage(

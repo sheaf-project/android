@@ -372,7 +372,13 @@ interface SheafApiService {
 
     @Multipart
     @POST("/v1/files/upload")
-    suspend fun uploadFile(@Part file: MultipartBody.Part): FileUploadResponse
+    suspend fun uploadFile(
+        @Part file: MultipartBody.Part,
+        // Server stores under a per-purpose prefix (avatars/bios/banners)
+        // and applies per-purpose size caps. Defaults to avatar so existing
+        // callers are unaffected.
+        @Query("purpose") purpose: String = "avatar",
+    ): FileUploadResponse
 
     @GET("/v1/files/usage")
     suspend fun getFileUsage(): FileUsage

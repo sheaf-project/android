@@ -388,6 +388,9 @@ data class MemberRead(
     val description: String?,
     val pronouns: String?,
     @Json(name = "avatar_url") val avatarUrl: String?,
+    // Wide header image for the member profile. Same storage/trust model as
+    // avatar_url; differs only in aspect ratio (3:1) at the display layer.
+    @Json(name = "banner_url") val bannerUrl: String? = null,
     val color: String?,
     val birthday: String?,
     val privacy: String,
@@ -415,6 +418,7 @@ data class MemberCreate(
     val description: String? = null,
     val pronouns: String? = null,
     @Json(name = "avatar_url") val avatarUrl: String? = null,
+    @Json(name = "banner_url") val bannerUrl: String? = null,
     val color: String? = null,
     val birthday: String? = null,
     val privacy: String = "private",
@@ -428,6 +432,7 @@ data class MemberUpdate(
     val description: String? = null,
     val pronouns: String? = null,
     @Json(name = "avatar_url") val avatarUrl: String? = null,
+    @Json(name = "banner_url") val bannerUrl: String? = null,
     val color: String? = null,
     val birthday: String? = null,
     val privacy: String? = null,
