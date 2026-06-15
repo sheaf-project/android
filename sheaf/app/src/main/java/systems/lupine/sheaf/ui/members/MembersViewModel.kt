@@ -227,6 +227,7 @@ data class MemberFormState(
     val birthday: String = "",
     val privacy: String = "private",
     val avatarUrl: String? = null,
+    val bannerUrl: String? = null,
 )
 
 data class MemberDetailUiState(
@@ -235,6 +236,7 @@ data class MemberDetailUiState(
     val isSaving: Boolean = false,
     val isDeleting: Boolean = false,
     val isUploadingAvatar: Boolean = false,
+    val isUploadingBanner: Boolean = false,
     val error: String? = null,
     val saved: Boolean = false,
     val deleted: Boolean = false,
@@ -313,6 +315,7 @@ class MemberDetailViewModel @Inject constructor(
                         birthday    = m.birthday ?: "",
                         privacy     = m.privacy,
                         avatarUrl   = m.avatarUrl,
+                        bannerUrl   = m.bannerUrl,
                     )
                     // Pull current field values for this member after the
                     // base member load so the editor has something to
@@ -360,6 +363,7 @@ class MemberDetailViewModel @Inject constructor(
                         pronouns    = f.pronouns.takeIf { it.isNotBlank() },
                         description = f.description.takeIf { it.isNotBlank() },
                         avatarUrl   = f.avatarUrl,
+                        bannerUrl   = f.bannerUrl,
                         color       = f.color.takeIf { it.isNotBlank() },
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
@@ -372,6 +376,7 @@ class MemberDetailViewModel @Inject constructor(
                         pronouns    = f.pronouns.takeIf { it.isNotBlank() },
                         description = f.description.takeIf { it.isNotBlank() },
                         avatarUrl   = f.avatarUrl,
+                        bannerUrl   = f.bannerUrl,
                         color       = f.color.takeIf { it.isNotBlank() },
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
@@ -472,18 +477,19 @@ class MemberDetailViewModel @Inject constructor(
     }
 
     /**
-     * Upload a pre-cropped avatar (JPEG bytes from [AvatarCropDialog]).
+     * Upload a pre-cropped avatar (PNG bytes from [AvatarCropDialog]).
      * Used by the picker-then-crop flow so the user frames their avatar
      * before it's sent rather than relying on the display layer to
-     * square-crop whatever raw image they picked.
+     * square-crop whatever raw image they picked. PNG so a zoomed-out
+     * crop keeps its transparent letterbox; the server re-encodes anyway.
      */
-    fun uploadAvatarBytes(bytes: ByteArray, fileName: String = "avatar.jpg") {
+    fun uploadAvatarBytes(bytes: ByteArray, fileName: String = "avatar.png") {
         viewModelScope.launch {
             _state.update { it.copy(isUploadingAvatar = true, error = null) }
             runCatching {
-                val requestBody = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                val requestBody = bytes.toRequestBody("image/png".toMediaTypeOrNull())
                 val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
-                api.uploadFile(part)
+                api.uploadFile(part, purpose = "avatar")
             }
                 .onSuccess { response ->
                     _form.update { it.copy(avatarUrl = response.url) }
@@ -497,6 +503,34 @@ class MemberDetailViewModel @Inject constructor(
 
     fun removeAvatar() {
         _form.update { it.copy(avatarUrl = null) }
+    }
+
+    /**
+     * Upload a pre-cropped banner (PNG bytes from [BannerCropDialog]).
+     * Banners are wide (3:1) header images on the member profile; the
+     * upload reuses the same files endpoint as avatars, tagged
+     * purpose=banner so the server stores it in the banners prefix.
+     */
+    fun uploadBannerBytes(bytes: ByteArray, fileName: String = "banner.png") {
+        viewModelScope.launch {
+            _state.update { it.copy(isUploadingBanner = true, error = null) }
+            runCatching {
+                val requestBody = bytes.toRequestBody("image/png".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+                api.uploadFile(part, purpose = "banner")
+            }
+                .onSuccess { response ->
+                    _form.update { it.copy(bannerUrl = response.url) }
+                    _state.update { it.copy(isUploadingBanner = false) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isUploadingBanner = false, error = "Failed to upload banner: ${e.toUserMessage()}") }
+                }
+        }
+    }
+
+    fun removeBanner() {
+        _form.update { it.copy(bannerUrl = null) }
     }
 
     fun clearError() { _state.update { it.copy(error = null) } }

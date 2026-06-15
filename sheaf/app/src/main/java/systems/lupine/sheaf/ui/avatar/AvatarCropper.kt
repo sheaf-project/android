@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Canvas as AndroidCanvas
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,12 +21,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Rotate90DegreesCcw
+import androidx.compose.material.icons.filled.Rotate90DegreesCw
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -45,6 +51,7 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
@@ -57,42 +64,52 @@ import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sin
+
+/** Shape of the crop preview window. Square avatars get a circular mask
+ *  (the stored image is still the square crop; the circle is display
+ *  framing); wide banners get a rounded rectangle. */
+enum class CropShape { Circle, Rectangle }
 
 /**
- * Full-screen modal cropper for avatar uploads. The user can pinch to
- * zoom and drag to pan the source image; a circular preview window
- * shows what the final avatar will look like. On confirm, the visible
- * region inside the crop window is exported as a square JPEG of
- * [outputSizePx] x [outputSizePx] and handed back via [onConfirm].
+ * Full-screen modal image cropper. The user can pinch to zoom, drag to
+ * pan, and rotate (two-finger twist, quarter-turn buttons, or the fine
+ * slider) the source image inside a crop window of [aspectRatio]
+ * (width / height). On confirm, the region inside the crop window is
+ * exported as a PNG no larger than [outputLongestPx] on its longest edge
+ * and handed back via [onConfirm].
  *
- * Replaces the previous "pick image, upload as-is" flow that left the
- * server (and the display layer) to squash non-square inputs.
- *
- * EXIF orientation is honoured on decode so portrait photos arrive in
- * the cropper right-side-up rather than sideways.
+ * Mirrors the web cropper: zoom is "unlocked" below cover so a whole
+ * image can be framed edge-to-edge (any area the image doesn't reach
+ * renders transparent in the PNG), rather than forcing the source to
+ * fill the frame. EXIF orientation is honoured on decode so portrait
+ * photos arrive right-side-up.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AvatarCropDialog(
+fun ImageCropDialog(
     sourceUri: Uri,
+    aspectRatio: Float,
+    cropShape: CropShape,
+    title: String,
     onCancel: () -> Unit,
-    onConfirm: (jpegBytes: ByteArray) -> Unit,
-    outputSizePx: Int = 512,
-    jpegQuality: Int = 90,
+    onConfirm: (pngBytes: ByteArray) -> Unit,
+    outputLongestPx: Int = 1024,
 ) {
     val context = LocalContext.current
     var sourceBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var isExporting by remember { mutableStateOf(false) }
 
-    // Load source bitmap once. We cap at 2048 px on the longest side
-    // for the live cropper to keep gesture latency snappy on a phone;
-    // we crop from the in-memory bitmap on save rather than re-decoding
-    // from the URI at full resolution. 2048 -> 512 output still has
-    // 4x headroom in each dim, so the 90%-quality JPEG output is the
-    // limiting factor, not source resolution.
+    // Load source bitmap once, capped at 2048 px on the longest side so
+    // gestures stay snappy. We crop from this in-memory bitmap on save
+    // rather than re-decoding at full resolution; 2048 to 1024 output
+    // still leaves the PNG re-encode as the limiting factor.
     LaunchedEffect(sourceUri) {
         withContext(Dispatchers.IO) {
             try {
@@ -120,7 +137,7 @@ fun AvatarCropDialog(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 TopAppBar(
-                    title = { Text("Crop avatar") },
+                    title = { Text(title) },
                     navigationIcon = {
                         IconButton(onClick = onCancel, enabled = !isExporting) {
                             Icon(Icons.Default.Close, contentDescription = "Cancel")
@@ -134,24 +151,20 @@ fun AvatarCropDialog(
                 )
 
                 val bmp = sourceBitmap
-                // Triggered by the user pressing "Use photo". A non-null
-                // value here causes the LaunchedEffect below to encode
-                // the JPEG off the main thread and hand the result back
-                // via onConfirm. Doing it that way (rather than launching
-                // a coroutine inside the Button's onClick) means the
-                // dialog correctly handles being recomposed during the
-                // encode and that the heavy work stays off the UI thread.
+                // Set by "Use photo"; the LaunchedEffect encodes the PNG
+                // off the main thread and hands the result back, so the
+                // dialog survives recomposition during the encode and the
+                // heavy work stays off the UI thread.
                 var pendingExport by remember { mutableStateOf<CropTransform?>(null) }
                 LaunchedEffect(pendingExport, bmp) {
                     val transform = pendingExport ?: return@LaunchedEffect
                     val source = bmp ?: return@LaunchedEffect
                     isExporting = true
                     val bytes = withContext(Dispatchers.Default) {
-                        renderToJpeg(
+                        renderToPng(
                             source = source,
                             transform = transform,
-                            outputSizePx = outputSizePx,
-                            quality = jpegQuality,
+                            outputLongestPx = outputLongestPx,
                         )
                     }
                     onConfirm(bytes)
@@ -163,6 +176,8 @@ fun AvatarCropDialog(
                     when {
                         bmp != null -> CropCanvas(
                             source = bmp,
+                            aspectRatio = aspectRatio,
+                            cropShape = cropShape,
                             isExporting = isExporting,
                             onExport = { transform -> pendingExport = transform },
                         )
@@ -179,48 +194,97 @@ fun AvatarCropDialog(
     }
 }
 
+/** Avatar crop: square crop with a circular preview mask. */
+@Composable
+fun AvatarCropDialog(
+    sourceUri: Uri,
+    onCancel: () -> Unit,
+    onConfirm: (pngBytes: ByteArray) -> Unit,
+) = ImageCropDialog(
+    sourceUri = sourceUri,
+    aspectRatio = 1f,
+    cropShape = CropShape.Circle,
+    title = "Crop avatar",
+    onCancel = onCancel,
+    onConfirm = onConfirm,
+)
+
+/** Banner crop: wide 3:1 crop, matching the web banner aspect. */
+@Composable
+fun BannerCropDialog(
+    sourceUri: Uri,
+    onCancel: () -> Unit,
+    onConfirm: (pngBytes: ByteArray) -> Unit,
+) = ImageCropDialog(
+    sourceUri = sourceUri,
+    aspectRatio = 3f,
+    cropShape = CropShape.Rectangle,
+    title = "Crop banner",
+    onCancel = onCancel,
+    onConfirm = onConfirm,
+)
+
 /**
- * State + UI for the pannable/zoomable image inside the crop overlay.
- * The "transform" emitted to [onExport] is enough information for
- * [renderToJpeg] to materialise a cropped Bitmap without re-deriving
- * any of the gesture state.
+ * State + UI for the pannable / zoomable / rotatable image inside the
+ * crop overlay. The [CropTransform] emitted to [onExport] is enough for
+ * [renderToPng] to materialise the crop without re-deriving gesture
+ * state.
  */
 @Composable
 private fun CropCanvas(
     source: Bitmap,
+    aspectRatio: Float,
+    cropShape: CropShape,
     isExporting: Boolean,
     onExport: (CropTransform) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportW = constraints.maxWidth.toFloat()
         val viewportH = constraints.maxHeight.toFloat()
-        // Crop window is a square inscribed in the viewport with a
-        // sensible margin so the user can see the parts of the image
-        // that won't make it into the avatar.
-        val cropPx = min(viewportW, viewportH) * 0.85f
+
+        // Inscribe the crop window in the viewport: cap its width at 92%
+        // and its height at 70% (the lower band holds the rotate + confirm
+        // controls), then fit the requested aspect inside that box.
+        val maxCropW = viewportW * 0.92f
+        val maxCropH = viewportH * 0.70f
+        val cropW: Float
+        val cropH: Float
+        if (maxCropW / aspectRatio <= maxCropH) {
+            cropW = maxCropW
+            cropH = maxCropW / aspectRatio
+        } else {
+            cropH = maxCropH
+            cropW = maxCropH * aspectRatio
+        }
 
         val imgW = source.width.toFloat()
         val imgH = source.height.toFloat()
 
-        // Minimum scale: image must always cover the crop window in
-        // both dimensions, otherwise the user could pan to white space.
-        val minScale = remember(imgW, imgH, cropPx) {
-            max(cropPx / imgW, cropPx / imgH)
-        }
-        val maxScale = remember(minScale) { minScale * 6f }
+        // "cover" fills the frame; "contain" fits the whole image inside
+        // it. We start at cover (so the default framing fills the window,
+        // matching the old avatar behaviour) but allow zooming out below
+        // contain so the user can letterbox a whole image into the frame.
+        val coverScale = remember(imgW, imgH, cropW, cropH) { max(cropW / imgW, cropH / imgH) }
+        val containScale = remember(imgW, imgH, cropW, cropH) { min(cropW / imgW, cropH / imgH) }
+        val minScale = remember(containScale) { containScale * 0.5f }
+        val maxScale = remember(coverScale) { coverScale * 6f }
 
-        var scale by remember { mutableFloatStateOf(minScale) }
+        var scale by remember(coverScale) { mutableFloatStateOf(coverScale) }
         var offset by remember { mutableStateOf(Offset.Zero) }
+        var rotationDeg by remember { mutableFloatStateOf(0f) }
 
-        // Clamp offset so the image always covers the crop window.
-        // At any scale, the maximum offset in each axis is half the
-        // (scaled-image - crop) overhang in that axis.
-        fun clampOffset(target: Offset, s: Float): Offset {
-            val maxOffX = max(0f, (imgW * s - cropPx) / 2f)
-            val maxOffY = max(0f, (imgH * s - cropPx) / 2f)
+        // Clamp the pan so the crop centre always stays over the image
+        // (its rotated bounding box): the user can push the image edge to
+        // the centre of the frame, but can't lose it off-screen entirely.
+        fun clampOffset(target: Offset, s: Float, deg: Float): Offset {
+            val rad = Math.toRadians(deg.toDouble())
+            val c = abs(cos(rad)).toFloat()
+            val sn = abs(sin(rad)).toFloat()
+            val halfW = (c * imgW + sn * imgH) / 2f * s
+            val halfH = (sn * imgW + c * imgH) / 2f * s
             return Offset(
-                x = target.x.coerceIn(-maxOffX, maxOffX),
-                y = target.y.coerceIn(-maxOffY, maxOffY),
+                x = target.x.coerceIn(-halfW, halfW),
+                y = target.y.coerceIn(-halfH, halfH),
             )
         }
 
@@ -232,60 +296,91 @@ private fun CropCanvas(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                .pointerInput(imgW, imgH, cropPx) {
-                    detectTransformGestures { _, pan, zoom, _ ->
+                .pointerInput(imgW, imgH, cropW, cropH) {
+                    detectTransformGestures { _, pan, zoom, rotationChange ->
                         if (isExporting) return@detectTransformGestures
                         val newScale = (scale * zoom).coerceIn(minScale, maxScale)
-                        // When the user pinches, the effective movement
-                        // is the gesture pan plus a scale-driven offset
-                        // change. We treat zoom as centered on the
-                        // viewport for simplicity — the crop overlay
-                        // is centered too, so this reads as "zoom
-                        // toward what's framed" which is what users
-                        // expect for a crop UI.
-                        val newOffset = clampOffset(offset + pan, newScale)
+                        val newRotation = normalizeDeg(rotationDeg + rotationChange)
+                        val newOffset = clampOffset(offset + pan, newScale, newRotation)
                         scale = newScale
+                        rotationDeg = newRotation
                         offset = newOffset
                     }
                 },
         ) {
-            // Draw the image transformed by the current scale + offset,
-            // centered in the viewport.
+            // Draw the image scaled, then rotated, then translated about
+            // its own centre, the same order renderToPng reverses into a
+            // matrix, so what's framed is exactly what's exported.
             translate(left = centerX + offset.x, top = centerY + offset.y) {
-                scale(scale, pivot = Offset.Zero) {
-                    drawImageCentered(imageBitmap, imgW, imgH)
+                rotate(degrees = rotationDeg, pivot = Offset.Zero) {
+                    scale(scale, pivot = Offset.Zero) {
+                        drawImageCentered(imageBitmap, imgW, imgH)
+                    }
                 }
             }
 
-            // Scrim outside the crop window. We draw the dim layer as
-            // a path with an even-odd fill that excludes a circular
-            // hole at the crop region — that gives a clean circular
-            // preview without any blending tricks.
             drawCropOverlay(
                 centerX = centerX,
                 centerY = centerY,
-                cropPx = cropPx,
+                cropW = cropW,
+                cropH = cropH,
+                cropShape = cropShape,
                 outlineColor = Color.White.copy(alpha = 0.85f),
             )
         }
 
-        // Confirm button anchored at the bottom of the viewport.
+        // Rotate + confirm controls anchored at the bottom of the viewport.
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 24.dp),
+                .padding(bottom = 20.dp),
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                IconButton(
+                    onClick = { rotationDeg = normalizeDeg(prevQuarter(rotationDeg)) },
+                    enabled = !isExporting,
+                ) {
+                    Icon(
+                        Icons.Default.Rotate90DegreesCcw,
+                        contentDescription = "Rotate left",
+                        tint = Color.White,
+                    )
+                }
+                Slider(
+                    value = rotationDeg,
+                    onValueChange = { if (!isExporting) rotationDeg = it },
+                    valueRange = -180f..180f,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                )
+                IconButton(
+                    onClick = { rotationDeg = normalizeDeg(nextQuarter(rotationDeg)) },
+                    enabled = !isExporting,
+                ) {
+                    Icon(
+                        Icons.Default.Rotate90DegreesCw,
+                        contentDescription = "Rotate right",
+                        tint = Color.White,
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
             Button(
                 onClick = {
-                    val transform = CropTransform(
-                        scale = scale,
-                        offset = offset,
-                        viewportCenter = Offset(centerX, centerY),
-                        cropPx = cropPx,
+                    onExport(
+                        CropTransform(
+                            scale = scale,
+                            offset = offset,
+                            rotationDeg = rotationDeg,
+                            cropW = cropW,
+                            cropH = cropH,
+                        )
                     )
-                    onExport(transform)
                 },
                 enabled = !isExporting,
             ) {
@@ -293,9 +388,10 @@ private fun CropCanvas(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "Pinch to zoom, drag to reposition",
+                "Pinch to zoom, drag to reposition, twist or use the slider to rotate",
                 color = Color.White.copy(alpha = 0.65f),
                 style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
         }
     }
@@ -303,16 +399,32 @@ private fun CropCanvas(
 
 /**
  * Snapshot of the cropper state at confirm time. Self-contained so
- * [renderToJpeg] doesn't need any of the Composable state.
+ * [renderToPng] doesn't need any Composable state.
  */
 private data class CropTransform(
     val scale: Float,
     val offset: Offset,
-    val viewportCenter: Offset,
-    val cropPx: Float,
+    val rotationDeg: Float,
+    val cropW: Float,
+    val cropH: Float,
 )
 
-/** Draw image centered on (0,0); the parent translate handles positioning. */
+/** Normalise a rotation into (-180, 180] for a tidy slider reading. */
+private fun normalizeDeg(deg: Float): Float {
+    var d = deg % 360f
+    if (d > 180f) d -= 360f
+    if (d <= -180f) d += 360f
+    return d
+}
+
+/** Snap to the next 90 degree step. The +1 nudge means landing exactly on
+ *  a multiple advances to the next one rather than sticking (matches web). */
+private fun nextQuarter(deg: Float): Float = (kotlin.math.ceil((deg + 1f) / 90f)) * 90f
+
+/** Snap to the previous 90 degree step (mirror of [nextQuarter]). */
+private fun prevQuarter(deg: Float): Float = (kotlin.math.floor((deg - 1f) / 90f)) * 90f
+
+/** Draw image centered on (0,0); the parent transform handles placement. */
 private fun DrawScope.drawImageCentered(
     image: ImageBitmap,
     imgW: Float,
@@ -323,60 +435,70 @@ private fun DrawScope.drawImageCentered(
     }
 }
 
-/** Scrim + circle outline for the crop region. */
+/** Scrim + outline for the crop region (circular or rounded-rect). */
 private fun DrawScope.drawCropOverlay(
     centerX: Float,
     centerY: Float,
-    cropPx: Float,
+    cropW: Float,
+    cropH: Float,
+    cropShape: CropShape,
     outlineColor: Color,
 ) {
-    val cropLeft = centerX - cropPx / 2f
-    val cropTop = centerY - cropPx / 2f
-    val radius = cropPx / 2f
+    val cropLeft = centerX - cropW / 2f
+    val cropTop = centerY - cropH / 2f
+    val rect = androidx.compose.ui.geometry.Rect(
+        left = cropLeft,
+        top = cropTop,
+        right = cropLeft + cropW,
+        bottom = cropTop + cropH,
+    )
+    val corner = if (cropShape == CropShape.Circle) cropW / 2f else 16f
 
     val fullPath = Path().apply {
         addRect(androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height))
     }
     val holePath = Path().apply {
-        addOval(
-            androidx.compose.ui.geometry.Rect(
-                left = cropLeft,
-                top = cropTop,
-                right = cropLeft + cropPx,
-                bottom = cropTop + cropPx,
+        if (cropShape == CropShape.Circle) {
+            addOval(rect)
+        } else {
+            addRoundRect(
+                androidx.compose.ui.geometry.RoundRect(
+                    rect = rect,
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(corner, corner),
+                )
             )
-        )
+        }
     }
-    val scrim = Path().apply {
-        op(fullPath, holePath, PathOperation.Difference)
-    }
+    val scrim = Path().apply { op(fullPath, holePath, PathOperation.Difference) }
     drawPath(scrim, color = Color.Black.copy(alpha = 0.65f))
 
-    // Crisp outline ring on the crop edge.
-    drawCircle(
-        color = outlineColor,
-        radius = radius,
-        center = Offset(centerX, centerY),
-        style = Stroke(width = 2f),
-    )
+    // Crisp outline on the crop edge.
+    if (cropShape == CropShape.Circle) {
+        drawCircle(
+            color = outlineColor,
+            radius = cropW / 2f,
+            center = Offset(centerX, centerY),
+            style = Stroke(width = 2f),
+        )
+    } else {
+        drawPath(holePath, color = outlineColor, style = Stroke(width = 2f))
+    }
 }
 
 /**
- * Decode [uri] into a Bitmap that's already rotated according to its
- * EXIF orientation flag, downsampled so its longest side is at most
- * [maxDim] pixels.
+ * Decode [uri] into a Bitmap already rotated per its EXIF orientation
+ * flag, downsampled so its longest side is at most [maxDim] pixels.
  *
- * `BitmapFactory.decodeStream` only ever rotates the pixel buffer
- * itself, so portrait-mode JPEGs (which store landscape pixels +
- * "rotate 90" in EXIF) come back sideways without this fix-up.
+ * `BitmapFactory.decodeStream` only rotates the pixel buffer itself, so
+ * portrait JPEGs (landscape pixels + "rotate 90" in EXIF) come back
+ * sideways without this fix-up.
  */
 private fun loadOrientedBitmap(context: Context, uri: Uri, maxDim: Int): Bitmap {
     val cr = context.contentResolver
     // First pass: bounds-only decode to read intrinsic dimensions.
-    // decodeStream with inJustDecodeBounds=true always returns null —
-    // the dimensions land in the Options object as a side effect — so
-    // we have to check `openInputStream` itself for null (the actual
-    // "couldn't open" signal) rather than the use{} result.
+    // decodeStream with inJustDecodeBounds=true always returns null; the
+    // dimensions land in the Options object as a side effect, so we check
+    // openInputStream itself for null (the real "couldn't open" signal).
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     val boundsStream = cr.openInputStream(uri) ?: error("Couldn't open image")
     boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -421,58 +543,52 @@ private fun loadOrientedBitmap(context: Context, uri: Uri, maxDim: Int): Bitmap 
 }
 
 /**
- * Materialise the current crop region as a square JPEG of
- * [outputSizePx] x [outputSizePx]. Reverses the gesture math: the
- * crop window in screen coords is translated back into source-image
- * pixel coords, that rect is extracted from the source bitmap, and
- * the result is scaled to the output size.
- *
- * Bounds-clamped because in degenerate cases (e.g. tiny source +
- * extreme scale) floating-point drift can push the computed source
- * rect a pixel past the edge; we'd rather render slightly inside
- * than throw IndexOutOfBoundsException.
+ * Materialise the crop region as a PNG no larger than [outputLongestPx]
+ * on its longest edge. Builds the same transform the cropper showed on
+ * screen (scale, then rotate, then translate about the image centre),
+ * then maps the crop window onto the output bitmap. Areas the image
+ * doesn't reach stay transparent (the output is ARGB_8888 and we encode
+ * PNG), which is how a whole image zoomed out below "cover" keeps its
+ * letterbox.
  */
-private fun renderToJpeg(
+private fun renderToPng(
     source: Bitmap,
     transform: CropTransform,
-    outputSizePx: Int,
-    quality: Int,
+    outputLongestPx: Int,
 ): ByteArray {
-    val imgW = source.width.toFloat()
-    val imgH = source.height.toFloat()
-    val s = transform.scale
-    val crop = transform.cropPx
-
-    // The source-pixel rect that lands inside the crop window.
-    // Derivation:
-    //   image is drawn centered at (viewportCenter + offset), scaled
-    //   by s. The crop window is a square of side `crop` centered at
-    //   viewportCenter. So in pre-scale image coords (origin at image
-    //   top-left), the crop window's top-left is:
-    //       (imgW*s/2 - crop/2 - offset.x) / s   in x
-    //       (imgH*s/2 - crop/2 - offset.y) / s   in y
-    val srcLeft = ((imgW * s / 2f - crop / 2f - transform.offset.x) / s)
-        .coerceIn(0f, imgW - 1f)
-    val srcTop = ((imgH * s / 2f - crop / 2f - transform.offset.y) / s)
-        .coerceIn(0f, imgH - 1f)
-    val srcSize = (crop / s).coerceAtMost(min(imgW - srcLeft, imgH - srcTop))
-
-    val cropped = Bitmap.createBitmap(
-        source,
-        srcLeft.toInt(),
-        srcTop.toInt(),
-        srcSize.toInt().coerceAtLeast(1),
-        srcSize.toInt().coerceAtLeast(1),
-    )
-    val scaled = if (cropped.width == outputSizePx && cropped.height == outputSizePx) {
-        cropped
+    val aspect = transform.cropW / transform.cropH
+    val outW: Int
+    val outH: Int
+    if (aspect >= 1f) {
+        outW = outputLongestPx
+        outH = (outputLongestPx / aspect).roundToInt().coerceAtLeast(1)
     } else {
-        Bitmap.createScaledBitmap(cropped, outputSizePx, outputSizePx, true).also {
-            if (it !== cropped) cropped.recycle()
-        }
+        outH = outputLongestPx
+        outW = (outputLongestPx * aspect).roundToInt().coerceAtLeast(1)
     }
-    val out = ByteArrayOutputStream(64 * 1024)
-    scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
-    if (scaled !== source) scaled.recycle()
-    return out.toByteArray()
+
+    // screen px -> output px. cropW maps to outW (cropH maps to outH at the
+    // same ratio since the output keeps the crop aspect).
+    val k = outW / transform.cropW
+
+    val matrix = Matrix().apply {
+        // image local -> centred at origin
+        postTranslate(-source.width / 2f, -source.height / 2f)
+        postScale(transform.scale, transform.scale)
+        postRotate(transform.rotationDeg)
+        // place relative to the crop window's top-left (the viewport-centre
+        // and crop-centre terms cancel to cropW/2 + offset)
+        postTranslate(transform.cropW / 2f + transform.offset.x, transform.cropH / 2f + transform.offset.y)
+        postScale(k, k)
+    }
+
+    val out = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+    val canvas = AndroidCanvas(out)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+    canvas.drawBitmap(source, matrix, paint)
+
+    val stream = ByteArrayOutputStream(128 * 1024)
+    out.compress(Bitmap.CompressFormat.PNG, 100, stream)
+    out.recycle()
+    return stream.toByteArray()
 }

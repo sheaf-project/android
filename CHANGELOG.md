@@ -6,6 +6,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Added
+
+- **Member banners.** Members can now have a wide 3:1 banner image,
+  shown as a header on the member profile. Member lists stay
+  banner-free so they remain quick to scan. The pick-and-crop editor
+  was reworked to match the web cropper: you can rotate (two-finger
+  twist, quarter-turn buttons, or a fine slider) and zoom out below
+  "fill" to frame a whole image edge-to-edge, with any uncovered area
+  kept transparent. Avatars use the same editor, so they gain rotation
+  and zoom-out too.
+
 ## [1.1.0] - 2026-06-12
 
 ### Added
