@@ -4,7 +4,7 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
-## [Unreleased]
+## [1.1.1] - 2026-06-19
 
 ### Added
 
