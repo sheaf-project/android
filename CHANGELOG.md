@@ -25,6 +25,25 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   without warning. The editor is a long scroll with its Save button at
   the bottom, so this was easy to trip over.
 
+- **Wear: the watch recovers a lost session without re-pairing.** If the
+  watch's companion session goes away while the app is open (a token
+  refresh that failed while disconnected, or a stale cached credential
+  that the server rejects), the watch now asks the phone to re-mint and
+  push fresh credentials instead of stranding on "Open Sheaf on phone".
+  "Retry Sync" does the same, rather than re-applying the same stale
+  cached credential that signed you out.
+
+- **Wear: tiles and complications stop getting stuck after a reconnect.**
+  Two fixes: they now refresh as soon as credentials arrive, so they
+  leave the signed-out message immediately instead of at their next
+  scheduled update; and tile avatars re-fetch when the cached set changes
+  (after a re-pair, or when a download that failed on a not-yet-settled
+  network later succeeds). Avatars previously stayed missing, or a member
+  with no avatar showed as an invisible gap rather than their coloured
+  initials, until the tile was deleted and recreated. A transient
+  download failure also no longer overwrites a good cached avatar with
+  initials.
+
 ## [1.1.0] - 2026-06-12
 
 ### Added

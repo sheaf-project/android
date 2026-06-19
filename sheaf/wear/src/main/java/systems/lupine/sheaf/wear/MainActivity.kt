@@ -5,7 +5,11 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.gms.wearable.DataMapItem
+import kotlinx.coroutines.launch
 import com.google.android.gms.wearable.Wearable
 import systems.lupine.sheaf.wear.complications.EXTRA_INITIAL_ROUTE
 import systems.lupine.sheaf.wear.data.WearApiClient
@@ -38,6 +42,30 @@ class MainActivity : ComponentActivity() {
             loadCredentialsFromDataLayer()
         }
 
+        // Recover a lost session without making the user re-pair. If a
+        // working companion session goes away while the app is open (a
+        // refresh failed offline, the session was revoked, or a stale cached
+        // credential was applied on launch and then rejected by the server),
+        // the watch would otherwise strand on the signed-out screen even
+        // though the phone could mint a fresh session on demand. Watch for
+        // the signed-in -> signed-out transition and ask the phone to re-mint
+        // and push fresh credentials. We track the previous value so the
+        // initial signed-out state (handled by loadCredentialsFromDataLayer,
+        // which already asks the phone on a cache miss) and a normal
+        // signed-out -> signed-in startup don't trigger a redundant re-mint.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                var wasAuthenticated = authManager.isAuthenticated
+                authManager.isAuthenticatedFlow.collect { authed ->
+                    if (!authed && wasAuthenticated) {
+                        Log.i(TAG, "companion session lost while app open, requesting reauth from phone")
+                        requestCredentialsFromPhone()
+                    }
+                    wasAuthenticated = authed
+                }
+            }
+        }
+
         // Complications can deep-link to a specific destination by passing
         // EXTRA_INITIAL_ROUTE. WearNavigation always starts at the menu and
         // navigates on top, so swipe-back from the deep-linked screen lands
@@ -50,7 +78,7 @@ class MainActivity : ComponentActivity() {
                     authManager = authManager,
                     store = store,
                     settings = settings,
-                    onRequestSync = ::loadCredentialsFromDataLayer,
+                    onRequestSync = ::requestCredentialsFromPhone,
                     initialRoute = initialRoute,
                 )
             }
