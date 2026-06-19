@@ -56,6 +56,15 @@ class WearDataLayerService : WearableListenerService() {
             runCatching { android.net.Uri.parse(baseUrl).host }.getOrNull()
         })")
         authManager.saveCredentials(baseUrl, accessToken, refreshToken)
+        // Tiles and complications cache their own auth view and only redraw
+        // when asked. This push is often a reauth landing on a watch that was
+        // stuck on the "open Sheaf on phone" message, so nudge them now;
+        // otherwise they'd stay signed-out-looking until their next scheduled
+        // refresh even though the session is live again.
+        runCatching {
+            requestAllTileUpdates(applicationContext)
+            requestAllComplicationUpdates(applicationContext)
+        }.onFailure { Log.w(TAG, "tile/complication refresh after credentials failed", it) }
     }
 
     /**

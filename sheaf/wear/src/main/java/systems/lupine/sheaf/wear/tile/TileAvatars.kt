@@ -44,6 +44,12 @@ internal fun tileAvatarFile(context: Context, memberId: String): File =
  * Render and persist 80x80 avatar PNGs for [members]. Files for members
  * not in the input list are deleted, so the on-disk set always matches
  * the live roster (no orphaned avatars after a member is removed).
+ *
+ * A member with an avatar URL whose fetch fails keeps any previously
+ * cached image rather than being overwritten with the initials fallback,
+ * so a transient network blip (common right after a re-pair, before the
+ * watch's network has settled) doesn't degrade a good avatar to initials.
+ * The next refresh re-tries the fetch.
  */
 internal fun renderTileAvatars(context: Context, members: List<WearMember>) {
     val dir = tileAvatarDir(context)
@@ -58,9 +64,20 @@ internal fun renderTileAvatars(context: Context, members: List<WearMember>) {
         .build()
 
     for (m in members) {
-        val bm = renderOne(m, http)
+        val file = tileAvatarFile(context, m.id)
+        val hasUrl = !m.avatarUrl.isNullOrBlank()
+        val fetched = if (hasUrl) fetchAvatarBitmap(m, http) else null
+        val bm = when {
+            fetched != null -> cropCircle(scaleSquare(fetched, AVATAR_PX))
+            // URL avatar that failed to fetch but is already cached: keep
+            // the existing file instead of clobbering it with initials.
+            hasUrl && file.exists() -> continue
+            // No URL (or first fetch failed with nothing cached): draw the
+            // coloured-initials fallback so the member is never invisible.
+            else -> drawFallback(m)
+        }
         runCatching {
-            FileOutputStream(tileAvatarFile(context, m.id)).use { out ->
+            FileOutputStream(file).use { out ->
                 bm.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
         }
@@ -68,18 +85,35 @@ internal fun renderTileAvatars(context: Context, members: List<WearMember>) {
     }
 }
 
-private fun renderOne(member: WearMember, http: OkHttpClient): Bitmap {
-    val urlBitmap = member.avatarUrl?.takeIf { it.isNotBlank() }?.let { url ->
-        runCatching {
-            val resp = http.newCall(Request.Builder().url(url).build()).execute()
-            resp.use {
-                if (!it.isSuccessful) return@runCatching null
-                it.body?.byteStream()?.let(BitmapFactory::decodeStream)
-            }
-        }.getOrNull()
+/** Download and decode a member's avatar bitmap, or null on any failure. */
+private fun fetchAvatarBitmap(member: WearMember, http: OkHttpClient): Bitmap? {
+    val url = member.avatarUrl?.takeIf { it.isNotBlank() } ?: return null
+    return runCatching {
+        http.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+            if (!resp.isSuccessful) return@runCatching null
+            resp.body?.byteStream()?.let(BitmapFactory::decodeStream)
+        }
+    }.getOrNull()
+}
+
+/**
+ * A short signature of the on-disk avatar cache (file names + sizes),
+ * folded into the tile resources version so the system re-fetches the
+ * resource bundle whenever avatars are (re)rendered: after a re-pair
+ * repopulates the cache, or a previously-failed download finally
+ * succeeds. Without it the resources version only rotates on fronter-set
+ * / tile-config changes, so refreshed avatars stayed invisible until the
+ * tile was deleted and recreated. Uses file length, not mtime, so
+ * re-rendering an identical avatar doesn't needlessly churn the version.
+ */
+internal fun tileAvatarsSignature(context: Context): String {
+    val files = tileAvatarDir(context).listFiles()?.sortedBy { it.name } ?: return "0"
+    var acc = 1
+    for (f in files) {
+        acc = 31 * acc + f.name.hashCode()
+        acc = 31 * acc + f.length().toInt()
     }
-    return if (urlBitmap != null) cropCircle(scaleSquare(urlBitmap, AVATAR_PX))
-    else drawFallback(member)
+    return acc.toString()
 }
 
 private fun drawFallback(member: WearMember): Bitmap {

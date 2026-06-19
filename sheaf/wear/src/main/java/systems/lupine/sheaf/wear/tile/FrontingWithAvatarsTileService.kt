@@ -216,6 +216,11 @@ internal fun currentResourcesVersion(context: Context): String {
     val sp = context.getSharedPreferences("tile_data", Context.MODE_PRIVATE)
     val lastChange = sp.getLong("last_front_change_at", 0L)
     val configVersion = tileConfigVersion(context)
-    return "$lastChange:$configVersion"
+    // Also rotate when the cached avatar set changes, so re-rendered
+    // avatars (e.g. after a re-pair, or a failed download that later
+    // succeeds) get re-fetched instead of staying invisible until the
+    // tile is recreated.
+    val avatarsSig = tileAvatarsSignature(context)
+    return "$lastChange:$configVersion:$avatarsSig"
 }
 
