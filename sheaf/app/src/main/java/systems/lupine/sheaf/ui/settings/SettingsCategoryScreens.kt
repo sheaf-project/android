@@ -574,6 +574,7 @@ fun DataSettingsScreen(
     onNavigateToTupperboxImport: () -> Unit,
     onNavigateToPluralSpaceImport: () -> Unit,
     onNavigateToPrismImport: () -> Unit,
+    onNavigateToOpenPluralImport: () -> Unit,
     onNavigateToImportHistory: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -690,6 +691,13 @@ fun DataSettingsScreen(
             title = "Import from Prism",
             subtitle = "Use an encrypted .prism export and its passphrase",
             onClick = onNavigateToPrismImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from OpenPlural",
+            subtitle = "Use an OpenPlural .json or .openplural.zip export",
+            onClick = onNavigateToOpenPluralImport,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(

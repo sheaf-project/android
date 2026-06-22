@@ -734,6 +734,9 @@ data class SheafPreviewSummary(
     // plain-JSON shape so older backends that don't return these still parse.
     val archive: Boolean = false,
     @Json(name = "image_count") val imageCount: Int = 0,
+    // OpenPlural previews also report how many prior exports the file has
+    // passed through (its lineage). Absent (0) for native Sheaf previews.
+    @Json(name = "lineage_length") val lineageLength: Int = 0,
 )
 
 @JsonClass(generateAdapter = true)
@@ -956,6 +959,10 @@ object ImportJobSource {
     const val PLURALSPACE_FILE = "pluralspace_file"
     // Passphrase-encrypted .prism export; the passphrase rides as `credential`.
     const val PRISM_FILE = "prism_file"
+    // OpenPlural v0.1 interchange file. One source for both the bare .json
+    // and the .openplural.zip bundle; the runner sniffs the zip magic and
+    // unpacks images when present (no separate archive source like Sheaf).
+    const val OPENPLURAL_FILE = "openplural_file"
 }
 
 /**

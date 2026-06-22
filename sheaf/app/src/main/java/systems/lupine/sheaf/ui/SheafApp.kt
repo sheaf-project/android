@@ -81,6 +81,7 @@ object Routes {
     const val TB_IMPORT      = "settings/import/tupperbox"
     const val PS_IMPORT      = "settings/import/pluralspace"
     const val PRISM_IMPORT   = "settings/import/prism"
+    const val OPENPLURAL_IMPORT = "settings/import/openplural"
     const val IMPORT_HISTORY = "settings/import/history"
     const val IMPORT_DETAIL  = "settings/import/history/{jobId}"
     const val CUSTOM_FIELDS  = "settings/fields"
@@ -491,6 +492,7 @@ fun SheafApp(
                     onNavigateToTupperboxImport = { navController.navigate(Routes.TB_IMPORT) },
                     onNavigateToPluralSpaceImport = { navController.navigate(Routes.PS_IMPORT) },
                     onNavigateToPrismImport = { navController.navigate(Routes.PRISM_IMPORT) },
+                    onNavigateToOpenPluralImport = { navController.navigate(Routes.OPENPLURAL_IMPORT) },
                     onNavigateToImportHistory = { navController.navigate(Routes.IMPORT_HISTORY) },
                 )
             }
@@ -542,6 +544,11 @@ fun SheafApp(
             }
             composable(Routes.PRISM_IMPORT) {
                 systems.lupine.sheaf.ui.prismimport.PrismImportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.OPENPLURAL_IMPORT) {
+                systems.lupine.sheaf.ui.openpluralimport.OpenPluralImportScreen(
                     onNavigateUp = { navController.navigateUp() },
                 )
             }

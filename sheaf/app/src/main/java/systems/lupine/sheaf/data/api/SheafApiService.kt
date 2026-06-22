@@ -475,6 +475,18 @@ interface SheafApiService {
     ): PluralSpacePreviewSummary
 
     /**
+     * Preview an OpenPlural v0.1 import. Accepts a bare `.json` export or an
+     * `.openplural.zip` bundle (the endpoint sniffs the zip magic). Reuses the
+     * Sheaf preview shape plus a `lineage_length`; submit via [createFileImport]
+     * with source [ImportJobSource.OPENPLURAL_FILE].
+     */
+    @Multipart
+    @POST("/v1/import/openplural/preview")
+    suspend fun previewOpenPluralImport(
+        @Part file: MultipartBody.Part,
+    ): SheafPreviewSummary
+
+    /**
      * Preview a Prism (.prism) export. The PRISM1 envelope is decrypted
      * server-side with [passphrase]; nothing is persisted. Submit goes
      * through [createFileImport] with the same passphrase as `credential`.
