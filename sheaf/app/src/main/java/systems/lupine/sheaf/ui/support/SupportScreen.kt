@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.ui.components.SectionHeader
+import systems.lupine.sheaf.ui.components.SheafMarkdownText
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
 
 @Composable
@@ -64,6 +65,16 @@ fun SupportScreen(
                 Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+            }
+
+            // Operator-authored markdown blurb (HTML already stripped server-side).
+            config?.supportCustomText?.takeIf { it.isNotBlank() }?.let { md ->
+                SheafMarkdownText(
+                    markdown = md,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+                HorizontalDivider()
             }
 
             val hasOperatorContact = config != null && (

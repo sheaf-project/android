@@ -21,6 +21,9 @@ data class AuthConfig(
     @Json(name = "support_email") val supportEmail: String? = null,
     @Json(name = "support_url") val supportUrl: String? = null,
     @Json(name = "support_note") val supportNote: String? = null,
+    // Operator-authored markdown shown at the top of the Support screen.
+    // Server strips any raw HTML before sending, so it's safe to render.
+    @Json(name = "support_custom_text") val supportCustomText: String? = null,
     @Json(name = "status_url") val statusUrl: String? = null,
     @Json(name = "terms_url") val termsUrl: String? = null,
     @Json(name = "privacy_url") val privacyUrl: String? = null,

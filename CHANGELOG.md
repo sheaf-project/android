@@ -19,10 +19,10 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   background (confirmed with your password, plus your authenticator code
   if you use 2FA) and then appears in a Recent backups list to download.
 
-- **Support screen.** Settings now has a Support entry showing your
-  instance operator's contact, service status, and policy links (when
-  they've set them), plus links to the project source and security
-  contact.
+- **Support screen.** Settings now has a Support entry showing any
+  custom message your instance operator has set, plus their contact,
+  service status, and policy links (when configured), and links to the
+  project source and security contact.
 
 ### Fixed
 
