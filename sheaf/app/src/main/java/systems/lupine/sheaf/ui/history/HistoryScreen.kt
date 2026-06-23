@@ -866,12 +866,24 @@ private fun FrontEntrySheet(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // Validate the range up front so an end-before-start entry can't
+            // be saved (mirrors the web edit-front dialog). Computed here so
+            // both the inline warning and the button's enabled state use it.
+            val zone = ZoneId.systemDefault()
+            val startInstant = LocalDateTime.of(startDate, startTime).atZone(zone).toInstant()
+            val endInstant = if (stillOngoing) null
+            else LocalDateTime.of(endDate, endTime).atZone(zone).toInstant()
+            val endBeforeStart = endInstant != null && !endInstant.isAfter(startInstant)
+            if (endBeforeStart) {
+                Text(
+                    "The end time must be after the start time.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             Button(
                 onClick = {
-                    val zone = ZoneId.systemDefault()
-                    val startInstant = LocalDateTime.of(startDate, startTime).atZone(zone).toInstant()
-                    val endInstant = if (stillOngoing) null
-                    else LocalDateTime.of(endDate, endTime).atZone(zone).toInstant()
                     val statusOut = customStatusDraft.trim().ifEmpty { null }
                     onConfirm(
                         selectedIds.toList(),
@@ -880,7 +892,7 @@ private fun FrontEntrySheet(
                         statusOut,
                     )
                 },
-                enabled = selectedIds.isNotEmpty(),
+                enabled = selectedIds.isNotEmpty() && !endBeforeStart,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (isEditing) "Save Changes" else "Add Entry") }
         }

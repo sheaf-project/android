@@ -95,6 +95,7 @@ object Routes {
     const val FILES          = "settings/files"
     const val EXPORT_DATA    = "settings/export"
     const val DEBUG          = "settings/debug"
+    const val SUPPORT        = "settings/support"
     // Categorized settings detail screens.
     const val SETTINGS_ACCOUNT       = "settings/account"
     const val SETTINGS_ADMIN_ACTIVITY = "settings/account/admin-activity"
@@ -347,6 +348,7 @@ fun SheafApp(
                     onNavigateToSafety        = { navController.navigate(Routes.SETTINGS_SAFETY) },
                     onNavigateToDanger        = { navController.navigate(Routes.SETTINGS_DANGER) },
                     onNavigateToAdminPanel    = { navController.navigate(Routes.ADMIN_PANEL) },
+                    onNavigateToSupport       = { navController.navigate(Routes.SUPPORT) },
                     onNavigateToDebug         = { navController.navigate(Routes.DEBUG) },
                 )
             }
@@ -616,6 +618,11 @@ fun SheafApp(
             }
             composable(Routes.FILES) {
                 systems.lupine.sheaf.ui.files.FilesScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.SUPPORT) {
+                systems.lupine.sheaf.ui.support.SupportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
             }
             composable(Routes.DEBUG) {
                 DebugScreen(

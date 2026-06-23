@@ -16,6 +16,14 @@ data class AuthConfig(
     @Json(name = "file_cdn_base") val fileCdnBase: String? = null,
     @Json(name = "captcha_provider") val captchaProvider: String? = null,
     @Json(name = "captcha_on_login") val captchaOnLogin: Boolean = false,
+    // Operator-configured contact + policy links, surfaced on the Support
+    // screen. All optional; the operator may set none of them.
+    @Json(name = "support_email") val supportEmail: String? = null,
+    @Json(name = "support_url") val supportUrl: String? = null,
+    @Json(name = "support_note") val supportNote: String? = null,
+    @Json(name = "status_url") val statusUrl: String? = null,
+    @Json(name = "terms_url") val termsUrl: String? = null,
+    @Json(name = "privacy_url") val privacyUrl: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
