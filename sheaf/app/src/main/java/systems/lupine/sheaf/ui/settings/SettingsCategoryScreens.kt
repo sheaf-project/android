@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
@@ -516,6 +517,7 @@ fun SystemCategoryScreen(
     onNavigateUp: () -> Unit,
     onNavigateToCustomFields: () -> Unit,
     onNavigateToTags: () -> Unit,
+    onNavigateToArchivedMembers: () -> Unit,
 ) {
     CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
         SettingItem(
@@ -530,6 +532,13 @@ fun SystemCategoryScreen(
             title = "Custom Fields",
             subtitle = "Define additional fields for member profiles",
             onClick = onNavigateToCustomFields,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Archive,
+            title = "Archived members",
+            subtitle = "View and restore archived members",
+            onClick = onNavigateToArchivedMembers,
         )
     }
 }

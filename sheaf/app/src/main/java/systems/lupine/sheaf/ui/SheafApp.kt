@@ -103,6 +103,7 @@ object Routes {
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_SERVER        = "settings/server"
     const val SETTINGS_SYSTEM        = "settings/sys"
+    const val ARCHIVED_MEMBERS       = "settings/archived-members"
     const val SETTINGS_DATA          = "settings/data"
     const val SETTINGS_SAFETY        = "settings/safety-cat"
     const val SETTINGS_DANGER        = "settings/danger"
@@ -477,6 +478,12 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
                     onNavigateToTags = { navController.navigate(Routes.SETTINGS_TAGS) },
+                    onNavigateToArchivedMembers = { navController.navigate(Routes.ARCHIVED_MEMBERS) },
+                )
+            }
+            composable(Routes.ARCHIVED_MEMBERS) {
+                systems.lupine.sheaf.ui.members.ArchivedMembersScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.SETTINGS_TAGS) {

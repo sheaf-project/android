@@ -26,8 +26,10 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 - **Archive members.** Members can be archived: a reversible soft-hide
   that keeps them out of the main roster and switcher without deleting
-  them. Archive from a member's long-press menu; archived members live
-  in a collapsible section with an Unarchive action.
+  them. Archive from the member editor or a member's long-press menu;
+  archived members appear in a collapsible section on the members list
+  and in a dedicated Settings > System > Archived members screen, each
+  with an Unarchive action.
 
 - **Subgroups.** Groups can now nest. The group editor has a parent
   picker, and the groups list indents subgroups under their parent.
