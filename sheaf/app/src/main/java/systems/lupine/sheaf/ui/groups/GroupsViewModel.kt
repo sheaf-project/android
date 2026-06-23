@@ -120,12 +120,16 @@ data class GroupFormState(
     val name: String = "",
     val description: String = "",
     val color: String = "#534AB7",
+    // null = top-level group; otherwise the parent group's id (subgroups).
+    val parentId: String? = null,
 )
 
 data class GroupDetailUiState(
     val group: GroupRead? = null,
     val members: List<MemberRead> = emptyList(),
     val allMembers: List<MemberRead> = emptyList(),
+    // Every group, for the parent-group picker (subgroups).
+    val allGroups: List<GroupRead> = emptyList(),
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isDeleting: Boolean = false,
@@ -157,6 +161,14 @@ class GroupDetailViewModel @Inject constructor(
         markdownImages.loadUser(viewModelScope)
         if (!isNewGroup && groupId != null) load()
         loadAllMembers()
+        loadAllGroups()
+    }
+
+    private fun loadAllGroups() {
+        viewModelScope.launch {
+            runCatching { api.listGroups() }
+                .onSuccess { groups -> _state.update { it.copy(allGroups = groups) } }
+        }
     }
 
     private fun load() {
@@ -179,6 +191,7 @@ class GroupDetailViewModel @Inject constructor(
                     name        = group.name,
                     description = group.description ?: "",
                     color       = group.color ?: "#534AB7",
+                    parentId    = group.parentId,
                 )
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
@@ -206,12 +219,14 @@ class GroupDetailViewModel @Inject constructor(
                         name        = f.name.trim(),
                         description = f.description.takeIf { it.isNotBlank() },
                         color       = f.color.takeIf { it.isNotBlank() },
+                        parentId    = f.parentId,
                     ))
                 } else {
                     api.updateGroup(groupId!!, GroupUpdate(
                         name        = f.name.trim(),
                         description = f.description.takeIf { it.isNotBlank() },
                         color       = f.color.takeIf { it.isNotBlank() },
+                        parentId    = f.parentId,
                     ))
                 }
             }

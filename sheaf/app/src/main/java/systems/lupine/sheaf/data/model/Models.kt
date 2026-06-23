@@ -16,6 +16,17 @@ data class AuthConfig(
     @Json(name = "file_cdn_base") val fileCdnBase: String? = null,
     @Json(name = "captcha_provider") val captchaProvider: String? = null,
     @Json(name = "captcha_on_login") val captchaOnLogin: Boolean = false,
+    // Operator-configured contact + policy links, surfaced on the Support
+    // screen. All optional; the operator may set none of them.
+    @Json(name = "support_email") val supportEmail: String? = null,
+    @Json(name = "support_url") val supportUrl: String? = null,
+    @Json(name = "support_note") val supportNote: String? = null,
+    // Operator-authored markdown shown at the top of the Support screen.
+    // Server strips any raw HTML before sending, so it's safe to render.
+    @Json(name = "support_custom_text") val supportCustomText: String? = null,
+    @Json(name = "status_url") val statusUrl: String? = null,
+    @Json(name = "terms_url") val termsUrl: String? = null,
+    @Json(name = "privacy_url") val privacyUrl: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -401,8 +412,13 @@ data class MemberRead(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val emoji: String? = null,
+    // Set when the member is archived: a reversible soft-hide. The list
+    // endpoint still returns archived members, so the client filters them
+    // out of the main roster and surfaces them separately.
+    @Json(name = "archived_at") val archivedAt: String? = null,
 ) {
     val displayNameOrName: String get() = displayName?.takeIf { it.isNotBlank() } ?: name
+    val isArchived: Boolean get() = archivedAt != null
     val initials: String get() = displayNameOrName
         .split("\\s+".toRegex())
         .take(2)
@@ -423,6 +439,15 @@ data class MemberCreate(
     val birthday: String? = null,
     val privacy: String = "private",
     val note: String? = null,
+)
+
+/** Optional step-up credentials for archiving a member. Only consulted when
+ *  the system's "archive" safety category is enabled; an empty body is fine
+ *  otherwise. */
+@JsonClass(generateAdapter = true)
+data class MemberArchiveBody(
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -734,6 +759,9 @@ data class SheafPreviewSummary(
     // plain-JSON shape so older backends that don't return these still parse.
     val archive: Boolean = false,
     @Json(name = "image_count") val imageCount: Int = 0,
+    // OpenPlural previews also report how many prior exports the file has
+    // passed through (its lineage). Absent (0) for native Sheaf previews.
+    @Json(name = "lineage_length") val lineageLength: Int = 0,
 )
 
 @JsonClass(generateAdapter = true)
@@ -956,6 +984,41 @@ object ImportJobSource {
     const val PLURALSPACE_FILE = "pluralspace_file"
     // Passphrase-encrypted .prism export; the passphrase rides as `credential`.
     const val PRISM_FILE = "prism_file"
+    // OpenPlural v0.1 interchange file. One source for both the bare .json
+    // and the .openplural.zip bundle; the runner sniffs the zip magic and
+    // unpacks images when present (no separate archive source like Sheaf).
+    const val OPENPLURAL_FILE = "openplural_file"
+}
+
+// ── Export ──────────────────────────────────────────────────────────────────
+
+/** Async full-backup (with images) request. Step-up: password always, plus
+ *  totpCode when the account has 2FA. format is "sheaf_native" or
+ *  "openplural" (note: the synchronous JSON export uses "sheaf"/"openplural"). */
+@JsonClass(generateAdapter = true)
+data class ExportJobRequest(
+    @Json(name = "include_images") val includeImages: Boolean = true,
+    val format: String,
+    val password: String,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class ExportJobRead(
+    val id: String,
+    @Json(name = "include_images") val includeImages: Boolean,
+    val format: String,
+    // pending | running | done | failed | expired
+    val status: String,
+    @Json(name = "requested_at") val requestedAt: String,
+    @Json(name = "started_at") val startedAt: String? = null,
+    @Json(name = "completed_at") val completedAt: String? = null,
+    @Json(name = "expires_at") val expiresAt: String? = null,
+    @Json(name = "file_size_bytes") val fileSizeBytes: Long? = null,
+    val error: String? = null,
+) {
+    val isTerminal: Boolean get() = status == "done" || status == "failed" || status == "expired"
+    val isDownloadable: Boolean get() = status == "done"
 }
 
 /**

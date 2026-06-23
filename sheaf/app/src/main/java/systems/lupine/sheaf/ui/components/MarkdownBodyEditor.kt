@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.AddPhotoAlternate
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Title
@@ -78,6 +80,7 @@ fun MarkdownBodyEditor(
         }
     }
     var showImagePicker by remember { mutableStateOf(false) }
+    var showFormattingHelp by remember { mutableStateOf(false) }
 
     // Insert any pending image markdown into the body at the current cursor,
     // then clear it so the next upload retriggers cleanly.
@@ -100,6 +103,7 @@ fun MarkdownBodyEditor(
                 showImagePicker = true
                 imagePicker?.onLoadAvailableImages?.invoke()
             },
+            onHelp = { showFormattingHelp = true },
         )
 
         OutlinedTextField(
@@ -117,6 +121,10 @@ fun MarkdownBodyEditor(
         if (imagePicker != null) {
             ImageReferencesPanel(markdown = value)
         }
+    }
+
+    if (showFormattingHelp) {
+        MarkdownHelpDialog(onDismiss = { showFormattingHelp = false })
     }
 
     if (showImagePicker && imagePicker != null) {
@@ -153,6 +161,7 @@ private fun FormatToolbar(
     isUploadingImage: Boolean,
     onAction: ((TextFieldValue) -> TextFieldValue) -> Unit,
     onPickImage: () -> Unit,
+    onHelp: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
     val btnSize = 38.dp
@@ -204,6 +213,68 @@ private fun FormatToolbar(
                 }
             }
         }
+        IconButton(onClick = onHelp, modifier = Modifier.size(btnSize)) {
+            Icon(Icons.Default.HelpOutline, contentDescription = "Formatting help", modifier = Modifier.size(iconSize))
+        }
+    }
+}
+
+// Quick reference for the markdown the renderer supports. Triggered from the
+// editor toolbar. The line-break note is the headline item: people expect a
+// single newline to break a line, but markdown needs a blank line for a new
+// paragraph and two trailing spaces (or a backslash) for a soft break.
+@Composable
+private fun MarkdownHelpDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
+        title = { Text("Formatting") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MarkdownHelpRow("**bold**", "Bold")
+                MarkdownHelpRow("*italic*", "Italic")
+                MarkdownHelpRow("# Heading", "Heading (more # = smaller)")
+                MarkdownHelpRow("- item", "Bulleted list")
+                MarkdownHelpRow("1. item", "Numbered list")
+                MarkdownHelpRow("> quote", "Quote")
+                MarkdownHelpRow("[text](https://…)", "Link")
+                MarkdownHelpRow("`code`", "Inline code")
+                MarkdownHelpRow("``` … ```", "Code block")
+                HorizontalDivider()
+                Text("Line breaks", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Leave a blank line between paragraphs. For a single line break " +
+                        "without starting a new paragraph, end the line with two spaces, " +
+                        "or a backslash (\\).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun MarkdownHelpRow(syntax: String, label: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            syntax,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

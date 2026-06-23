@@ -182,6 +182,18 @@ interface SheafApiService {
         @Body body: MemberDeleteConfirm = MemberDeleteConfirm(),
     ): Response<MemberDeletePending>
 
+    /** Archive (reversible soft-hide). [body] carries step-up credentials only
+     *  when the system's archive safety category is on; an empty body is fine
+     *  otherwise (the server then 4xxs and the caller retries with creds). */
+    @POST("/v1/members/{id}/archive")
+    suspend fun archiveMember(
+        @Path("id") id: String,
+        @Body body: MemberArchiveBody = MemberArchiveBody(),
+    ): MemberRead
+
+    @POST("/v1/members/{id}/unarchive")
+    suspend fun unarchiveMember(@Path("id") id: String): MemberRead
+
     @GET("/v1/members/{id}/revisions")
     suspend fun listMemberBioRevisions(@Path("id") id: String): List<ContentRevisionRead>
 
@@ -421,8 +433,35 @@ interface SheafApiService {
 
     // ── Export ────────────────────────────────────────────────────────────────
 
+    /**
+     * Synchronous JSON export. [format] is "sheaf" (native, full-fidelity
+     * re-import) or "openplural" (v0.1 interchange, uri-only assets). No
+     * step-up; this is metadata only, no image bytes.
+     */
     @GET("/v1/export")
-    suspend fun exportAll(): okhttp3.ResponseBody
+    suspend fun exportAll(@Query("format") format: String = "sheaf"): okhttp3.ResponseBody
+
+    /**
+     * Enqueue an async full-backup job (JSON + image bytes, zipped). Body
+     * carries the format ("sheaf_native" or "openplural") and step-up
+     * credentials (password, plus totp_code when the account has 2FA). The
+     * server refuses API-key auth and allows only one in-flight job per user.
+     * Returns 202 + the pending [ExportJobRead]; poll [getExportJob] or
+     * refresh [listExportJobs] until status is "done", then [downloadExportJob].
+     */
+    @POST("/v1/export/jobs")
+    suspend fun createExportJob(@Body body: ExportJobRequest): ExportJobRead
+
+    @GET("/v1/export/jobs")
+    suspend fun listExportJobs(): List<ExportJobRead>
+
+    @GET("/v1/export/jobs/{id}")
+    suspend fun getExportJob(@Path("id") id: String): ExportJobRead
+
+    /** Stream the finished backup zip. @Streaming so the zip isn't buffered. */
+    @Streaming
+    @GET("/v1/export/jobs/{id}/download")
+    suspend fun downloadExportJob(@Path("id") id: String): okhttp3.ResponseBody
 
     // ── Imports (preview synchronous, submit async) ──────────────────────────
     //
@@ -473,6 +512,18 @@ interface SheafApiService {
     suspend fun previewPluralSpaceImport(
         @Part file: MultipartBody.Part,
     ): PluralSpacePreviewSummary
+
+    /**
+     * Preview an OpenPlural v0.1 import. Accepts a bare `.json` export or an
+     * `.openplural.zip` bundle (the endpoint sniffs the zip magic). Reuses the
+     * Sheaf preview shape plus a `lineage_length`; submit via [createFileImport]
+     * with source [ImportJobSource.OPENPLURAL_FILE].
+     */
+    @Multipart
+    @POST("/v1/import/openplural/preview")
+    suspend fun previewOpenPluralImport(
+        @Part file: MultipartBody.Part,
+    ): SheafPreviewSummary
 
     /**
      * Preview a Prism (.prism) export. The PRISM1 envelope is decrypted

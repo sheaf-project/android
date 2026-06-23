@@ -65,6 +65,7 @@ fun SettingsScreen(
     onNavigateToSafety: () -> Unit,
     onNavigateToDanger: () -> Unit,
     onNavigateToAdminPanel: () -> Unit,
+    onNavigateToSupport: () -> Unit,
     onNavigateToDebug: () -> Unit,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
@@ -266,6 +267,14 @@ fun SettingsScreen(
                     onClick = onNavigateToAdminPanel,
                 )
             }
+
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.HelpOutline,
+                title = "Support",
+                subtitle = "Contact, status, and policies",
+                onClick = onNavigateToSupport,
+            )
 
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(

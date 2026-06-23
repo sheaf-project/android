@@ -81,6 +81,7 @@ object Routes {
     const val TB_IMPORT      = "settings/import/tupperbox"
     const val PS_IMPORT      = "settings/import/pluralspace"
     const val PRISM_IMPORT   = "settings/import/prism"
+    const val OPENPLURAL_IMPORT = "settings/import/openplural"
     const val IMPORT_HISTORY = "settings/import/history"
     const val IMPORT_DETAIL  = "settings/import/history/{jobId}"
     const val CUSTOM_FIELDS  = "settings/fields"
@@ -92,7 +93,9 @@ object Routes {
     const val ADMIN_USER_DETAIL = "settings/admin/user/{userId}"
     const val SYSTEM_SAFETY  = "settings/safety"
     const val FILES          = "settings/files"
+    const val EXPORT_DATA    = "settings/export"
     const val DEBUG          = "settings/debug"
+    const val SUPPORT        = "settings/support"
     // Categorized settings detail screens.
     const val SETTINGS_ACCOUNT       = "settings/account"
     const val SETTINGS_ADMIN_ACTIVITY = "settings/account/admin-activity"
@@ -100,6 +103,7 @@ object Routes {
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_SERVER        = "settings/server"
     const val SETTINGS_SYSTEM        = "settings/sys"
+    const val ARCHIVED_MEMBERS       = "settings/archived-members"
     const val SETTINGS_DATA          = "settings/data"
     const val SETTINGS_SAFETY        = "settings/safety-cat"
     const val SETTINGS_DANGER        = "settings/danger"
@@ -345,6 +349,7 @@ fun SheafApp(
                     onNavigateToSafety        = { navController.navigate(Routes.SETTINGS_SAFETY) },
                     onNavigateToDanger        = { navController.navigate(Routes.SETTINGS_DANGER) },
                     onNavigateToAdminPanel    = { navController.navigate(Routes.ADMIN_PANEL) },
+                    onNavigateToSupport       = { navController.navigate(Routes.SUPPORT) },
                     onNavigateToDebug         = { navController.navigate(Routes.DEBUG) },
                 )
             }
@@ -473,6 +478,12 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
                     onNavigateToTags = { navController.navigate(Routes.SETTINGS_TAGS) },
+                    onNavigateToArchivedMembers = { navController.navigate(Routes.ARCHIVED_MEMBERS) },
+                )
+            }
+            composable(Routes.ARCHIVED_MEMBERS) {
+                systems.lupine.sheaf.ui.members.ArchivedMembersScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.SETTINGS_TAGS) {
@@ -484,6 +495,7 @@ fun SheafApp(
                 systems.lupine.sheaf.ui.settings.DataSettingsScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToFiles = { navController.navigate(Routes.FILES) },
+                    onNavigateToExportData = { navController.navigate(Routes.EXPORT_DATA) },
                     onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
                     onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
                     onNavigateToPkFileImport = { navController.navigate(Routes.PK_IMPORT) },
@@ -491,6 +503,7 @@ fun SheafApp(
                     onNavigateToTupperboxImport = { navController.navigate(Routes.TB_IMPORT) },
                     onNavigateToPluralSpaceImport = { navController.navigate(Routes.PS_IMPORT) },
                     onNavigateToPrismImport = { navController.navigate(Routes.PRISM_IMPORT) },
+                    onNavigateToOpenPluralImport = { navController.navigate(Routes.OPENPLURAL_IMPORT) },
                     onNavigateToImportHistory = { navController.navigate(Routes.IMPORT_HISTORY) },
                 )
             }
@@ -542,6 +555,16 @@ fun SheafApp(
             }
             composable(Routes.PRISM_IMPORT) {
                 systems.lupine.sheaf.ui.prismimport.PrismImportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.OPENPLURAL_IMPORT) {
+                systems.lupine.sheaf.ui.openpluralimport.OpenPluralImportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.EXPORT_DATA) {
+                systems.lupine.sheaf.ui.export.ExportDataScreen(
                     onNavigateUp = { navController.navigateUp() },
                 )
             }
@@ -602,6 +625,11 @@ fun SheafApp(
             }
             composable(Routes.FILES) {
                 systems.lupine.sheaf.ui.files.FilesScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.SUPPORT) {
+                systems.lupine.sheaf.ui.support.SupportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
             }
             composable(Routes.DEBUG) {
                 DebugScreen(

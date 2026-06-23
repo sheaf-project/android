@@ -4,6 +4,47 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+
+- **Import and export OpenPlural.** OpenPlural v0.1 is an interchange
+  format shared across plural apps. You can now import an OpenPlural
+  `.json` or `.openplural.zip` (with images) export from another app, and
+  export your own data in OpenPlural format.
+
+- **Export got a proper home.** Settings now has an Export data screen
+  with a format picker (Sheaf or OpenPlural), a quick JSON-only export,
+  and a "full backup with images" option. The full backup builds in the
+  background (confirmed with your password, plus your authenticator code
+  if you use 2FA) and then appears in a Recent backups list to download.
+
+- **Support screen.** Settings now has a Support entry showing any
+  custom message your instance operator has set, plus their contact,
+  service status, and policy links (when configured), and links to the
+  project source and security contact.
+
+- **Archive members.** Members can be archived: a reversible soft-hide
+  that keeps them out of the main roster and switcher without deleting
+  them. Archive from the member editor or a member's long-press menu;
+  archived members appear in a collapsible section on the members list
+  and in a dedicated Settings > System > Archived members screen, each
+  with an Unarchive action.
+
+- **Subgroups.** Groups can now nest. The group editor has a parent
+  picker, and the groups list indents subgroups under their parent.
+
+- **Formatting help.** The markdown editor toolbar (member bios,
+  journals, group and system descriptions) gains a help button with a
+  quick formatting reference, including how to make a single line break
+  versus a new paragraph.
+
+### Fixed
+
+- **Front history editor rejects an end before the start.** Editing a
+  front entry now warns and blocks saving when the end time isn't after
+  the start time, instead of saving a backwards range.
+
 ## [1.1.1] - 2026-06-19
 
 ### Added
