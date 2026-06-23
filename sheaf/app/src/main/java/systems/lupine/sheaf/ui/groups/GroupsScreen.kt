@@ -90,9 +90,11 @@ fun GroupsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(state.groups, key = { it.id }) { group ->
+                val ordered = orderGroupsHierarchically(state.groups)
+                items(ordered, key = { it.first.id }) { (group, depth) ->
                     GroupCard(
                         group = group,
+                        depth = depth,
                         expanded = group.id in state.expanded,
                         members = state.groupMembers[group.id],
                         loading = group.id in state.loadingMembers,
@@ -109,6 +111,7 @@ fun GroupsScreen(
 @Composable
 private fun GroupCard(
     group: systems.lupine.sheaf.data.model.GroupRead,
+    depth: Int,
     expanded: Boolean,
     members: List<systems.lupine.sheaf.data.model.MemberRead>?,
     loading: Boolean,
@@ -119,7 +122,9 @@ private fun GroupCard(
     val accent = parseColor(group.color ?: "#534AB7") ?: MaterialTheme.colorScheme.primary
     Card(
         onClick = onToggleExpand,
-        modifier = Modifier.fillMaxWidth(),
+        // Indent subgroups under their parent. Capped so deep nesting stays
+        // usable on a narrow screen.
+        modifier = Modifier.fillMaxWidth().padding(start = (minOf(depth, 4) * 16).dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(
@@ -316,6 +321,23 @@ fun GroupDetailScreen(
             }
             GroupColorPalette(selected = form.color, onSelect = { viewModel.updateForm { copy(color = it) } })
 
+            // Parent group (subgroups). Exclude this group and its descendants
+            // so a group can't become its own ancestor; the server also caps
+            // nesting depth.
+            val currentId = if (viewModel.isNewGroup) null else groupId
+            val eligibleParents = remember(state.allGroups, currentId) {
+                if (currentId == null) state.allGroups
+                else {
+                    val descendants = collectDescendants(currentId, state.allGroups)
+                    state.allGroups.filter { it.id != currentId && it.id !in descendants }
+                }
+            }
+            ParentGroupDropdown(
+                groups = eligibleParents,
+                selectedId = form.parentId,
+                onSelect = { viewModel.updateForm { copy(parentId = it) } },
+            )
+
             Button(
                 onClick = { viewModel.save() },
                 enabled = !state.isSaving && form.name.isNotBlank(),
@@ -435,4 +457,76 @@ private fun GroupColorPalette(selected: String, onSelect: (String) -> Unit) {
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ParentGroupDropdown(
+    groups: List<systems.lupine.sheaf.data.model.GroupRead>,
+    selectedId: String?,
+    onSelect: (String?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = groups.firstOrNull { it.id == selectedId }?.name
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selectedName ?: "None (top-level)",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Parent group") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("None (top-level)") },
+                onClick = { onSelect(null); expanded = false },
+            )
+            groups.forEach { g ->
+                DropdownMenuItem(
+                    text = { Text(g.name) },
+                    onClick = { onSelect(g.id); expanded = false },
+                )
+            }
+        }
+    }
+}
+
+/** Ids of every group descended from [rootId] (its children, recursively). */
+private fun collectDescendants(
+    rootId: String,
+    all: List<systems.lupine.sheaf.data.model.GroupRead>,
+): Set<String> {
+    val childrenOf = all.groupBy { it.parentId }
+    val result = mutableSetOf<String>()
+    val stack = ArrayDeque<String>()
+    stack.add(rootId)
+    while (stack.isNotEmpty()) {
+        childrenOf[stack.removeLast()]?.forEach { child ->
+            if (result.add(child.id)) stack.add(child.id)
+        }
+    }
+    return result
+}
+
+/**
+ * Flatten the group list into parent-before-children order with a depth for
+ * each, so the list can indent subgroups under their parent. Roots are groups
+ * with no parent (or a parent that isn't in the set); orphans fall back to
+ * roots so nothing is dropped.
+ */
+private fun orderGroupsHierarchically(
+    groups: List<systems.lupine.sheaf.data.model.GroupRead>,
+): List<Pair<systems.lupine.sheaf.data.model.GroupRead, Int>> {
+    val byId = groups.associateBy { it.id }
+    val childrenOf = groups.groupBy { it.parentId }
+    val out = mutableListOf<Pair<systems.lupine.sheaf.data.model.GroupRead, Int>>()
+    fun visit(group: systems.lupine.sheaf.data.model.GroupRead, depth: Int) {
+        out += group to depth
+        childrenOf[group.id]?.sortedBy { it.name.lowercase() }?.forEach { visit(it, depth + 1) }
+    }
+    groups.filter { it.parentId == null || it.parentId !in byId }
+        .sortedBy { it.name.lowercase() }
+        .forEach { visit(it, 0) }
+    return out
 }
