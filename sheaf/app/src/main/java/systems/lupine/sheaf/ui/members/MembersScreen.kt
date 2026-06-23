@@ -824,9 +824,36 @@ fun MemberDetailScreen(
                 if (state.isSaving) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 else Text(if (viewModel.isNewMember) "Add Member" else "Save Changes")
             }
+
+            // Archive / unarchive (existing members only). A reversible
+            // soft-hide; see also the long-press shortcut on the member list.
+            if (!viewModel.isNewMember) {
+                val archived = state.member?.isArchived == true
+                OutlinedButton(
+                    onClick = { if (archived) viewModel.unarchiveMember() else viewModel.archiveMember() },
+                    enabled = !state.isArchiving,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (state.isArchiving) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Outlined.Archive, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (archived) "Unarchive member" else "Archive member")
+                    }
+                }
+            }
         }
     }
 
+    if (state.archiveNeedsAuth) {
+        ArchiveAuthDialog(
+            isArchiving = state.isArchiving,
+            error = state.archiveError,
+            onConfirm = { password, totp -> viewModel.archiveMember(password, totp) },
+            onDismiss = { viewModel.cancelArchiveAuth() },
+        )
+    }
 }
 
 // ── Member profile ────────────────────────────────────────────────────────────

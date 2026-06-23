@@ -299,6 +299,11 @@ data class MemberDetailUiState(
     val deleteSafety: MemberDeleteSafety = MemberDeleteSafety(),
     val deleteError: String? = null,
     val deleteQueued: Boolean = false,
+    val isArchiving: Boolean = false,
+    // True when the server demanded step-up auth to archive (the system's
+    // archive safety category is on); drives the prompt on the edit screen.
+    val archiveNeedsAuth: Boolean = false,
+    val archiveError: String? = null,
     /** Definitions for every custom field on the system. Loaded alongside
      *  the member so the form can render type-appropriate editors. Order
      *  follows the user's pick in Settings → Custom Fields. */
@@ -491,6 +496,47 @@ class MemberDetailViewModel @Inject constructor(
             }.onSuccess { s -> _state.update { it.copy(deleteSafety = s) } }
         }
     }
+
+    /**
+     * Archive this member (reversible soft-hide). Tries without credentials;
+     * if the system's archive safety category is on the server answers 4xx
+     * and we surface a step-up prompt and retry. Updates the member in place
+     * so the button flips to Unarchive.
+     */
+    fun archiveMember(password: String? = null, totpCode: String? = null) {
+        val id = memberId ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(isArchiving = true, archiveError = null) }
+            runCatching {
+                api.archiveMember(id, MemberArchiveBody(password?.ifBlank { null }, totpCode?.ifBlank { null }))
+            }
+                .onSuccess { m -> _state.update { it.copy(isArchiving = false, archiveNeedsAuth = false, member = m) } }
+                .onFailure { e ->
+                    if (e is retrofit2.HttpException && e.code() in listOf(400, 403)) {
+                        _state.update {
+                            it.copy(
+                                isArchiving = false,
+                                archiveNeedsAuth = true,
+                                archiveError = if (password != null) "Incorrect password or authenticator code" else null,
+                            )
+                        }
+                    } else {
+                        _state.update { it.copy(isArchiving = false, archiveNeedsAuth = false, error = e.toUserMessage("Couldn't archive member")) }
+                    }
+                }
+        }
+    }
+
+    fun unarchiveMember() {
+        val id = memberId ?: return
+        viewModelScope.launch {
+            runCatching { api.unarchiveMember(id) }
+                .onSuccess { m -> _state.update { it.copy(member = m) } }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Couldn't unarchive member")) } }
+        }
+    }
+
+    fun cancelArchiveAuth() { _state.update { it.copy(archiveNeedsAuth = false, archiveError = null) } }
 
     fun delete(password: String? = null, totpCode: String? = null) {
         if (memberId == null) return
