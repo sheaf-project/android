@@ -24,6 +24,19 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   service status, and policy links (when configured), and links to the
   project source and security contact.
 
+- **Archive members.** Members can be archived: a reversible soft-hide
+  that keeps them out of the main roster and switcher without deleting
+  them. Archive from a member's long-press menu; archived members live
+  in a collapsible section with an Unarchive action.
+
+- **Subgroups.** Groups can now nest. The group editor has a parent
+  picker, and the groups list indents subgroups under their parent.
+
+- **Formatting help.** The markdown editor toolbar (member bios,
+  journals, group and system descriptions) gains a help button with a
+  quick formatting reference, including how to make a single line break
+  versus a new paragraph.
+
 ### Fixed
 
 - **Front history editor rejects an end before the start.** Editing a
