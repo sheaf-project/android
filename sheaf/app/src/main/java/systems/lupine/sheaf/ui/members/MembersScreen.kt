@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -36,6 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,6 +64,7 @@ fun MembersScreen(
     val state by viewModel.state.collectAsState()
     var contextMenuMember by remember { mutableStateOf<MemberRead?>(null) }
     var memberToDelete by remember { mutableStateOf<MemberRead?>(null) }
+    var showArchived by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -77,10 +80,15 @@ fun MembersScreen(
     val scope = rememberCoroutineScope()
     val scrollBehavior = SearchBarDefaults.enterAlwaysSearchBarScrollBehavior()
 
+    // The list endpoint returns archived members too; split them so the main
+    // roster stays clean and archived members surface in their own section.
+    val activeMembers = remember(state.members) { state.members.filter { !it.isArchived } }
+    val archivedMembers = remember(state.members) { state.members.filter { it.isArchived } }
+
     val query = textFieldState.text.toString()
-    val filteredMembers = remember(query, state.members) {
-        if (query.isBlank()) state.members
-        else state.members.filter {
+    val filteredMembers = remember(query, activeMembers) {
+        if (query.isBlank()) activeMembers
+        else activeMembers.filter {
             it.displayNameOrName.contains(query, ignoreCase = true) ||
                 it.pronouns?.contains(query, ignoreCase = true) == true
         }
@@ -214,7 +222,7 @@ fun MembersScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(state.members, key = { it.id }) { member ->
+                items(activeMembers, key = { it.id }) { member ->
                     Box {
                         MemberListItem(
                             member = member,
@@ -257,11 +265,60 @@ fun MembersScreen(
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
+                                text = { Text("Archive member") },
+                                leadingIcon = { Icon(Icons.Outlined.Archive, contentDescription = null) },
+                                onClick = {
+                                    viewModel.archiveMember(member.id)
+                                    contextMenuMember = null
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Remove member", color = MaterialTheme.colorScheme.error) },
                                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     memberToDelete = member
                                     contextMenuMember = null
+                                },
+                            )
+                        }
+                    }
+                }
+
+                // Archived members, collapsed by default.
+                if (archivedMembers.isNotEmpty()) {
+                    item(key = "archived-header") {
+                        Surface(
+                            onClick = { showArchived = !showArchived },
+                            color = Color.Transparent,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    if (showArchived) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Archived (${archivedMembers.size})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    if (showArchived) {
+                        items(archivedMembers, key = { "archived-${it.id}" }) { member ->
+                            MemberListItem(
+                                member = member,
+                                onClick = { onMemberClick(member.id) },
+                                trailing = {
+                                    TextButton(onClick = { viewModel.unarchiveMember(member.id) }) {
+                                        Text("Unarchive")
+                                    }
                                 },
                             )
                         }
@@ -292,6 +349,69 @@ fun MembersScreen(
         }
     }
 
+    // Only shown when the server demanded step-up auth to archive (the
+    // system's archive safety category is on).
+    state.archiveAuthFor?.let { memberId ->
+        ArchiveAuthDialog(
+            isArchiving = state.isArchiving,
+            error = state.archiveError,
+            onConfirm = { password, totp -> viewModel.archiveMember(memberId, password, totp) },
+            onDismiss = { viewModel.cancelArchiveAuth() },
+        )
+    }
+}
+
+@Composable
+private fun ArchiveAuthDialog(
+    isArchiving: Boolean,
+    error: String?,
+    onConfirm: (password: String, totp: String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var password by remember { mutableStateOf("") }
+    var totp by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = { if (!isArchiving) onDismiss() },
+        title = { Text("Confirm archive") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "This instance requires re-authentication to archive a member.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = totp,
+                    onValueChange = { totp = it },
+                    label = { Text("Authenticator code (if enabled)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (error != null) {
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(password, totp.ifBlank { null }) },
+                enabled = !isArchiving && password.isNotBlank(),
+            ) {
+                if (isArchiving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Archive")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isArchiving) { Text("Cancel") } },
+    )
 }
 
 // ── Member detail / edit / create ─────────────────────────────────────────────

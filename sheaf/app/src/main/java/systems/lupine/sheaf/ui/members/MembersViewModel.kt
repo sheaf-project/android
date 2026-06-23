@@ -34,6 +34,11 @@ data class MembersUiState(
     val isDeleting: Boolean = false,
     val deleteError: String? = null,
     val deleteCompleted: Boolean = false,
+    // Archive: set to the member id when the server asked for step-up auth
+    // (the system's archive safety category is on); drives the prompt.
+    val archiveAuthFor: String? = null,
+    val archiveError: String? = null,
+    val isArchiving: Boolean = false,
 )
 
 @HiltViewModel
@@ -144,6 +149,57 @@ class MembersViewModel @Inject constructor(
             }.onSuccess { s -> _state.update { it.copy(deleteSafety = s) } }
         }
     }
+
+    /**
+     * Archive a member. Tries with no credentials first; if the system's
+     * archive safety category is on the server answers 4xx, and we surface a
+     * step-up prompt ([archiveAuthFor]) and retry with the supplied password
+     * (+ TOTP). Archiving is reversible, so no extra confirm beyond that.
+     */
+    fun archiveMember(memberId: String, password: String? = null, totpCode: String? = null) {
+        viewModelScope.launch {
+            _state.update { it.copy(isArchiving = true, archiveError = null) }
+            runCatching {
+                api.archiveMember(
+                    memberId,
+                    MemberArchiveBody(password?.ifBlank { null }, totpCode?.ifBlank { null }),
+                )
+            }
+                .onSuccess {
+                    _state.update { it.copy(isArchiving = false, archiveAuthFor = null) }
+                    load()
+                }
+                .onFailure { e ->
+                    if (e is retrofit2.HttpException && e.code() in listOf(400, 403)) {
+                        _state.update {
+                            it.copy(
+                                isArchiving = false,
+                                archiveAuthFor = memberId,
+                                archiveError = if (password != null) "Incorrect password or authenticator code" else null,
+                            )
+                        }
+                    } else {
+                        _state.update {
+                            it.copy(
+                                isArchiving = false,
+                                archiveAuthFor = null,
+                                error = e.toUserMessage("Couldn't archive member"),
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
+    fun unarchiveMember(memberId: String) {
+        viewModelScope.launch {
+            runCatching { api.unarchiveMember(memberId) }
+                .onSuccess { load() }
+                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Couldn't unarchive member")) } }
+        }
+    }
+
+    fun cancelArchiveAuth() { _state.update { it.copy(archiveAuthFor = null, archiveError = null) } }
 
     fun deleteMember(memberId: String, password: String? = null, totpCode: String? = null) {
         viewModelScope.launch {

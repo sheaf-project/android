@@ -412,8 +412,13 @@ data class MemberRead(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val emoji: String? = null,
+    // Set when the member is archived: a reversible soft-hide. The list
+    // endpoint still returns archived members, so the client filters them
+    // out of the main roster and surfaces them separately.
+    @Json(name = "archived_at") val archivedAt: String? = null,
 ) {
     val displayNameOrName: String get() = displayName?.takeIf { it.isNotBlank() } ?: name
+    val isArchived: Boolean get() = archivedAt != null
     val initials: String get() = displayNameOrName
         .split("\\s+".toRegex())
         .take(2)
@@ -434,6 +439,15 @@ data class MemberCreate(
     val birthday: String? = null,
     val privacy: String = "private",
     val note: String? = null,
+)
+
+/** Optional step-up credentials for archiving a member. Only consulted when
+ *  the system's "archive" safety category is enabled; an empty body is fine
+ *  otherwise. */
+@JsonClass(generateAdapter = true)
+data class MemberArchiveBody(
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

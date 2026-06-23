@@ -182,6 +182,18 @@ interface SheafApiService {
         @Body body: MemberDeleteConfirm = MemberDeleteConfirm(),
     ): Response<MemberDeletePending>
 
+    /** Archive (reversible soft-hide). [body] carries step-up credentials only
+     *  when the system's archive safety category is on; an empty body is fine
+     *  otherwise (the server then 4xxs and the caller retries with creds). */
+    @POST("/v1/members/{id}/archive")
+    suspend fun archiveMember(
+        @Path("id") id: String,
+        @Body body: MemberArchiveBody = MemberArchiveBody(),
+    ): MemberRead
+
+    @POST("/v1/members/{id}/unarchive")
+    suspend fun unarchiveMember(@Path("id") id: String): MemberRead
+
     @GET("/v1/members/{id}/revisions")
     suspend fun listMemberBioRevisions(@Path("id") id: String): List<ContentRevisionRead>
 
