@@ -567,6 +567,7 @@ fun SafetyCategoryScreen(
 fun DataSettingsScreen(
     onNavigateUp: () -> Unit,
     onNavigateToFiles: () -> Unit,
+    onNavigateToExportData: () -> Unit,
     onNavigateToSpImport: () -> Unit,
     onNavigateToSheafImport: () -> Unit,
     onNavigateToPkFileImport: () -> Unit,
@@ -579,29 +580,10 @@ fun DataSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
     var showDeleteOrphansDialog by remember { mutableStateOf(false) }
-    var pendingExportJson by remember { mutableStateOf<String?>(null) }
 
-    val saveFileLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        uri?.let {
-            pendingExportJson?.let { json ->
-                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-            }
-        }
-        pendingExportJson = null
-        viewModel.clearExport()
-    }
-
-    LaunchedEffect(state.exportJson) {
-        state.exportJson?.let { json ->
-            pendingExportJson = json
-            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
-            saveFileLauncher.launch("sheaf-export-$timestamp.json")
-        }
-    }
+    // Full export UI (format selector, JSON vs full-backup-with-images, recent
+    // backups) lives on its own ExportDataScreen; this screen just links to it.
 
     LaunchedEffect(state.orphanedFiles) {
         if (state.orphanedFiles != null && state.orphanedFiles!!.isNotEmpty()) {
@@ -639,9 +621,9 @@ fun DataSettingsScreen(
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
             icon = Icons.Outlined.Download,
-            title = "Export All Data",
-            subtitle = "Download a full JSON backup",
-            onClick = { viewModel.exportData() },
+            title = "Export data",
+            subtitle = "JSON or full backup, in Sheaf or OpenPlural format",
+            onClick = onNavigateToExportData,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(

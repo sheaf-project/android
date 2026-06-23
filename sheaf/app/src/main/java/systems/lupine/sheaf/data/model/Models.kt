@@ -965,6 +965,37 @@ object ImportJobSource {
     const val OPENPLURAL_FILE = "openplural_file"
 }
 
+// ── Export ──────────────────────────────────────────────────────────────────
+
+/** Async full-backup (with images) request. Step-up: password always, plus
+ *  totpCode when the account has 2FA. format is "sheaf_native" or
+ *  "openplural" (note: the synchronous JSON export uses "sheaf"/"openplural"). */
+@JsonClass(generateAdapter = true)
+data class ExportJobRequest(
+    @Json(name = "include_images") val includeImages: Boolean = true,
+    val format: String,
+    val password: String,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class ExportJobRead(
+    val id: String,
+    @Json(name = "include_images") val includeImages: Boolean,
+    val format: String,
+    // pending | running | done | failed | expired
+    val status: String,
+    @Json(name = "requested_at") val requestedAt: String,
+    @Json(name = "started_at") val startedAt: String? = null,
+    @Json(name = "completed_at") val completedAt: String? = null,
+    @Json(name = "expires_at") val expiresAt: String? = null,
+    @Json(name = "file_size_bytes") val fileSizeBytes: Long? = null,
+    val error: String? = null,
+) {
+    val isTerminal: Boolean get() = status == "done" || status == "failed" || status == "expired"
+    val isDownloadable: Boolean get() = status == "done"
+}
+
 /**
  * Lighter shape of [ImportJobRead] for the history list. Drops the
  * events array which can run 10k entries on a large failing import;

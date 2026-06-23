@@ -41,7 +41,6 @@ data class SettingsUiState(
     val frontingCount: Int = 0,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val exportJson: String? = null,
     // TOTP
     val totpStep: TotpStep = TotpStep.LOADING,
     val totpSetupResponse: TOTPSetupResponse? = null,
@@ -239,16 +238,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { prefs.saveAppLock(enabled) }
     }
 
-    fun exportData() {
-        viewModelScope.launch {
-            runCatching { api.exportAll() }
-                .onSuccess { data ->
-                    _state.update { it.copy(exportJson = data.string()) }
-                }
-                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) } }
-        }
-    }
-
     // ── TOTP ──────────────────────────────────────────────────────────────────
 
     fun startTotpSetup() {
@@ -372,7 +361,6 @@ class SettingsViewModel @Inject constructor(
 
     fun clearVerificationEmailSent() { _state.update { it.copy(verificationEmailSent = false) } }
 
-    fun clearExport() { _state.update { it.copy(exportJson = null) } }
     fun clearError()  { _state.update { it.copy(error = null) } }
     fun clearTotpError() { _state.update { it.copy(totpError = null) } }
     fun clearDeletionError() { _state.update { it.copy(deletionError = null) } }

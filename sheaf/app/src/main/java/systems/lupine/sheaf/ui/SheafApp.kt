@@ -93,6 +93,7 @@ object Routes {
     const val ADMIN_USER_DETAIL = "settings/admin/user/{userId}"
     const val SYSTEM_SAFETY  = "settings/safety"
     const val FILES          = "settings/files"
+    const val EXPORT_DATA    = "settings/export"
     const val DEBUG          = "settings/debug"
     // Categorized settings detail screens.
     const val SETTINGS_ACCOUNT       = "settings/account"
@@ -485,6 +486,7 @@ fun SheafApp(
                 systems.lupine.sheaf.ui.settings.DataSettingsScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToFiles = { navController.navigate(Routes.FILES) },
+                    onNavigateToExportData = { navController.navigate(Routes.EXPORT_DATA) },
                     onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
                     onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
                     onNavigateToPkFileImport = { navController.navigate(Routes.PK_IMPORT) },
@@ -549,6 +551,11 @@ fun SheafApp(
             }
             composable(Routes.OPENPLURAL_IMPORT) {
                 systems.lupine.sheaf.ui.openpluralimport.OpenPluralImportScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.EXPORT_DATA) {
+                systems.lupine.sheaf.ui.export.ExportDataScreen(
                     onNavigateUp = { navController.navigateUp() },
                 )
             }
