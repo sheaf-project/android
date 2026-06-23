@@ -427,6 +427,7 @@ fun MemberDetailScreen(
     val baseline by viewModel.baselineForm.collectAsState()
     var showAvatarMenu by remember { mutableStateOf(false) }
     var showBannerMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     // Holds the URI of the just-picked image while the cropper dialog
     // is on screen. Null means no crop in progress. The crop dialog
     // confirms with PNG bytes which then go to uploadAvatarBytes;
@@ -842,8 +843,32 @@ fun MemberDetailScreen(
                         Text(if (archived) "Unarchive member" else "Archive member")
                     }
                 }
+
+                OutlinedButton(
+                    onClick = { showDeleteDialog = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Delete member")
+                }
             }
         }
+    }
+
+    if (showDeleteDialog && state.member != null) {
+        val target = state.member!!
+        LaunchedEffect(target.id) { viewModel.loadDeleteSafety() }
+        MemberDeleteDialog(
+            memberLabel = target.displayNameOrName,
+            safety = state.deleteSafety,
+            isDeleting = state.isDeleting,
+            errorMessage = state.deleteError,
+            onConfirm = { password, totpCode -> viewModel.delete(password, totpCode) },
+            onDismiss = { showDeleteDialog = false; viewModel.clearDeleteError() },
+        )
+        LaunchedEffect(state.deleted) { if (state.deleted) onNavigateUp() }
     }
 
     if (state.archiveNeedsAuth) {
@@ -866,7 +891,6 @@ fun MemberProfileScreen(
     viewModel: MemberProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    var showDeleteDialog by remember { mutableStateOf(false) }
 
     // Reload data when returning to this screen (e.g. after editing)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1122,34 +1146,10 @@ fun MemberProfileScreen(
                     if (state.error != null) {
                         ErrorBanner(state.error!!)
                     }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    TextButton(
-                        onClick = { showDeleteDialog = true },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Delete Member")
-                    }
+                    // Delete + archive live on the member editor (tap Edit), so
+                    // destructive and management actions sit in one place.
                 }
             }
-        }
-    }
-
-    if (showDeleteDialog && member != null) {
-        LaunchedEffect(member.id) { viewModel.loadDeleteSafety() }
-        MemberDeleteDialog(
-            memberLabel = member.displayNameOrName,
-            safety = state.deleteSafety,
-            isDeleting = state.isDeleting,
-            errorMessage = state.deleteError,
-            onConfirm = { password, totpCode -> viewModel.delete(password, totpCode) },
-            onDismiss = { showDeleteDialog = false; viewModel.clearDeleteError() },
-        )
-        LaunchedEffect(state.deleted) {
-            if (state.deleted) showDeleteDialog = false
         }
     }
 
