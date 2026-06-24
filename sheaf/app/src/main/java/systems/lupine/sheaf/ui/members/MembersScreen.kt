@@ -902,10 +902,6 @@ fun MemberProfileScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(state.deleted) {
-        if (state.deleted) onNavigateUp()
-    }
-
     val member = state.member
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
