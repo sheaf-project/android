@@ -653,11 +653,6 @@ data class MemberProfileUiState(
     val currentFronts: List<FrontRead> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val deleted: Boolean = false,
-    val deleteSafety: MemberDeleteSafety = MemberDeleteSafety(),
-    val isDeleting: Boolean = false,
-    val deleteError: String? = null,
-    val deleteQueued: Boolean = false,
     val revisions: List<ContentRevisionRead> = emptyList(),
     val showRevisions: Boolean = false,
     val isLoadingRevisions: Boolean = false,
@@ -783,46 +778,6 @@ class MemberProfileViewModel @Inject constructor(
             _state.update { it.copy(currentFronts = api.runCatching { getCurrentFronts() }.getOrElse { _state.value.currentFronts }) }
         }
     }
-
-    fun loadDeleteSafety() {
-        viewModelScope.launch {
-            runCatching {
-                val safety = api.getSystemSafety()
-                val user = runCatching { api.getMe() }.getOrNull()
-                MemberDeleteSafety(
-                    authTier = safety.settings.authTier,
-                    totpEnabled = user?.totpEnabled == true,
-                    appliesToMembers = safety.settings.appliesToMembers,
-                    gracePeriodDays = safety.settings.gracePeriodDays,
-                )
-            }.onSuccess { s -> _state.update { it.copy(deleteSafety = s) } }
-        }
-    }
-
-    fun delete(password: String? = null, totpCode: String? = null) {
-        viewModelScope.launch {
-            _state.update { it.copy(isDeleting = true, deleteError = null, deleteQueued = false) }
-            runCatching { api.deleteMemberOrQueue(memberId, password, totpCode) }
-                .onSuccess { queued ->
-                    _state.update {
-                        it.copy(
-                            isDeleting = false,
-                            deleted = true,
-                            deleteQueued = queued != null,
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    val msg = if (e is retrofit2.HttpException && e.code() in listOf(400, 401))
-                        "Incorrect password or authenticator code"
-                    else
-                        e.toUserMessage("Failed to delete member")
-                    _state.update { it.copy(isDeleting = false, deleteError = msg) }
-                }
-        }
-    }
-
-    fun clearDeleteError() { _state.update { it.copy(deleteError = null) } }
 
     fun toggleRevisions() {
         val showing = _state.value.showRevisions
