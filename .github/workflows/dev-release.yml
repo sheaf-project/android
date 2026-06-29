@@ -49,7 +49,8 @@ jobs:
 
       - name: Generate Gradle wrapper JAR
         working-directory: sheaf
-        run: gradle wrapper
+        # Pin to the project Gradle version; see pr-checks.yml.
+        run: gradle wrapper --gradle-version 8.13
 
       - name: Make gradlew executable
         run: chmod +x sheaf/gradlew

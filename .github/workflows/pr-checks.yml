@@ -35,7 +35,11 @@ jobs:
 
       - name: Generate Gradle wrapper JAR
         working-directory: sheaf
-        run: gradle wrapper
+        # Pin the regenerated wrapper to the project's Gradle version. Without
+        # --gradle-version, `gradle wrapper` rewrites the wrapper to whatever
+        # Gradle setup-gradle provides (now 9.6.0), which AGP 8.13.2 can't run
+        # on. Keep this in sync with gradle/wrapper/gradle-wrapper.properties.
+        run: gradle wrapper --gradle-version 8.13
 
       - name: Make gradlew executable
         run: chmod +x sheaf/gradlew
