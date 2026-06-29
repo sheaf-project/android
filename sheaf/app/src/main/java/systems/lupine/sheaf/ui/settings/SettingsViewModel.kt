@@ -135,7 +135,9 @@ class SettingsViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
                 return@launch
             }
-            val memberCount = runCatching { api.listMembers().size }.getOrDefault(0)
+            // Exclude archived members; the list endpoint returns them but
+            // they aren't part of the active roster the count represents.
+            val memberCount = runCatching { api.listMembers().count { !it.isArchived } }.getOrDefault(0)
             val groupCount = runCatching { api.listGroups().size }.getOrDefault(0)
             val frontingCount = runCatching {
                 api.getCurrentFronts().flatMap { it.memberIds }.toSet().size

@@ -64,9 +64,15 @@ fun PeopleScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val filteredMembers = remember(memberQuery, membersState.members) {
-        if (memberQuery.isBlank()) membersState.members
-        else membersState.members.filter {
+    // The list endpoint returns archived members too; keep them out of the
+    // roster (and its count). Archived members are viewed/restored from
+    // Settings > System > Archived members.
+    val activeMembers = remember(membersState.members) {
+        membersState.members.filter { !it.isArchived }
+    }
+    val filteredMembers = remember(memberQuery, activeMembers) {
+        if (memberQuery.isBlank()) activeMembers
+        else activeMembers.filter {
             it.displayNameOrName.contains(memberQuery.trim(), ignoreCase = true) ||
                 it.pronouns?.contains(memberQuery.trim(), ignoreCase = true) == true
         }
@@ -153,7 +159,7 @@ fun PeopleScreen(
                     isLoading = membersState.isLoading,
                     error = membersState.error,
                     members = filteredMembers,
-                    rawMemberCount = membersState.members.size,
+                    rawMemberCount = activeMembers.size,
                     query = memberQuery,
                     onQueryChange = { memberQuery = it },
                     showSearch = searchOpen,
