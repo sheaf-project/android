@@ -79,6 +79,11 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          # AGP 8.13.2 cannot run on Gradle 9.6.0 (setup-gradle now defaults
+          # to it); pin to the project version. Keep in sync with
+          # gradle/wrapper/gradle-wrapper.properties.
+          gradle-version: "8.13"
 
       - name: Generate Gradle wrapper JAR
         working-directory: sheaf
@@ -197,6 +202,11 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          # AGP 8.13.2 cannot run on Gradle 9.6.0 (setup-gradle now defaults
+          # to it); pin to the project version. Keep in sync with
+          # gradle/wrapper/gradle-wrapper.properties.
+          gradle-version: "8.13"
 
       - name: Generate Gradle wrapper JAR
         working-directory: sheaf
