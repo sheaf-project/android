@@ -9,6 +9,7 @@ import systems.lupine.sheaf.data.db.PendingFrontRemoval
 import systems.lupine.sheaf.data.db.PendingFrontSwitch
 import systems.lupine.sheaf.data.db.PendingOperationsDao
 import systems.lupine.sheaf.data.model.AnnouncementPublic
+import systems.lupine.sheaf.data.model.ClientSettingsBody
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
 import systems.lupine.sheaf.data.model.FrontUpdate
@@ -49,7 +50,11 @@ data class HomeUiState(
     // so the carousel still renders rather than vanishing silently.
     val topFronters: List<MemberRead> = emptyList(),
     val announcements: List<AnnouncementPublic> = emptyList(),
+    // Session-only dismissals (the X): cleared on process death.
     val dismissedAnnouncementIds: Set<String> = emptySet(),
+    // "Don't show again": persisted in the "android" client settings blob
+    // (dismissed_announcements), so it survives restarts and syncs.
+    val permanentlyDismissedAnnouncementIds: Set<String> = emptySet(),
     val isLoading: Boolean = false,
     val isSwitching: Boolean = false,
     val error: String? = null,
@@ -79,7 +84,9 @@ data class HomeUiState(
     val refreshFailed: Boolean = false,
 ) {
     val visibleAnnouncements: List<AnnouncementPublic>
-        get() = announcements.filter { it.id !in dismissedAnnouncementIds }
+        get() = announcements.filter {
+            it.id !in dismissedAnnouncementIds && it.id !in permanentlyDismissedAnnouncementIds
+        }
 
     /**
      * What the home carousel actually renders. Prefers the server-ranked
@@ -177,6 +184,8 @@ class HomeViewModel @Inject constructor(
                 // Fetched alongside the rest so the quick-switch carousel
                 // hydrates without an extra round-trip after first paint.
                 val topFrontersD   = async { runCatching { api.getTopFronters() } }
+                // Carries dismissed_announcements ("don't show again" set).
+                val clientSettingsD = async { runCatching { api.getClientSettings(ANDROID_CLIENT_ID) } }
 
                 val fronts        = frontsD.await()
                 val members       = membersD.await()
@@ -186,6 +195,15 @@ class HomeViewModel @Inject constructor(
                 val retention     = retentionD.await()
                 val user          = userD.await()
                 val topFronters   = topFrontersD.await()
+                val clientSettings = clientSettingsD.await()
+                // Server-side "don't show again" set. Merge (union) with the
+                // local set so an optimistic dismissal isn't lost if this
+                // refresh raced the PATCH that persisted it.
+                val serverDismissed = clientSettings.getOrNull()?.settings
+                    ?.get("dismissed_announcements")
+                    ?.let { (it as? List<*>)?.mapNotNull { v -> v as? String } }
+                    ?.toSet()
+                    ?: emptySet()
 
                 val criticalFailures = listOf(fronts, members, system).count { it.isFailure }
                 val anyCriticalFailed = criticalFailures > 0
@@ -263,6 +281,7 @@ class HomeViewModel @Inject constructor(
                         allMembers = newMembers,
                         topFronters = newTopFronters,
                         announcements = newAnnouncements,
+                        permanentlyDismissedAnnouncementIds = it.permanentlyDismissedAnnouncementIds + serverDismissed,
                         pendingSafetyActions = safetyResp?.pendingActions ?: it.pendingSafetyActions,
                         pendingSafetyChanges = safetyResp?.pendingChanges ?: it.pendingSafetyChanges,
                         pendingTrimNotice = trimNotice,
@@ -308,6 +327,30 @@ class HomeViewModel @Inject constructor(
 
     fun dismissAnnouncement(id: String) {
         _state.update { it.copy(dismissedAnnouncementIds = it.dismissedAnnouncementIds + id) }
+    }
+
+    /**
+     * "Don't show again": persist [id] into the android client-settings
+     * dismissed_announcements list so it stays hidden across restarts (and
+     * syncs), mirroring web. Optimistic + also session-dismisses; on failure
+     * the session dismissal still hides it for now.
+     */
+    fun dontShowAgainAnnouncement(id: String) {
+        _state.update {
+            it.copy(
+                dismissedAnnouncementIds = it.dismissedAnnouncementIds + id,
+                permanentlyDismissedAnnouncementIds = it.permanentlyDismissedAnnouncementIds + id,
+            )
+        }
+        viewModelScope.launch {
+            val ids = _state.value.permanentlyDismissedAnnouncementIds.toList()
+            runCatching {
+                api.patchClientSettings(
+                    ANDROID_CLIENT_ID,
+                    ClientSettingsBody(mapOf("dismissed_announcements" to ids)),
+                )
+            }
+        }
     }
 
     fun openSwitchSheet() {
@@ -514,5 +557,8 @@ class HomeViewModel @Inject constructor(
         // responses can finish in tens of ms, leaving the user staring at
         // the screen wondering if the pull-to-refresh registered at all.
         const val MIN_REFRESH_VISIBLE_MS = 600L
+        // Client-settings blob this device reads/writes (theme, dismissed
+        // announcements, ...). Matches SettingsViewModel's CLIENT_ID.
+        const val ANDROID_CLIENT_ID = "android"
     }
 }

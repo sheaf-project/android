@@ -197,6 +197,7 @@ fun HomeScreen(
                             AnnouncementCard(
                                 announcement = announcement,
                                 onDismiss = { viewModel.dismissAnnouncement(announcement.id) },
+                                onDontShowAgain = { viewModel.dontShowAgainAnnouncement(announcement.id) },
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                             )
                         }
@@ -224,6 +225,7 @@ fun HomeScreen(
                             AnnouncementCard(
                                 announcement = announcement,
                                 onDismiss = { viewModel.dismissAnnouncement(announcement.id) },
+                                onDontShowAgain = { viewModel.dontShowAgainAnnouncement(announcement.id) },
                             )
                         }
                         items(state.frontingMembers, key = { it.id }) { member ->
@@ -329,6 +331,7 @@ private fun OfflineSyncChip(
 private fun AnnouncementCard(
     announcement: AnnouncementPublic,
     onDismiss: () -> Unit,
+    onDontShowAgain: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val warningColors = LocalWarningColors.current
@@ -356,11 +359,21 @@ private fun AnnouncementCard(
                     style = MaterialTheme.typography.titleSmall,
                     color = contentColor,
                 )
-                Text(
-                    announcement.body,
+                InlineMarkdownText(
+                    text = announcement.body,
                     style = MaterialTheme.typography.bodySmall,
                     color = contentColor,
+                    linkColor = contentColor,
                 )
+                if (announcement.dismissible) {
+                    TextButton(
+                        onClick = onDontShowAgain,
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                        colors = ButtonDefaults.textButtonColors(contentColor = contentColor),
+                    ) {
+                        Text("Don't show again", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             }
             if (announcement.dismissible) {
                 IconButton(onClick = onDismiss) {
