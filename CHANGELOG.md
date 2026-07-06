@@ -4,6 +4,16 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **Recovery codes work at login.** The two-factor login prompt now has a
+  "Use a recovery code instead" option, so you can sign in with a saved
+  recovery code instead of a 6-digit authenticator code. This is the path
+  that matters when your authenticator is lost or on a replaced phone;
+  before, the field only accepted 6 digits and locked those users out.
+
 ## [1.2.1] - 2026-07-04
 
 ### Added
