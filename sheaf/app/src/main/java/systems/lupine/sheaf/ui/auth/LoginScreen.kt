@@ -394,9 +394,30 @@ private fun TotpStep(
 ) {
     var code by remember { mutableStateOf("") }
     var rememberDevice by remember { mutableStateOf(false) }
+    // A lost/wiped authenticator is exactly when recovery codes matter, and that
+    // correlates with "changed phone", so the mobile client has to offer them too.
+    var useRecoveryCode by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    // Refocus the field when switching modes so the user can just keep typing.
+    LaunchedEffect(useRecoveryCode) { focusRequester.requestFocus() }
+
+    // Recovery codes are 16 hex chars issued as two hyphenated groups
+    // (xxxxxxxx-xxxxxxxx). The hyphen is part of the stored value, so we accept
+    // it bare or hyphenated and re-insert the hyphen (lowercased) on submit.
+    val recoveryHex = code.filter { it != '-' }
+    val canSubmit = if (useRecoveryCode) recoveryHex.length == 16 else code.length == 6
+
+    fun submit() {
+        if (!canSubmit) return
+        val payload = if (useRecoveryCode) {
+            val hex = recoveryHex.lowercase()
+            "${hex.substring(0, 8)}-${hex.substring(8)}"
+        } else {
+            code
+        }
+        onSubmit(payload, rememberDevice)
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // Lock icon
@@ -416,7 +437,11 @@ private fun TotpStep(
             color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
-            "Enter the 6-digit code from your authenticator app.",
+            if (useRecoveryCode) {
+                "Enter one of the recovery codes you saved when you set up two-factor authentication."
+            } else {
+                "Enter the 6-digit code from your authenticator app."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -427,22 +452,36 @@ private fun TotpStep(
         OutlinedTextField(
             value = code,
             onValueChange = { new ->
-                // Only allow digits, max 6. No auto-submit so the user has a
-                // chance to tick "Remember this device" before tapping Verify.
-                code = new.filter { it.isDigit() }.take(6)
+                // No auto-submit so the user has a chance to tick "Remember this
+                // device" before tapping Verify.
+                code = if (useRecoveryCode) {
+                    // Hex plus an optional hyphen; xxxxxxxx-xxxxxxxx is 17 chars.
+                    new.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' || it == '-' }.take(17)
+                } else {
+                    new.filter { it.isDigit() }.take(6)
+                }
             },
-            label = { Text("Authenticator code") },
-            placeholder = { Text("000000") },
+            label = { Text(if (useRecoveryCode) "Recovery code" else "Authenticator code") },
+            placeholder = { Text(if (useRecoveryCode) "xxxxxxxx-xxxxxxxx" else "000000") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.NumberPassword,
+                keyboardType = if (useRecoveryCode) KeyboardType.Password else KeyboardType.NumberPassword,
                 imeAction = ImeAction.Done,
             ),
-            keyboardActions = KeyboardActions(onDone = { if (code.length == 6) onSubmit(code, rememberDevice) }),
+            keyboardActions = KeyboardActions(onDone = { submit() }),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester),
         )
+
+        TextButton(
+            onClick = {
+                useRecoveryCode = !useRecoveryCode
+                code = ""
+            },
+        ) {
+            Text(if (useRecoveryCode) "Use an authenticator code instead" else "Use a recovery code instead")
+        }
 
         Row(
             modifier = Modifier
@@ -462,8 +501,8 @@ private fun TotpStep(
         }
 
         Button(
-            onClick = { onSubmit(code, rememberDevice) },
-            enabled = !isLoading && code.length == 6,
+            onClick = { submit() },
+            enabled = !isLoading && canSubmit,
             modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)

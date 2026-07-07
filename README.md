@@ -38,7 +38,7 @@ The release contains:
 - `wear-release.apk` (watch, sideload via ADB)
 - `*.sig` and `*.pem` files: cosign keyless OIDC signatures, see [Verifying](#verifying-a-build).
 
-Stable releases (`v*` tags) and store-distributed builds (Play Store, F-Droid) are not yet available; see [`docs/PUBLISHING.md`](docs/PUBLISHING.md) for the readiness plan.
+Stable releases (`v*` tags) are published on [GitHub Releases](https://github.com/sheaf-project/android/releases). Play Store distribution is currently in beta (request access through the Discord); F-Droid is not yet available. See [`docs/PUBLISHING.md`](docs/PUBLISHING.md) for the distribution plan.
 
 ### Verifying a build
 
