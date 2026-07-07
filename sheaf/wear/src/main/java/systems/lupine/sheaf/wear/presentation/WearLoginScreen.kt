@@ -54,6 +54,7 @@ fun WearLoginScreen(
             error = null
             runCatching { apiClient.login(serverUrl.trim(), email.trim(), password) }
                 .onFailure { e ->
+                    android.util.Log.e("WearLogin", "login failed", e)
                     error = when {
                         e is WearApiException && e.code == 401 -> "Incorrect email or password"
                         else -> e.message ?: "Login failed"

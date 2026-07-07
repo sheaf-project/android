@@ -51,14 +51,29 @@ class WearApiClient(private val auth: WearAuthManager) {
     private fun url(path: String) = "${auth.baseUrl.trimEnd('/')}$path"
 
     // Executes the built request, auto-retries once after a 401 by refreshing the token.
+    // Result of a fully-drained HTTP exchange. The body is read inside the
+    // IO context along with the request itself: OkHttp's execute() returns
+    // once headers arrive, and body.string() still reads from the socket,
+    // so calling it on Main throws NetworkOnMainThreadException whenever
+    // the body wasn't already buffered - which for anything bigger than a
+    // couple of segments is always.
+    private class RawResponse(val code: Int, val body: String?)
+
+    private suspend fun call(buildRequest: () -> Request): RawResponse =
+        withContext(Dispatchers.IO) {
+            http.newCall(buildRequest()).execute().use { response ->
+                RawResponse(response.code, runCatching { response.body?.string() }.getOrNull())
+            }
+        }
+
     private suspend fun execute(buildRequest: () -> Request): String {
-        var response = withContext(Dispatchers.IO) { http.newCall(buildRequest()).execute() }
+        var response = call(buildRequest)
         if (response.code == 401) {
             tryRefreshToken()
-            response = withContext(Dispatchers.IO) { http.newCall(buildRequest()).execute() }
+            response = call(buildRequest)
         }
-        if (!response.isSuccessful) throw WearApiException(response.code)
-        return response.body!!.string()
+        if (response.code !in 200..299) throw WearApiException(response.code)
+        return response.body ?: throw WearApiException(response.code)
     }
 
     private suspend fun tryRefreshToken() {
@@ -77,16 +92,17 @@ class WearApiClient(private val auth: WearAuthManager) {
             if (current != refreshAtEntry) return
             try {
                 val body = """{"refresh_token":"$current"}"""
-                val request = Request.Builder()
-                    .url(url("/v1/auth/refresh"))
-                    .post(body.toRequestBody("application/json".toMediaType()))
-                    .build()
-                val response = withContext(Dispatchers.IO) { http.newCall(request).execute() }
-                if (!response.isSuccessful) {
+                val response = call {
+                    Request.Builder()
+                        .url(url("/v1/auth/refresh"))
+                        .post(body.toRequestBody("application/json".toMediaType()))
+                        .build()
+                }
+                if (response.code !in 200..299 || response.body == null) {
                     auth.clearCredentials()
                     throw WearApiException(401)
                 }
-                val pair = moshi.adapter(TokenPair::class.java).fromJson(response.body!!.string())!!
+                val pair = moshi.adapter(TokenPair::class.java).fromJson(response.body)!!
                 auth.saveCredentials(auth.baseUrl, pair.accessToken, pair.refreshToken)
             } catch (e: WearApiException) {
                 throw e
@@ -104,19 +120,16 @@ class WearApiClient(private val auth: WearAuthManager) {
     suspend fun login(baseUrl: String, email: String, password: String) {
         val cleanUrl = baseUrl.trimEnd('/')
         val bodyJson = moshi.adapter(LoginBody::class.java).toJson(LoginBody(email, password))
-        val response = withContext(Dispatchers.IO) {
-            http.newCall(
-                Request.Builder()
-                    .url("$cleanUrl/v1/auth/login")
-                    .post(bodyJson.toRequestBody("application/json".toMediaType()))
-                    .build()
-            ).execute()
+        val response = call {
+            Request.Builder()
+                .url("$cleanUrl/v1/auth/login")
+                .post(bodyJson.toRequestBody("application/json".toMediaType()))
+                .build()
         }
-        if (!response.isSuccessful) {
-            val errorBody = runCatching { response.body?.string() }.getOrNull()
-            throw WearApiException(response.code, errorBody)
+        if (response.code !in 200..299) {
+            throw WearApiException(response.code, response.body)
         }
-        val pair = moshi.adapter(TokenPair::class.java).fromJson(response.body!!.string())!!
+        val pair = moshi.adapter(TokenPair::class.java).fromJson(response.body!!)!!
         auth.saveCredentials(cleanUrl, pair.accessToken, pair.refreshToken)
     }
 

@@ -97,6 +97,7 @@ class WearStore(
                 systems.lupine.sheaf.wear.complications.WearLoadStatus.OK,
             )
         } catch (e: Exception) {
+            android.util.Log.e("WearStore", "refreshNow failed", e)
             error.value = e.message ?: "Failed to load"
             systems.lupine.sheaf.wear.complications.writeLoadStatus(
                 context,
