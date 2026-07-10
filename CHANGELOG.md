@@ -14,6 +14,11 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   that matters when your authenticator is lost or on a replaced phone;
   before, the field only accepted 6 digits and locked those users out.
 
+- **Action buttons are readable by screen readers.** The home "Switch"
+  button and the New poll / New reminder / New invite buttons exposed no
+  label to accessibility services, so TalkBack users could not find or
+  activate them. They now announce their action.
+
 ## [1.2.1] - 2026-07-04
 
 ### Added
