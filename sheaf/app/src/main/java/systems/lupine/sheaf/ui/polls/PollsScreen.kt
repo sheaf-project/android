@@ -31,6 +31,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.PollRead
@@ -59,6 +62,11 @@ fun PollsScreen(
                 onClick = onCreateNew,
                 icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 text = { Text("New poll") },
+                // Label the FAB directly; the text slot's semantics can be dropped
+                // by Material3's expand/collapse AnimatedVisibility. See HomeScreen.
+                modifier = Modifier
+                    .testTag("polls_new_fab")
+                    .semantics { contentDescription = "New poll" },
             )
         },
     ) { padding ->

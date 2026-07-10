@@ -43,6 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.ReminderRead
@@ -77,6 +80,11 @@ fun RemindersScreen(
                 onClick = onCreateNew,
                 icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 text = { Text("New reminder") },
+                // Label the FAB directly; the text slot's semantics can be dropped
+                // by Material3's expand/collapse AnimatedVisibility. See HomeScreen.
+                modifier = Modifier
+                    .testTag("reminders_new_fab")
+                    .semantics { contentDescription = "New reminder" },
             )
         },
     ) { padding ->

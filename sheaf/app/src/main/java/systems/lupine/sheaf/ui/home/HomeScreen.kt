@@ -21,6 +21,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -111,6 +114,14 @@ fun HomeScreen(
                 onClick = { viewModel.openSwitchSheet() },
                 icon = { Icon(Icons.Outlined.SwitchAccount, contentDescription = null) },
                 text = { Text("Switch") },
+                // The FAB's label lives in the text slot, which Material3 wraps in
+                // an AnimatedVisibility for the expand/collapse animation; that can
+                // drop the text's semantics and leave the merged node unlabeled (and
+                // effectively invisible to TalkBack / uiautomator). Set the label on
+                // the FAB itself so it never depends on the animated child.
+                modifier = Modifier
+                    .testTag("home_switch_fab")
+                    .semantics { contentDescription = "Switch" },
             )
         },
         // Quick-switch chip row pinned above the bottom navigation. Sits
