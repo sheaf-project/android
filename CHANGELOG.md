@@ -19,6 +19,11 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   label to accessibility services, so TalkBack users could not find or
   activate them. They now announce their action.
 
+- **Watch data screens no longer fail to load.** The Wear OS app read
+  network responses on the wrong thread, so member, front and history
+  screens would show "Failed to load" (reliably on large responses,
+  intermittently at sign-in). Responses are now read off the main thread.
+
 ## [1.2.1] - 2026-07-04
 
 ### Added
