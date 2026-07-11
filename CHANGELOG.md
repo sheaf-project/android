@@ -24,6 +24,12 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   screens would show "Failed to load" (reliably on large responses,
   intermittently at sign-in). Responses are now read off the main thread.
 
+- **Bio editor image handling.** Uploading an image from the bio/description
+  editor now tags it correctly as a bio image and, when it fails, shows the
+  reason instead of failing silently. Uploaded images embed as a hosted
+  reference, and images served from the instance's file CDN are now labelled
+  "hosted" rather than "external" in the editor's image list.
+
 ## [1.2.1] - 2026-07-04
 
 ### Added
