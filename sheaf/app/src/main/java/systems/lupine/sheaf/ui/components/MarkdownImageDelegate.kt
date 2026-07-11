@@ -76,13 +76,17 @@ class MarkdownImageDelegate @Inject constructor(
                 val ext = mimeType.substringAfter("/").let { if (it == "jpeg") "jpg" else it }
                 val body = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
                 val part = MultipartBody.Part.createFormData("file", "image.$ext", body)
-                api.uploadFile(part)
+                api.uploadFile(part, purpose = "bio")
             }
                 .onSuccess { resp ->
                     _state.update {
                         it.copy(
                             isUploadingImage = false,
-                            pendingImageMarkdown = "![image](${resp.url})",
+                            // Embed the canonical /v1/files/<key> path (matching the
+                            // "existing image" picker and web), not the absolute
+                            // response URL. The backend rewrites this ref to the real
+                            // (CDN/signed) URL on read, and it classifies as hosted.
+                            pendingImageMarkdown = "![image](/v1/files/${resp.key})",
                         )
                     }
                 }
@@ -98,13 +102,13 @@ class MarkdownImageDelegate @Inject constructor(
     }
 
     fun pickExistingFile(file: FileRead) {
-        _state.update { it.copy(pendingImageMarkdown = "![image](/v1/files/${file.key})") }
+        _state.update { it.copy(pendingImageMarkdown = "![image](/v1/files/${file.key})", error = null) }
     }
 
     fun pickExternalUrl(url: String) {
         val trimmed = url.trim()
         if (trimmed.isEmpty()) return
-        _state.update { it.copy(pendingImageMarkdown = "![image]($trimmed)") }
+        _state.update { it.copy(pendingImageMarkdown = "![image]($trimmed)", error = null) }
     }
 
     fun consumePendingImageMarkdown() {
@@ -130,6 +134,7 @@ fun rememberMarkdownImagePicker(
         availableImages = s.availableImages,
         isLoadingImages = s.isLoadingImages,
         isUploadingImage = s.isUploadingImage,
+        uploadError = s.error,
         pendingImageMarkdown = s.pendingImageMarkdown,
         onLoadAvailableImages = { delegate.loadAvailableImages(scope) },
         onUploadImage = { uri -> delegate.uploadImage(scope, uri) },

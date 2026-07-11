@@ -59,6 +59,12 @@ class AuthViewModel @Inject constructor(
         .map { it ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
+    // The instance's file CDN base, persisted from the auth config. Surfaced so
+    // the app root can provide it to LocalFileCdnBase for hosted/external image
+    // classification.
+    val fileCdnBase: StateFlow<String?> = prefs.fileCdnBase
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val authConfig: StateFlow<AuthConfig?> = baseUrl
         .filter { it.isNotBlank() }

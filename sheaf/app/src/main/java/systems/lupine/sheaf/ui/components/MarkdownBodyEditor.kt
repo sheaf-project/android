@@ -49,6 +49,7 @@ data class MarkdownImagePicker(
     val availableImages: List<FileRead>,
     val isLoadingImages: Boolean,
     val isUploadingImage: Boolean,
+    val uploadError: String?,
     val pendingImageMarkdown: String?,
     val onLoadAvailableImages: () -> Unit,
     val onUploadImage: (Uri) -> Unit,
@@ -119,6 +120,13 @@ fun MarkdownBodyEditor(
         )
 
         if (imagePicker != null) {
+            imagePicker.uploadError?.let { err ->
+                Text(
+                    err,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             ImageReferencesPanel(markdown = value)
         }
     }
