@@ -106,6 +106,12 @@ interface SheafApiService {
     @PATCH("/v1/systems/me")
     suspend fun updateOwnSystem(@Body body: SystemUpdate): SystemRead
 
+    // Timezone-only update. Takes a pre-serialized body (built with
+    // serializeNulls) so "automatic" is sent as an explicit null rather than
+    // being dropped by the codegen adapter. See [SystemTimezoneBody].
+    @PATCH("/v1/systems/me")
+    suspend fun updateOwnSystemTimezone(@Body body: RequestBody): SystemRead
+
     @PUT("/v1/systems/me/delete-confirmation")
     suspend fun updateDeleteConfirmation(@Body body: DeleteConfirmationUpdate): SystemRead
 

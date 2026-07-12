@@ -651,12 +651,13 @@ private fun FrontHistoryCard(
 
             Spacer(Modifier.height(4.dp))
 
+            val displayZone = LocalDisplayTimeZone.current
             Text(
                 buildString {
-                    append(formatTimestamp(front.startedAt))
+                    append(formatTimestamp(front.startedAt, displayZone))
                     if (front.endedAt != null) {
                         append("  →  ")
-                        append(formatTimestamp(front.endedAt))
+                        append(formatTimestamp(front.endedAt, displayZone))
                     }
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -966,10 +967,10 @@ private fun TimeInputRow(time: LocalTime, onTimeChange: (LocalTime) -> Unit) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-private val timeFormatter = DateTimeFormatter.ofPattern("MMM d, h:mm a").withZone(ZoneId.systemDefault())
+private val timePattern = DateTimeFormatter.ofPattern("MMM d, h:mm a")
 
-private fun formatTimestamp(iso: String): String =
-    runCatching { timeFormatter.format(Instant.parse(iso)) }.getOrDefault(iso)
+private fun formatTimestamp(iso: String, zone: ZoneId): String =
+    runCatching { timePattern.withZone(zone).format(Instant.parse(iso)) }.getOrDefault(iso)
 
 private fun formatDuration(startIso: String, endIso: String?): String =
     runCatching {

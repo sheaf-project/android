@@ -219,7 +219,7 @@ fun SettingsScreen(
             SettingItem(
                 icon = Icons.Outlined.Palette,
                 title = "Appearance",
-                subtitle = "Theme",
+                subtitle = "Theme, timezone",
                 onClick = onNavigateToAppearance,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))

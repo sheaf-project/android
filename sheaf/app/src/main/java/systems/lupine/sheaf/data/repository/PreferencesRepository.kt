@@ -70,6 +70,14 @@ class PreferencesRepository @Inject constructor(
         // for users who use both.
         val KEY_HISTORY_VIEW = stringPreferencesKey("history_view")
         val KEY_HISTORY_PAGE_SIZE = intPreferencesKey("history_page_size")
+        // Display timezone. Two tiers (see resolveDisplayZone):
+        //  - account_timezone: last-known synced account default (System.timezone),
+        //    cached so the effective zone is available at startup / offline.
+        //    Absent = "automatic".
+        //  - timezone_override: this device's local override. Absent = follow the
+        //    account; "auto" = pin this device to its own clock; else an IANA zone.
+        val KEY_ACCOUNT_TIMEZONE = stringPreferencesKey("account_timezone")
+        val KEY_TIMEZONE_OVERRIDE = stringPreferencesKey("timezone_override")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -90,6 +98,8 @@ class PreferencesRepository @Inject constructor(
     val appLockEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_APP_LOCK] ?: false }
     val historyView: Flow<String> = context.dataStore.data.map { it[KEY_HISTORY_VIEW] ?: "infinite" }
     val historyPageSize: Flow<Int> = context.dataStore.data.map { it[KEY_HISTORY_PAGE_SIZE] ?: 50 }
+    val accountTimezone: Flow<String?> = context.dataStore.data.map { it[KEY_ACCOUNT_TIMEZONE] }
+    val timezoneOverride: Flow<String?> = context.dataStore.data.map { it[KEY_TIMEZONE_OVERRIDE] }
 
     suspend fun saveBaseUrl(url: String) {
         context.dataStore.edit { it[KEY_BASE_URL] = normalizeBaseUrl(url) }
@@ -99,6 +109,23 @@ class PreferencesRepository @Inject constructor(
         context.dataStore.edit {
             if (url.isNullOrBlank()) it.remove(KEY_FILE_CDN_BASE)
             else it[KEY_FILE_CDN_BASE] = url.trimEnd('/')
+        }
+    }
+
+    // Cache the synced account timezone. null (automatic) is stored as absence.
+    suspend fun saveAccountTimezone(zone: String?) {
+        context.dataStore.edit {
+            if (zone.isNullOrBlank()) it.remove(KEY_ACCOUNT_TIMEZONE)
+            else it[KEY_ACCOUNT_TIMEZONE] = zone
+        }
+    }
+
+    // Set/clear this device's timezone override. null clears it (follow the
+    // account); "auto" pins this device to its own clock; else an IANA zone.
+    suspend fun saveTimezoneOverride(value: String?) {
+        context.dataStore.edit {
+            if (value == null) it.remove(KEY_TIMEZONE_OVERRIDE)
+            else it[KEY_TIMEZONE_OVERRIDE] = value
         }
     }
 

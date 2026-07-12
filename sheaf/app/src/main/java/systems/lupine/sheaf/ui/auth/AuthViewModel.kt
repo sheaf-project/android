@@ -10,6 +10,8 @@ import systems.lupine.sheaf.data.model.TokenResponse
 import systems.lupine.sheaf.data.model.UserLogin
 import systems.lupine.sheaf.data.model.UserRegister
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.ui.components.resolveDisplayZoneId
+import java.time.ZoneId
 import systems.lupine.sheaf.data.repository.WatchSessionRepository
 import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import systems.lupine.sheaf.push.PushDeviceRegistrar
@@ -65,6 +67,14 @@ class AuthViewModel @Inject constructor(
     val fileCdnBase: StateFlow<String?> = prefs.fileCdnBase
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    // The resolved display timezone (account default shadowed by any device
+    // override). Provided app-wide via LocalDisplayTimeZone so every timestamp
+    // renders in the same zone.
+    val effectiveDisplayZone: StateFlow<ZoneId> =
+        combine(prefs.accountTimezone, prefs.timezoneOverride) { account, override ->
+            resolveDisplayZoneId(account, override)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ZoneId.systemDefault())
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val authConfig: StateFlow<AuthConfig?> = baseUrl
         .filter { it.isNotBlank() }
@@ -76,6 +86,19 @@ class AuthViewModel @Inject constructor(
         // Keep authConfig subscribed so `file_cdn_base` is persisted even when
         // no UI is observing it — the image interceptor reads it from prefs.
         viewModelScope.launch { authConfig.collect { } }
+
+        // Refresh the cached account timezone on each login so the app-wide
+        // display zone reflects a change made on another device. Cached to
+        // prefs so the zone is available at startup / offline; settings writes
+        // update it directly for an instant local reflection.
+        viewModelScope.launch {
+            isLoggedIn.collect { loggedIn ->
+                if (loggedIn) {
+                    runCatching { api.getOwnSystem() }
+                        .onSuccess { prefs.saveAccountTimezone(it.timezone) }
+                }
+            }
+        }
     }
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)

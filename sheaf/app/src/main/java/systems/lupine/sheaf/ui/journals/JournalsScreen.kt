@@ -44,6 +44,7 @@ import systems.lupine.sheaf.data.model.JournalEntryRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 // ── Journals list ─────────────────────────────────────────────────────────────
@@ -193,7 +194,7 @@ private fun JournalCard(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    formatJournalDate(entry.createdAt),
+                    formatJournalDate(entry.createdAt, LocalDisplayTimeZone.current),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
@@ -626,13 +627,13 @@ private fun JournalReader(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                formatJournalDate(entry.createdAt),
+                formatJournalDate(entry.createdAt, LocalDisplayTimeZone.current),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (entry.updatedAt != entry.createdAt) {
                 Text(
-                    "· edited ${formatJournalDate(entry.updatedAt)}",
+                    "· edited ${formatJournalDate(entry.updatedAt, LocalDisplayTimeZone.current)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
@@ -798,7 +799,7 @@ private fun RevisionRow(
             }
         }
         Text(
-            formatJournalDate(revision.createdAt),
+            formatJournalDate(revision.createdAt, LocalDisplayTimeZone.current),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -840,7 +841,7 @@ private fun RevisionRow(
 private val journalDateFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm")
 
-private fun formatJournalDate(iso: String): String = runCatching {
-    OffsetDateTime.parse(iso).toLocalDateTime().format(journalDateFormatter)
+private fun formatJournalDate(iso: String, zone: ZoneId): String = runCatching {
+    OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDateTime().format(journalDateFormatter)
 }.getOrDefault(iso)
 
