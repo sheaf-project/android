@@ -6,6 +6,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [1.2.2] - 2026-07-11
 
+### Added
+
+- **Display timezone.** You can now choose the timezone timestamps are shown
+  in. Set an account-wide default (synced across your devices) under
+  Settings > Appearance, and optionally override it on this device only
+  ("follow the account", "this device's own clock", or a specific zone).
+  "Automatic" keeps the previous behaviour of using each device's own clock.
+  Front history, journal entries, and member revision times render in the
+  chosen zone.
+
 ### Fixed
 
 - **Recovery codes work at login.** The two-factor login prompt now has a

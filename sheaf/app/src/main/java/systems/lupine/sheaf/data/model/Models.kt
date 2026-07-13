@@ -247,8 +247,22 @@ data class SystemRead(
     // Free-form scratchpad. Lightweight counterpart to journals: no versioning,
     // no destructive-auth on edits. Max 5000 chars server-side.
     val note: String? = null,
+    // Account-wide display timezone: an IANA zone name, or null = "automatic"
+    // (each device renders in its own local clock). Synced across the account's
+    // devices; a per-device override can shadow it locally. See [resolveDisplayZone].
+    val timezone: String? = null,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
+)
+
+// Dedicated single-field body for updating the account timezone. Separate from
+// SystemUpdate because "automatic" is an explicit null that must be *sent*
+// (the backend uses exclude_unset: omitted = unchanged, null = auto), and the
+// shared Moshi codegen omits null fields. Serialized with an adapter built via
+// .serializeNulls() so the null actually reaches the wire.
+@JsonClass(generateAdapter = true)
+data class SystemTimezoneBody(
+    val timezone: String?,
 )
 
 @JsonClass(generateAdapter = true)

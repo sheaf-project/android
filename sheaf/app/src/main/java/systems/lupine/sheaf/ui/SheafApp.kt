@@ -20,6 +20,7 @@ import androidx.navigation.compose.*
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.auth.LoginScreen
 import systems.lupine.sheaf.ui.auth.OnboardingScreen
+import systems.lupine.sheaf.ui.components.LocalDisplayTimeZone
 import systems.lupine.sheaf.ui.components.LocalFileCdnBase
 import systems.lupine.sheaf.ui.debug.DebugScreen
 import systems.lupine.sheaf.ui.groups.GroupDetailScreen
@@ -153,6 +154,7 @@ fun SheafApp(
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
     val pendingRedeem by pendingRedemption.pending.collectAsState()
     val fileCdnBase by authViewModel.fileCdnBase.collectAsState()
+    val displayZone by authViewModel.effectiveDisplayZone.collectAsState()
     val navController = rememberNavController()
 
     // React to login state changes
@@ -193,9 +195,12 @@ fun SheafApp(
     val currentRoute = navBackStack?.destination?.route
     val showBottomBar = currentRoute in topLevelDestinations.map { it.route }
 
-    // Provide the instance's file CDN base app-wide so image hosted/external
-    // classification (bio editor, journals) recognises CDN-served images.
-    CompositionLocalProvider(LocalFileCdnBase provides fileCdnBase) {
+    // Provide the file CDN base (image hosted/external classification) and the
+    // resolved display timezone (timestamp rendering) app-wide.
+    CompositionLocalProvider(
+        LocalFileCdnBase provides fileCdnBase,
+        LocalDisplayTimeZone provides displayZone,
+    ) {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {

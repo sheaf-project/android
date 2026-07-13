@@ -19,6 +19,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import systems.lupine.sheaf.ui.theme.SheafPalette
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -49,6 +51,7 @@ import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
@@ -67,6 +70,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import systems.lupine.sheaf.ui.components.COMMON_ZONES
+import systems.lupine.sheaf.ui.components.TZ_AUTO
+import systems.lupine.sheaf.ui.components.allTimeZoneIds
+import systems.lupine.sheaf.ui.components.friendlyZoneLabel
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
@@ -155,6 +162,207 @@ fun AppearanceSettingsScreen(
             synced = themeSynced,
             onChange = { viewModel.setThemeSynced(it) },
         )
+        HorizontalDivider()
+        TimezoneSection()
+    }
+}
+
+// ── Timezone ──────────────────────────────────────────────────────────────────
+
+/**
+ * Two-tier display-timezone control, mirroring web's system-profile-card:
+ * the account default (synced) and a per-device override. See
+ * [systems.lupine.sheaf.ui.components.resolveDisplayZoneId].
+ */
+@Composable
+private fun TimezoneSection(viewModel: TimezoneViewModel = hiltViewModel()) {
+    val account by viewModel.accountTimezone.collectAsState()
+    val override by viewModel.deviceOverride.collectAsState()
+    val effective by viewModel.effectiveZone.collectAsState()
+    val state by viewModel.state.collectAsState()
+
+    var showAccountPicker by remember { mutableStateOf(false) }
+    var showDevicePicker by remember { mutableStateOf(false) }
+
+    Text(
+        "Timezone",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
+    )
+
+    Surface(onClick = { showAccountPicker = true }, modifier = Modifier.fillMaxWidth()) {
+        ListItem(
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            headlineContent = { Text("Account timezone") },
+            supportingContent = {
+                Text(account?.let { friendlyZoneLabel(it) } ?: "Automatic (each device's own clock)")
+            },
+            trailingContent = if (state.isSaving) ({
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            }) else null,
+        )
+    }
+    HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+    Surface(onClick = { showDevicePicker = true }, modifier = Modifier.fillMaxWidth()) {
+        ListItem(
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Watch,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            headlineContent = { Text("On this device") },
+            supportingContent = { Text(deviceOverrideLabel(override)) },
+        )
+    }
+    Text(
+        "Showing times in ${friendlyZoneLabel(effective.id)}.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+    )
+    state.error?.let { err ->
+        Text(
+            err,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
+        )
+    }
+
+    if (showAccountPicker) {
+        TimeZonePickerDialog(
+            title = "Account timezone",
+            special = listOf(null to "Automatic (each device's own clock)"),
+            current = account,
+            onDismiss = { showAccountPicker = false },
+            onPick = {
+                viewModel.setAccountTimezone(it)
+                showAccountPicker = false
+            },
+        )
+    }
+    if (showDevicePicker) {
+        TimeZonePickerDialog(
+            title = "On this device",
+            special = listOf(
+                null to "Follow account",
+                TZ_AUTO to "This device's own clock",
+            ),
+            current = override,
+            onDismiss = { showDevicePicker = false },
+            onPick = {
+                viewModel.setDeviceOverride(it)
+                showDevicePicker = false
+            },
+        )
+    }
+}
+
+private fun deviceOverrideLabel(override: String?): String = when (override) {
+    null -> "Follow account"
+    TZ_AUTO -> "This device's own clock"
+    else -> friendlyZoneLabel(override)
+}
+
+/**
+ * Searchable IANA zone picker, mirroring web's timezone-select: [special]
+ * entries (e.g. "Automatic", "Follow account") at the top, then a "Common"
+ * group of friendly DST-compensated names, then the full "All time zones" list.
+ * Typing filters the Common group (by label or id) and the full list.
+ */
+@Composable
+private fun TimeZonePickerDialog(
+    title: String,
+    special: List<Pair<String?, String>>,
+    current: String?,
+    onDismiss: () -> Unit,
+    onPick: (String?) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val allZones = remember { allTimeZoneIds() }
+    val q = query.trim()
+    val commonFiltered = remember(q) {
+        if (q.isEmpty()) COMMON_ZONES
+        else COMMON_ZONES.filter { it.label.contains(q, ignoreCase = true) || it.zone.contains(q, ignoreCase = true) }
+    }
+    val allFiltered = remember(q) {
+        if (q.isEmpty()) allZones else allZones.filter { it.contains(q, ignoreCase = true) }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(title) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Search") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    if (q.isEmpty()) {
+                        items(special) { (value, label) ->
+                            ZonePickerRow(label, selected = value == current, onClick = { onPick(value) })
+                        }
+                    }
+                    if (commonFiltered.isNotEmpty()) {
+                        item { ZonePickerSectionHeader("Common") }
+                        items(commonFiltered) { c ->
+                            ZonePickerRow(c.label, selected = c.zone == current, onClick = { onPick(c.zone) })
+                        }
+                    }
+                    if (allFiltered.isNotEmpty()) {
+                        item { ZonePickerSectionHeader("All time zones") }
+                        items(allFiltered) { zone ->
+                            ZonePickerRow(zone, selected = zone == current, onClick = { onPick(zone) })
+                        }
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun ZonePickerSectionHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun ZonePickerRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            if (selected) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            }
+        }
     }
 }
 

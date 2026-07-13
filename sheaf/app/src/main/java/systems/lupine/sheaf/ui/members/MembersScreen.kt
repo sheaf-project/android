@@ -51,6 +51,7 @@ import systems.lupine.sheaf.data.model.ContentRevisionRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 // ── Members list ──────────────────────────────────────────────────────────────
@@ -1267,7 +1268,7 @@ private fun BioRevisionRow(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                formatRevisionDate(revision.createdAt),
+                formatRevisionDate(revision.createdAt, LocalDisplayTimeZone.current),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
@@ -1321,7 +1322,7 @@ private fun BioRevisionDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(formatRevisionDate(revision.createdAt), modifier = Modifier.weight(1f))
+                Text(formatRevisionDate(revision.createdAt, LocalDisplayTimeZone.current), modifier = Modifier.weight(1f))
                 if (isPinned) {
                     Icon(
                         Icons.Outlined.PushPin,
@@ -1435,8 +1436,8 @@ private fun BioDiffView(lines: List<BioDiffLine>) {
 private val revisionDateFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm")
 
-private fun formatRevisionDate(iso: String): String = runCatching {
-    OffsetDateTime.parse(iso).toLocalDateTime().format(revisionDateFormatter)
+private fun formatRevisionDate(iso: String, zone: ZoneId): String = runCatching {
+    OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDateTime().format(revisionDateFormatter)
 }.getOrDefault(iso)
 
 private fun formatBirthday(value: String): String? {
