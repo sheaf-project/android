@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.ui.tbimport
 
+import systems.lupine.sheaf.ui.importcommon.jsonQuote
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -209,7 +210,7 @@ internal fun buildTbOptionsJson(opts: TBImportOptions, memberIds: List<String>?)
     val parts = mutableListOf<String>()
     parts += "\"groups\":${opts.groups}"
     if (memberIds != null) {
-        val ids = memberIds.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" }
+        val ids = memberIds.joinToString(",") { jsonQuote(it) }
         parts += "\"member_ids\":[$ids]"
     }
     return parts.joinToString(",", prefix = "{", postfix = "}")

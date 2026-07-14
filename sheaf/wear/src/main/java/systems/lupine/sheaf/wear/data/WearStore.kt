@@ -176,12 +176,6 @@ class WearStore(
         return true
     }
 
-    // A 4xx (other than auth 401/403, timeout 408, rate-limit 429) means the
-    // request itself is bad and replaying it won't help. Mirrors the phone's
-    // SyncWorker.isPermanent.
-    private fun isPermanentSwitchError(code: Int): Boolean =
-        code in 400..499 && code !in setOf(401, 403, 408, 429)
-
     suspend fun createMember(name: String, displayName: String?, pronouns: String?): WearMember {
         val member = apiClient.createMember(name, displayName, pronouns)
         members.value = members.value + member
@@ -364,3 +358,15 @@ private fun newestSinceEpoch(
             runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
         }
     }.maxOrNull()
+
+/**
+ * A 4xx (other than auth 401/403, timeout 408, rate-limit 429) means the request
+ * itself is bad and replaying it won't help: drop the queued switch instead of
+ * retrying it forever. Misclassify the other way and the user's switch is
+ * silently deleted and never lands.
+ *
+ * Top-level (not a WearStore member) so it is testable without a Context, and it
+ * mirrors the phone's SyncWorker isPermanentHttpFailure verdict for verdict.
+ */
+internal fun isPermanentSwitchError(code: Int): Boolean =
+    code in 400..499 && code !in setOf(401, 403, 408, 429)

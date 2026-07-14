@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.ui.pkimport
 
+import systems.lupine.sheaf.ui.importcommon.jsonQuote
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -222,7 +223,7 @@ internal fun buildPkOptionsJson(opts: PKFileImportOptions, memberIds: List<Strin
     parts += "\"groups\":${opts.groups}"
     parts += "\"front_history\":${opts.frontHistory}"
     if (memberIds != null) {
-        val ids = memberIds.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" }
+        val ids = memberIds.joinToString(",") { jsonQuote(it) }
         parts += "\"member_ids\":[$ids]"
     }
     return parts.joinToString(",", prefix = "{", postfix = "}")

@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.ui.importsp
 
+import systems.lupine.sheaf.ui.importcommon.jsonQuote
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -225,7 +226,7 @@ private fun buildSpOptionsJson(opts: ImportOptions, memberIds: List<String>?): S
     parts += "\"groups\":${opts.groups}"
     parts += "\"front_history\":${opts.frontHistory}"
     if (memberIds != null) {
-        val ids = memberIds.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" }
+        val ids = memberIds.joinToString(",") { jsonQuote(it) }
         parts += "\"member_ids\":[$ids]"
     }
     return parts.joinToString(",", prefix = "{", postfix = "}")

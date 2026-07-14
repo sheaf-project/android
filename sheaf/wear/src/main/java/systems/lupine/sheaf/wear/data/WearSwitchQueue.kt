@@ -125,7 +125,11 @@ internal object WearSwitchQueue {
     internal fun encode(s: WearQueuedSwitch): String =
         "${s.uuid}|${s.createdAt}|${if (s.replaceFronts) 1 else 0}|${s.memberIds.joinToString(",")}"
 
-    private fun parseLine(line: String): WearQueuedSwitch? {
+    // internal so the encode/decode round trip can be unit-tested: a bad parse
+    // here silently drops a queued offline switch, or replays it with the wrong
+    // member set / replace flag / createdAt (which becomes the front's
+    // started_at on drain).
+    internal fun parseLine(line: String): WearQueuedSwitch? {
         val parts = line.split('|', limit = 4)
         if (parts.size != 4) return null
         val uuid = parts[0]

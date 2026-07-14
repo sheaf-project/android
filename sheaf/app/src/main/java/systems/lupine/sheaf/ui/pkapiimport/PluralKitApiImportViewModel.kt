@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.ui.pkapiimport
 
+import systems.lupine.sheaf.ui.importcommon.jsonQuote
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -195,7 +196,7 @@ internal fun buildPkApiOptionsJson(opts: PKApiImportOptions, memberIds: List<Str
     parts += "\"groups\":${opts.groups}"
     parts += "\"front_history\":${opts.frontHistory}"
     if (memberIds != null) {
-        val ids = memberIds.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" }
+        val ids = memberIds.joinToString(",") { jsonQuote(it) }
         parts += "\"member_ids\":[$ids]"
     }
     return parts.joinToString(",", prefix = "{", postfix = "}")
@@ -216,11 +217,8 @@ internal fun buildApiImportBodyJson(
     // strings that wouldn't normally contain quotes or backslashes, but
     // we still escape defensively against a pasted token with whitespace
     // or odd characters.
-    val escapedToken = token
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
     return """{"source":"${ImportJobSource.PLURALKIT_API}",""" +
         """"idempotency_key":"$idempotencyKey",""" +
-        """"pk_token":"$escapedToken",""" +
+        """"pk_token":${jsonQuote(token)},""" +
         """"options":$options}"""
 }

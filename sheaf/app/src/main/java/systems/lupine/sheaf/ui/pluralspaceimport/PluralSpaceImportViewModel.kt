@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.ui.pluralspaceimport
 
+import systems.lupine.sheaf.ui.importcommon.jsonQuote
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -214,7 +215,7 @@ private fun buildOptionsJson(opts: PluralSpaceImportOptions, memberIds: List<Str
     parts += "\"chat_messages\":${opts.chatMessages}"
     parts += "\"polls\":${opts.polls}"
     if (memberIds != null) {
-        val ids = memberIds.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" }
+        val ids = memberIds.joinToString(",") { jsonQuote(it) }
         parts += "\"member_ids\":[$ids]"
     } else {
         parts += "\"member_ids\":null"

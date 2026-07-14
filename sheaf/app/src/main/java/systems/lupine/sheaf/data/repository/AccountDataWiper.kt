@@ -21,11 +21,21 @@ class AccountDataWiper @Inject constructor(
     private val cache: LocalCache,
     private val pendingOps: PendingOperationsDao,
 ) {
+    /**
+     * Best-effort, but each step is attempted independently. A single
+     * runCatching around all three meant a throw from [LocalCache.clearAll]
+     * skipped both queue deletes, leaving the previous account's queued front
+     * switches to replay against the new account's credentials: exactly the
+     * thing this class exists to prevent, silently swallowed.
+     */
     suspend fun wipe() {
-        runCatching {
-            cache.clearAll()
-            pendingOps.deleteAllSwitches()
-            pendingOps.deleteAllRemovals()
-        }.onFailure { Log.w("AccountDataWiper", "failed to wipe account data", it) }
+        step("cache") { cache.clearAll() }
+        step("pending switches") { pendingOps.deleteAllSwitches() }
+        step("pending removals") { pendingOps.deleteAllRemovals() }
+    }
+
+    private suspend fun step(what: String, block: suspend () -> Unit) {
+        runCatching { block() }
+            .onFailure { Log.w("AccountDataWiper", "failed to wipe $what", it) }
     }
 }
