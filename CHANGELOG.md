@@ -78,6 +78,11 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 - **Exporting a large system no longer risks running out of memory.** The JSON
   export is now streamed to the file instead of being held in memory first.
+- **Retrying an import no longer risks importing twice.** If an import was
+  started but the app lost the connection while waiting for it to finish,
+  pressing Import again now resumes the same job instead of starting a second
+  one. Applies to every importer (Sheaf, PluralKit file and API, Tupperbox,
+  Prism, OpenPlural, PluralSpace, Simply Plural).
 
 ## [1.2.2] - 2026-07-11
 
