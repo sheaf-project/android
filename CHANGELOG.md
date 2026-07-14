@@ -51,6 +51,15 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   switch. A failed group-membership load no longer lets Save wipe the group's
   members.
 
+- **Self-hosted instances behind a path now work.** A server URL like
+  `example.org/sheaf` had the path silently dropped, so every request went to
+  the domain root instead. Only instances at the root of a domain worked.
+
+- **A server URL that cannot work is rejected up front.** The app used to invite
+  you to type `http://` for a plaintext server, accept it, and then fail every
+  request with an unhelpful network error, because Android blocks unencrypted
+  connections. It now says so when you enter the address.
+
 ## [1.2.2] - 2026-07-11
 
 ### Added

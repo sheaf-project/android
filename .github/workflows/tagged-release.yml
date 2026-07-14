@@ -93,9 +93,12 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x sheaf/gradlew
 
-      - name: Run unit tests
+      - name: Run unit tests (app + wear)
         working-directory: sheaf
-        run: ./gradlew :app:test
+        # This workflow builds and ships the wear module, so its tests belong
+        # here too. It used to run :app:test alone, so every tagged wear release
+        # went out without its tests ever having run.
+        run: ./gradlew :app:test :wear:test
 
       - name: Upload test reports
         if: always()
@@ -105,6 +108,8 @@ jobs:
           path: |
             sheaf/app/build/reports/tests/
             sheaf/app/build/test-results/
+            sheaf/wear/build/reports/tests/
+            sheaf/wear/build/test-results/
           if-no-files-found: ignore
 
       - name: Install cosign
