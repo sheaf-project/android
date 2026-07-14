@@ -1,20 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Auto Backup rules for API <= 30. DataStore lives at
-  files/datastore/sheaf_prefs.preferences_pb and contains the user's auth
-  tokens (phone + watch companion-session) along with theme and base URL.
-
-  Excluding the whole datastore directory keeps revoked tokens from being
-  silently restored from Google Drive on reinstall — which otherwise
-  bricks watch pairing because the local "watch token already exists"
-  fast-path short-circuits the secondary-session mint on the phone, and
-  there's no way to learn server-side that the cached pair has been
-  revoked (the watch's 401 doesn't propagate back).
-
-  Trade-off: theme + base URL also vanish on reinstall. Acceptable; users
-  re-enter the server URL on first launch anyway, and theme defaults
-  to "system".
+  Auto Backup rules for API <= 30. android:allowBackup="false" already disables
+  backup on these releases; this file is belt-and-braces so that flipping the
+  flag cannot silently start shipping the cache, the offline queue or the auth
+  tokens to Google Drive. See data_extraction_rules.xml for the API 31+ rules
+  and the reasoning.
 -->
 <full-backup-content>
-    <exclude domain="file" path="datastore/" />
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
 </full-backup-content>

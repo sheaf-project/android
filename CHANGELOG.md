@@ -51,6 +51,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   switch. A failed group-membership load no longer lets Save wipe the group's
   members.
 
+### Security
+
+- **Your data no longer goes into Android's cloud backup.** The phone and watch
+  apps now opt out of backup and device-to-device transfer entirely. Previously
+  the local cache (members, groups, front history, messages), the offline switch
+  queue and the watch's stored session were all eligible to be copied into a
+  Google-held backup of your device. Nothing about your system leaves the device
+  now; everything is restored by signing in again, and a watch re-pairs from the
+  phone.
+
 ## [1.2.2] - 2026-07-11
 
 ### Added
