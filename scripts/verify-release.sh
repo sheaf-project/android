@@ -14,6 +14,10 @@
 #       Download the artefacts from a GitHub release at <tag> (default 'dev')
 #       and verify them in a temp dir. Cleans up after itself.
 #
+# Set EXPECT_APK_SHA256 to the expected APK signing certificate SHA-256 (colons
+# and case are ignored) to enforce it; a mismatch fails verification. Without
+# it, the fingerprint is printed for you to compare against the published key.
+#
 # Exit codes:
 #   0  - everything verified
 #   1  - at least one APK failed verification
@@ -33,6 +37,7 @@ usage:
   verify-release.sh --tag [<tag>]   (default tag: dev)
 
 Requires: cosign, gh (only with --tag), apksigner (optional, recommended).
+Set EXPECT_APK_SHA256 to enforce the APK signing cert fingerprint.
 EOF
     exit 64
 }
@@ -90,9 +95,36 @@ verify_apk() {
 
     # APK signing cert (Android's own signature, separate from cosign).
     if command -v apksigner >/dev/null 2>&1; then
-        echo "  apksigner certificate fingerprint"
-        apksigner verify --print-certs "$apk" 2>/dev/null \
-            | awk '/Signer #1 certificate (SHA-256|DN|SHA-1|MD5)/ {sub(/^Signer #1 /, "    "); print}'
+        # Validate the APK's own signature first. This must NOT be piped into
+        # awk (the pipeline would return awk's exit status and mask a rejected
+        # signature), so run it on its own and check the status. A failure here
+        # means a tampered or unsigned APK.
+        if ! apksigner verify "$apk" >/dev/null 2>&1; then
+            echo "  FAIL: apksigner rejected the APK signature" >&2
+            apksigner verify "$apk" >&2 2>&1 || true
+            return 1
+        fi
+
+        certs=$(apksigner verify --print-certs "$apk" 2>/dev/null)
+        got=$(printf '%s\n' "$certs" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: *//p' \
+            | tr 'A-F' 'a-f' | tr -d ': ')
+
+        if [ -n "${EXPECT_APK_SHA256:-}" ]; then
+            # Enforce the signing cert matches the expected fingerprint.
+            want=$(printf '%s' "$EXPECT_APK_SHA256" | tr 'A-F' 'a-f' | tr -d ': ')
+            if [ "$want" != "$got" ]; then
+                echo "  FAIL: APK signing cert SHA-256 does not match expected" >&2
+                echo "    expected: $want" >&2
+                echo "    actual:   $got" >&2
+                return 1
+            fi
+            echo "  apksigner cert SHA-256 matches expected"
+        else
+            echo "  apksigner certificate fingerprint (compare against the published key):"
+            printf '%s\n' "$certs" \
+                | awk '/Signer #1 certificate (SHA-256|DN|SHA-1|MD5)/ {sub(/^Signer #1 /, "    "); print}'
+        fi
     else
         echo "  (apksigner not installed; skipping APK signing cert check)"
     fi
