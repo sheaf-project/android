@@ -107,7 +107,10 @@ fun SettingsScreen(navController: NavController) {
                     Chip(
                         label = { Text("Confirm") },
                         onClick = {
-                            auth.clearCredentials()
+                            // signOut (not clearCredentials) latches the intent
+                            // so the app doesn't immediately re-request creds
+                            // from the phone or reload the cached DataItem.
+                            auth.signOut()
                             store.clearData()
                             navController.popBackStack()
                         },

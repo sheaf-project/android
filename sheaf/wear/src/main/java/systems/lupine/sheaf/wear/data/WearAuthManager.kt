@@ -80,8 +80,32 @@ class WearAuthManager(context: Context) {
             .putString("access_token", accessToken)
             .putString("refresh_token", refreshToken)
             .apply()
+        // Applying credentials means we're signed in again, so drop any manual
+        // sign-out latch (a phone push or a manual watch login both land here).
+        signal.edit().putBoolean(KEY_MANUALLY_SIGNED_OUT, false).apply()
         _isAuthenticatedFlow.value = true
         notifyCredsChanged()
+    }
+
+    /**
+     * True when the user explicitly signed out on the watch. Latched so the
+     * app doesn't silently re-request credentials from the phone or re-apply
+     * the still-present cached DataItem on the next start. Cleared by
+     * [saveCredentials] (a fresh sign-in) or [clearManualSignOut] (an explicit
+     * re-sync).
+     */
+    val manuallySignedOut: Boolean
+        get() = signal.getBoolean(KEY_MANUALLY_SIGNED_OUT, false)
+
+    /** Explicit watch-side sign-out: latch the intent, then clear credentials. */
+    fun signOut() {
+        signal.edit().putBoolean(KEY_MANUALLY_SIGNED_OUT, true).apply()
+        clearCredentials()
+    }
+
+    /** Drop the manual sign-out latch, e.g. when the user asks to re-sync. */
+    fun clearManualSignOut() {
+        signal.edit().putBoolean(KEY_MANUALLY_SIGNED_OUT, false).apply()
     }
 
     fun clearCredentials() {
@@ -166,6 +190,7 @@ class WearAuthManager(context: Context) {
         const val SECURE_FILE = "wear_auth_secure"
         const val SIGNAL_FILE = "wear_auth_signal"
         const val KEY_CREDS_VERSION = "creds_version"
+        const val KEY_MANUALLY_SIGNED_OUT = "manually_signed_out"
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         // Dedicated alias rather than MasterKey's default so a rebuild here
         // doesn't disturb any other keystore-backed material.

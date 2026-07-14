@@ -301,6 +301,9 @@ class AuthViewModel @Inject constructor(
             // Wipe cached account data + the offline queue so the next account
             // to sign in on this device can't see them or replay them.
             accountDataWiper.wipe()
+            // Delete the watch's credential DataItem so a paired watch drops the
+            // session too and can't reload it after a restart.
+            runCatching { PhoneDataLayerService.clearWatchCredentials(appContext) }
             // Trusted-device cookie deliberately persists across logout, same
             // as browser behaviour. It's a property of the device, not the
             // session. Revoke from the trusted-devices settings screen if you

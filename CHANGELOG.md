@@ -20,6 +20,12 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   expired token at once collapse into a single refresh instead of racing and
   tripping the server's one-shot refresh-token reuse detection.
 
+- **Signing out actually signs the watch out.** Signing out on the phone now
+  clears the paired watch's session (previously it kept working), and signing
+  out on the watch no longer immediately re-pulls credentials from the phone or
+  restores them on the next restart. A later sign-in or "Retry Sync" brings the
+  watch back.
+
 ## [1.2.2] - 2026-07-11
 
 ### Added

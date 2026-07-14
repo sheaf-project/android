@@ -38,7 +38,9 @@ class MainActivity : ComponentActivity() {
         // Try to load cached credentials from the Data Layer first, then fall
         // back to requesting a fresh push from the phone. The cached DataItem
         // is available even if the phone isn't connected at startup yet.
-        if (!authManager.isAuthenticated) {
+        // Skip entirely if the user explicitly signed out on the watch, so a
+        // still-present cached DataItem doesn't silently sign them back in.
+        if (!authManager.isAuthenticated && !authManager.manuallySignedOut) {
             loadCredentialsFromDataLayer()
         }
 
@@ -57,7 +59,9 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 var wasAuthenticated = authManager.isAuthenticated
                 authManager.isAuthenticatedFlow.collect { authed ->
-                    if (!authed && wasAuthenticated) {
+                    // Don't auto-recover a session the user deliberately ended
+                    // on the watch; only recover sessions that dropped out.
+                    if (!authed && wasAuthenticated && !authManager.manuallySignedOut) {
                         Log.i(TAG, "companion session lost while app open, requesting reauth from phone")
                         requestCredentialsFromPhone()
                     }
@@ -132,6 +136,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestCredentialsFromPhone() {
+        // Reaching here means an intent to (re)sync - the auto-recovery paths
+        // are suppressed while manually signed out, so this is either a normal
+        // cache-miss or the user tapping "Retry Sync". Drop the latch so a
+        // subsequent phone push is honoured.
+        authManager.clearManualSignOut()
         Wearable.getNodeClient(this).connectedNodes
             .addOnSuccessListener { nodes ->
                 val nodeId = nodes.firstOrNull()?.id

@@ -36,7 +36,15 @@ class WearDataLayerService : WearableListenerService() {
         val authManager = WearAuthManager(applicationContext)
         for (event in events) {
             when (event.dataItem.uri.path) {
-                PATH_CREDENTIALS -> handleCredentials(event, authManager)
+                PATH_CREDENTIALS ->
+                    if (event.type == DataEvent.TYPE_DELETED) {
+                        // Phone signed out and deleted the credential item
+                        // (tombstone): drop the watch's session too.
+                        Log.i(TAG, "credentials DataItem deleted, clearing session")
+                        authManager.clearCredentials()
+                    } else {
+                        handleCredentials(event, authManager)
+                    }
                 PATH_REFRESH -> handleRefreshNudge(event, authManager)
                 else -> Log.d(TAG, "ignoring DataItem path=${event.dataItem.uri.path}")
             }
