@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -40,7 +41,11 @@ fun ExportDataScreen(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri -> uri?.let { viewModel.exportJsonTo(it) } }
 
-    var pendingDownloadJobId by remember { mutableStateOf<String?>(null) }
+    // Saveable: the document picker is a separate activity, so this one can be
+    // recreated (rotation, low memory) while it is up. With a plain remember the
+    // job id came back null, the result was dropped, and the user got nothing
+    // after choosing where to save.
+    var pendingDownloadJobId by rememberSaveable { mutableStateOf<String?>(null) }
     val zipSaveLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
