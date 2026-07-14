@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ private fun symmetryLabel(value: String): String =
 @Composable
 fun RelationshipTypesScreen(
     onNavigateUp: () -> Unit,
+    onOpenGraph: () -> Unit,
     viewModel: RelationshipTypesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -66,6 +68,11 @@ fun RelationshipTypesScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onOpenGraph) {
+                        Icon(Icons.Outlined.Hub, contentDescription = "Relationship graph")
                     }
                 },
             )

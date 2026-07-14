@@ -24,8 +24,9 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   labels, e.g. parent / child), or either (both, with an optional "mutual")
   - starting from a preset if you like. Then add relationships from a member
   or group's edit screen, picking the other party and the direction; the
-  member and group profiles show them read-only. (The whole-system graph view
-  is still web-only for now.)
+  member and group profiles show them read-only. A relationship graph (reachable
+  from the Relationships settings screen) draws the whole system as a
+  pan-and-zoom force-directed map, with a Members / Groups toggle.
 
 ### Fixed
 

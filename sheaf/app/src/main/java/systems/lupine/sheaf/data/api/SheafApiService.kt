@@ -904,6 +904,10 @@ interface SheafApiService {
     @DELETE("/v1/group-relationships/{edgeId}")
     suspend fun deleteGroupRelationship(@Path("edgeId") edgeId: String)
 
+    // Whole-system relationship graph. scope = "members" | "groups".
+    @GET("/v1/relationships/graph")
+    suspend fun getRelationshipGraph(@Query("scope") scope: String = "members"): RelationshipGraph
+
     // ── Polls ──────────────────────────────────────────────────────────────
 
     @GET("/v1/polls")

@@ -120,3 +120,33 @@ val RELATIONSHIP_PRESETS: List<RelationshipPreset> = listOf(
     RelationshipPreset("Caretaker", "Caretaker", SYMMETRY_EITHER, "caretaker", "cared for"),
     RelationshipPreset("Split from", "Split", SYMMETRY_DIRECTIONAL, "split from", "split off"),
 )
+
+// ── Whole-system graph ────────────────────────────────────────────────────────
+
+@JsonClass(generateAdapter = true)
+data class RelationshipGraphNode(
+    val id: String,
+    val name: String,
+    @Json(name = "avatar_url") val avatarUrl: String? = null,
+    val color: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class RelationshipGraphEdge(
+    val id: String,
+    @Json(name = "source_id") val sourceId: String,
+    @Json(name = "target_id") val targetId: String,
+    @Json(name = "relationship_type_id") val relationshipTypeId: String,
+    @Json(name = "type_name") val typeName: String,
+    @Json(name = "source_label") val sourceLabel: String,
+    @Json(name = "target_label") val targetLabel: String,
+    val mutual: Boolean,
+    // false for symmetric types and for mutual either-edges (drawn without an arrowhead).
+    val directed: Boolean,
+)
+
+@JsonClass(generateAdapter = true)
+data class RelationshipGraph(
+    val nodes: List<RelationshipGraphNode>,
+    val edges: List<RelationshipGraphEdge>,
+)
