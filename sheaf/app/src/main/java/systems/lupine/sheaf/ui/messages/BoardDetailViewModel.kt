@@ -63,7 +63,13 @@ class BoardDetailViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             runCatching {
                 val members = runCatching { api.listMembers() }.getOrDefault(emptyList())
-                val caller = members.firstOrNull()?.id
+                // Caller = the current fronter (who the board is read/posted as),
+                // matching the boards list. Falls back to the first member only
+                // when nothing is fronting. Using firstOrNull() here marked the
+                // wrong member's board seen and defaulted new posts to them.
+                val caller = runCatching {
+                    api.getCurrentFronts().firstOrNull()?.memberIds?.firstOrNull()
+                }.getOrNull() ?: members.firstOrNull()?.id
                 val page = api.getBoardMessages(
                     boardKind = boardKind,
                     boardMemberId = boardMemberId,

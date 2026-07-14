@@ -41,12 +41,19 @@ fun GroupDetailScreen(groupId: String, navController: NavController) {
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Only allow saving once the current membership actually loaded. Otherwise a
+    // failed load would leave selectedIds empty and Save would PUT an empty set,
+    // wiping every membership.
+    var loaded by remember { mutableStateOf(false) }
 
     // Load current group members from API
     LaunchedEffect(groupId) {
         isLoading = true
         runCatching { store.apiClient.getGroupMembers(groupId) }
-            .onSuccess { members -> selectedIds = members.map { it.id }.toSet() }
+            .onSuccess { members ->
+                selectedIds = members.map { it.id }.toSet()
+                loaded = true
+            }
             .onFailure { e -> error = e.message ?: "Failed to load group" }
         isLoading = false
     }
@@ -125,7 +132,7 @@ fun GroupDetailScreen(groupId: String, navController: NavController) {
                             isSaving = false
                         }
                     },
-                    enabled = !isSaving,
+                    enabled = !isSaving && loaded,
                     colors = ChipDefaults.primaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
