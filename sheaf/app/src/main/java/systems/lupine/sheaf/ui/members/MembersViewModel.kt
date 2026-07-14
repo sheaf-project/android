@@ -332,6 +332,10 @@ class MemberDetailViewModel @Inject constructor(
     private val rawId: String? = savedStateHandle["memberId"]
     val isNewMember: Boolean = rawId == null || rawId == "new"
     private val memberId: String? = if (isNewMember) null else rawId
+    // Latches the id of a member created during save(), so a retry after a
+    // later step (custom-field flush) fails updates that member instead of
+    // creating a duplicate.
+    private var createdMemberId: String? = null
 
     private val _state = MutableStateFlow(MemberDetailUiState(isLoading = !isNewMember))
     val state: StateFlow<MemberDetailUiState> = _state.asStateFlow()
@@ -425,7 +429,10 @@ class MemberDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
             runCatching {
-                val savedMember = if (isNewMember) {
+                // Create only if this is a new member we haven't already created
+                // on a prior (partially failed) save; otherwise update it.
+                val existingId = memberId ?: createdMemberId
+                val savedMember = if (existingId == null) {
                     api.createMember(MemberCreate(
                         name        = f.name.trim(),
                         displayName = f.displayName.takeIf { it.isNotBlank() },
@@ -437,7 +444,7 @@ class MemberDetailViewModel @Inject constructor(
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
                         note        = f.note.takeIf { it.isNotBlank() },
-                    ))
+                    )).also { createdMemberId = it.id }
                 } else {
                     val update = MemberUpdate(
                         name        = f.name.trim(),
@@ -456,7 +463,7 @@ class MemberDetailViewModel @Inject constructor(
                     val body = moshi.adapter(MemberUpdate::class.java).serializeNulls()
                         .toJson(update)
                         .toRequestBody("application/json".toMediaTypeOrNull()!!)
-                    api.patchMemberRaw(memberId!!, body)
+                    api.patchMemberRaw(existingId, body)
                 }
                 // Flush custom field values for the member. Diff against
                 // the load-time baseline so an unchanged field doesn't
@@ -464,7 +471,7 @@ class MemberDetailViewModel @Inject constructor(
                 // For new members, baseline is empty so every staged
                 // value goes through.
                 val cur = _state.value
-                val targetMemberId = memberId ?: savedMember.id
+                val targetMemberId = memberId ?: createdMemberId ?: savedMember.id
                 val diff = cur.customFieldValues.entries
                     .filter { (id, v) -> cur.customFieldValuesBaseline[id] != v }
                     .map { (id, v) ->

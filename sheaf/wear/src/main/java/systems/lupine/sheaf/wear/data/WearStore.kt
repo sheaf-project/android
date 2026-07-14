@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class WearStore(
     val apiClient: WearApiClient,
@@ -27,6 +29,12 @@ class WearStore(
     // rest of the load), but the history screen needs to distinguish "we
     // tried and it failed" from "no history yet".
     val recentFrontsError = MutableStateFlow<String?>(null)
+
+    // Serialises the offline-switch queue drain. loadAll()/refreshNow() run from
+    // many triggers (onResume, nav, manual refresh, post-switch, phone nudge);
+    // without this, two concurrent drains could both submit the same queued row
+    // before either removed it, double-creating a front.
+    private val queueDrainMutex = Mutex()
 
     val frontingMembers: List<WearMember>
         get() {
@@ -66,10 +74,19 @@ class WearStore(
         // user actually pressed switch, not at the moment the watch
         // reconnected. Best-effort: a transient failure leaves the
         // row in place for the next refreshNow.
-        for (q in WearSwitchQueue.snapshot(context)) {
-            val iso = java.time.Instant.ofEpochMilli(q.createdAt).toString()
-            runCatching { apiClient.createFront(q.memberIds, q.replaceFronts, iso) }
-                .onSuccess { WearSwitchQueue.remove(context, q.uuid) }
+        queueDrainMutex.withLock {
+            for (q in WearSwitchQueue.snapshot(context)) {
+                val iso = java.time.Instant.ofEpochMilli(q.createdAt).toString()
+                runCatching { apiClient.createFront(q.memberIds, q.replaceFronts, iso) }
+                    .onSuccess { WearSwitchQueue.remove(context, q.uuid) }
+                    .onFailure { e ->
+                        // Drop a row the server will never accept so it can't
+                        // replay forever; keep transient/offline failures queued.
+                        if (e is WearApiException && isPermanentSwitchError(e.code)) {
+                            WearSwitchQueue.remove(context, q.uuid)
+                        }
+                    }
+            }
         }
         try {
             members.value = apiClient.getMembers()
@@ -128,6 +145,15 @@ class WearStore(
                 loadAll()
                 return true
             }
+            .onFailure { e ->
+                // A permanent client error (deleted member, bad payload) will
+                // never succeed on replay, so don't queue it or report success:
+                // surface it instead of silently dropping the switch on the floor.
+                if (e is WearApiException && isPermanentSwitchError(e.code)) {
+                    error.value = "Couldn't switch front (error ${e.code})"
+                    return false
+                }
+            }
         // Direct call failed (most often: watch is offline). Two
         // fallback rungs, in order: hand off to the phone via
         // DataLayer (the phone has a persistent queue + SyncWorker
@@ -149,6 +175,12 @@ class WearStore(
         // worse UX than the rare lost-on-floor case below.
         return true
     }
+
+    // A 4xx (other than auth 401/403, timeout 408, rate-limit 429) means the
+    // request itself is bad and replaying it won't help. Mirrors the phone's
+    // SyncWorker.isPermanent.
+    private fun isPermanentSwitchError(code: Int): Boolean =
+        code in 400..499 && code !in setOf(401, 403, 408, 429)
 
     suspend fun createMember(name: String, displayName: String?, pronouns: String?): WearMember {
         val member = apiClient.createMember(name, displayName, pronouns)

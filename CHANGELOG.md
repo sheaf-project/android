@@ -26,6 +26,31 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   restores them on the next restart. A later sign-in or "Retry Sync" brings the
   watch back.
 
+- **Offline switches and removals replay in the order you made them.** The sync
+  worker now interleaves queued front switches and removals by their original
+  time instead of replaying all removals then all switches, so a reconnect
+  rebuilds the timeline correctly.
+
+- **Adding a new member no longer risks a duplicate.** If saving a new member's
+  custom fields failed after the member was created, retrying updates that
+  member instead of creating a second copy.
+
+- **Boards use the right identity.** A member wall now reads and posts as the
+  current fronter (matching the boards list) rather than defaulting to the
+  first member, so the wrong member's board is no longer marked seen.
+
+- **New registrations reach onboarding.** A newly registered account is taken to
+  onboarding instead of landing straight on the home screen.
+
+- **Markdown image picker no longer drops its result.** Choosing an image from
+  the bio/description/journal editors reliably attaches it (the picker launcher
+  could previously be torn down mid-pick).
+
+- **Wear: an offline switch that the server rejects is reported, not silently
+  queued forever**, and concurrent refreshes no longer double-submit a queued
+  switch. A failed group-membership load no longer lets Save wipe the group's
+  members.
+
 ## [1.2.2] - 2026-07-11
 
 ### Added

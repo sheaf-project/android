@@ -244,12 +244,13 @@ fun SheafApp(
             popExitTransition = { fadeOut() },
         ) {
             composable(Routes.LOGIN) {
-                LoginScreen(onLoginSuccess = {
-                    val target = if (authViewModel.pendingOnboarding.value) Routes.ONBOARDING else Routes.HOME
-                    navController.navigate(target) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                    }
-                })
+                // Share the activity-scoped AuthViewModel (not a LOGIN-entry
+                // scoped one), so register()'s pendingOnboarding is set on the
+                // same instance the nav effect above reads - otherwise new
+                // registrations skip onboarding. Navigation on sign-in is owned
+                // solely by that LaunchedEffect(isLoggedIn); onLoginSuccess is a
+                // no-op to avoid a duplicate navigate.
+                LoginScreen(onLoginSuccess = {}, viewModel = authViewModel)
             }
             composable(Routes.ONBOARDING) {
                 OnboardingScreen(

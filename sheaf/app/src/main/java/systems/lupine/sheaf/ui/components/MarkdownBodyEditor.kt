@@ -83,6 +83,13 @@ fun MarkdownBodyEditor(
     var showImagePicker by remember { mutableStateOf(false) }
     var showFormattingHelp by remember { mutableStateOf(false) }
 
+    // Registered unconditionally (not inside the picker-sheet branch): onUploadNew
+    // hides the sheet before launching, so a launcher scoped to the sheet would be
+    // disposed mid-pick and its result dropped. Also avoids a conditional-remember.
+    val activityImagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> if (uri != null) imagePicker?.onUploadImage(uri) }
+
     // Insert any pending image markdown into the body at the current cursor,
     // then clear it so the next upload retriggers cleanly.
     LaunchedEffect(imagePicker?.pendingImageMarkdown) {
@@ -136,9 +143,6 @@ fun MarkdownBodyEditor(
     }
 
     if (showImagePicker && imagePicker != null) {
-        val activityImagePicker = rememberLauncherForActivityResult(
-            ActivityResultContracts.PickVisualMedia()
-        ) { uri -> if (uri != null) imagePicker.onUploadImage(uri) }
         ImagePickerSheet(
             user = imagePicker.user,
             isLoadingImages = imagePicker.isLoadingImages,
