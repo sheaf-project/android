@@ -6,6 +6,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Security
+
+- **Your data no longer goes into Android's cloud backup.** The phone and watch
+  apps now opt out of backup and device-to-device transfer entirely. Previously
+  the local cache (members, groups, front history, messages), the offline switch
+  queue and the watch's stored session were all eligible to be copied into a
+  Google-held backup of your device. Nothing about your system leaves the device
+  now; everything is restored by signing in again, and a watch re-pairs from the
+  phone.
+
 ### Fixed
 
 - **Signing into another account no longer leaks the previous account's data.**
@@ -91,6 +101,7 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   pressing Import again now resumes the same job instead of starting a second
   one. Applies to every importer (Sheaf, PluralKit file and API, Tupperbox,
   Prism, OpenPlural, PluralSpace, Simply Plural).
+
 
 ## [1.2.2] - 2026-07-11
 

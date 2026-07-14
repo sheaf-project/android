@@ -1,11 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Watch-side counterpart to the phone rules. The watch opts out of backup
+  (android:allowBackup="false"), and everything is excluded from device
+  transfer as well, since that runs on API 31+ regardless of the flag.
+
+  What used to be at risk: wear_auth_secure.xml (the encrypted
+  companion-session tokens), wear_auth_signal.xml, tile_data.xml (offline
+  switch queue, front history, cached fronters), and the tile/complication
+  config. The old rules excluded "wear_auth.xml", which is the legacy
+  plaintext store that migration deletes: it named a file that no longer
+  exists while the live one shipped to the cloud.
+
+  Restoring any of it is also useless: the credential store is Keystore-bound,
+  so restored ciphertext cannot be decrypted, and restored tokens would be
+  revoked anyway. Re-pairing from the phone is the correct recovery path.
+-->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="sharedpref" path="wear_auth.xml" />
-        <exclude domain="sharedpref" path="wear_settings.xml" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="sharedpref" path="wear_auth.xml" />
-        <exclude domain="sharedpref" path="wear_settings.xml" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </device-transfer>
 </data-extraction-rules>

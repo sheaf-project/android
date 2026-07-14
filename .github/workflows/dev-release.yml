@@ -87,21 +87,24 @@ jobs:
           VCODE: ${{ steps.version.outputs.version_code }}
           VNAME: ${{ steps.version.outputs.version_name }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
-            ./gradlew :app:assembleOpenRelease :wear:assembleOpenRelease \
-              -PversionCode="$VCODE" \
-              -PversionName="$VNAME" \
-              -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
-              -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
-              -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
-              -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
-            rm -f keystore.jks
-          else
-            ./gradlew :app:assembleOpenDebug :wear:assembleOpenDebug \
-              -PversionCode="$VCODE" \
-              -PversionName="$VNAME"
+          # No silent fallback to a debug build: assembleOpenDebug is signed with
+          # AGP's default debug keystore, and nothing downstream (locate, cosign,
+          # publish) can tell the difference, so a missing secret would ship a
+          # debug-signed APK under the real dev version. Fail loudly instead,
+          # matching tagged-release.yml.
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ERROR: KEYSTORE_BASE64 secret missing - refusing to publish an unsigned/debug-signed dev build"
+            exit 1
           fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
+          trap 'rm -f "$PWD/keystore.jks"' EXIT
+          ./gradlew :app:assembleOpenRelease :wear:assembleOpenRelease \
+            -PversionCode="$VCODE" \
+            -PversionName="$VNAME" \
+            -Pandroid.injected.signing.store.file="$PWD/keystore.jks" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
 
       - name: Locate APKs
         id: apk

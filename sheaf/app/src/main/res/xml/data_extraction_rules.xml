@@ -1,20 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Backup + device-transfer rules for API 31+. Same intent as
-  backup_rules.xml: keep auth state out of the cloud snapshot AND the
-  D2D transfer, so a reinstall (or new device) never lands with a
-  revoked token that the local fast-path treats as valid.
+  Backup + device-transfer rules for API 31+.
 
-  Device-transfer is excluded too on purpose: re-login is the right
-  behaviour when moving phones, both for security and so the new
-  device's install gets a fresh secondary session for its paired
-  watch.
+  The app opts out of backup entirely (android:allowBackup="false"), but that
+  flag only disables the cloud snapshot: device-to-device transfer on API 31+
+  still runs unless it is excluded here. So every domain is excluded from both.
+
+  Nothing about a plural system should leave the device in a Google-held
+  snapshot. The local Room cache (sheaf.db) holds members, groups, front
+  history and messages; the offline queue holds pending switches; DataStore
+  holds auth tokens. All of it is recoverable by signing in again, which is
+  also the right behaviour on a new device: re-login mints a fresh session
+  (including a fresh secondary session for a paired watch) rather than
+  restoring a token the server may already have revoked.
+
+  Trade-off: theme, base URL and widget config also vanish on reinstall or
+  device transfer. Acceptable.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="file" path="datastore/" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="file" path="datastore/" />
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </device-transfer>
 </data-extraction-rules>

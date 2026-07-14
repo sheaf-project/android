@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Watch-side counterpart to the phone backup rules. wear_auth.xml holds
-  the companion-session tokens pushed down from the phone; if those are
-  restored after a reinstall they'll be revoked and just trigger an
-  endless 401 loop. wear_settings.xml is the user's pref store — also
-  excluded so we don't have to special-case mixed-stale states.
+  Auto Backup rules for API <= 30. android:allowBackup="false" already disables
+  backup there; this file is belt-and-braces so flipping the flag cannot start
+  shipping the credential store, the offline switch queue or the cached front
+  state off the watch. See data_extraction_rules.xml for the reasoning.
 -->
 <full-backup-content>
-    <exclude domain="sharedpref" path="wear_auth.xml" />
-    <exclude domain="sharedpref" path="wear_settings.xml" />
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
 </full-backup-content>
