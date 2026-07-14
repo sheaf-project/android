@@ -75,6 +75,8 @@ import systems.lupine.sheaf.ui.components.COMMON_ZONES
 import systems.lupine.sheaf.ui.components.TZ_AUTO
 import systems.lupine.sheaf.ui.components.allTimeZoneIds
 import systems.lupine.sheaf.ui.components.friendlyZoneLabel
+import systems.lupine.sheaf.BuildConfig
+import systems.lupine.sheaf.data.repository.baseUrlError
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
@@ -678,13 +680,14 @@ fun ServerSettingsScreen(
 ) {
     val savedBaseUrl by viewModel.baseUrl.collectAsState()
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
+    var urlError by remember { mutableStateOf<String?>(null) }
     var showUrlDialog by remember { mutableStateOf(false) }
     CategoryScaffold(title = "Server", onNavigateUp = onNavigateUp) {
         SettingItem(
             icon = Icons.Outlined.Storage,
             title = "API Server",
             subtitle = savedBaseUrl.ifBlank { "Not configured" },
-            onClick = { urlDraft = savedBaseUrl; showUrlDialog = true },
+            onClick = { urlDraft = savedBaseUrl; urlError = null; showUrlDialog = true },
         )
     }
     if (showUrlDialog) {
@@ -695,22 +698,32 @@ fun ServerSettingsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = urlDraft,
-                        onValueChange = { urlDraft = it },
+                        onValueChange = { urlDraft = it; urlError = null },
                         label = { Text("Base URL or domain") },
                         placeholder = { Text("app.sheaf.sh") },
                         singleLine = true,
+                        isError = urlError != null,
+                        supportingText = urlError?.let { { Text(it) } },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        "https:// is added automatically. To use plaintext (e.g. a local dev server), " +
-                            "type the http:// prefix explicitly.",
+                        "https:// is added automatically. Servers must use https; a path is " +
+                            "fine (e.g. example.org/sheaf).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.saveBaseUrl(urlDraft.trim()); showUrlDialog = false }) {
+                TextButton(onClick = {
+                    val candidate = urlDraft.trim()
+                    val problem = baseUrlError(candidate, BuildConfig.DEBUG)
+                    urlError = problem
+                    if (problem == null) {
+                        viewModel.saveBaseUrl(candidate)
+                        showUrlDialog = false
+                    }
+                }) {
                     Text("Save")
                 }
             },
