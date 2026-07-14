@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -269,4 +270,38 @@ internal fun normalizeBaseUrl(input: String): String {
         lower.startsWith("http://") || lower.startsWith("https://") -> trimmed
         else -> "https://$trimmed"
     }
+}
+
+// Hosts the debug network-security-config permits cleartext to. Everything else
+// is TLS-only, on every build type, because targetSdk >= 28 means the platform
+// default is cleartextTrafficPermitted="false".
+private val CLEARTEXT_HOSTS = setOf("localhost", "127.0.0.1", "::1", "10.0.2.2")
+
+/**
+ * Why a user-typed server URL cannot work, or null if it can.
+ *
+ * The app used to accept any http:// URL and tell the user to type the prefix
+ * for "a plaintext server". Release builds then blocked the request at the
+ * platform level and surfaced it as a generic network error, so the affordance
+ * we advertised only ever worked in debug, against loopback. Say no up front
+ * instead of saving an address that is guaranteed to fail.
+ *
+ * @param cleartextPermitted true on builds that ship a network-security-config
+ *   allowing cleartext (debug). Pass BuildConfig.DEBUG.
+ */
+internal fun baseUrlError(input: String, cleartextPermitted: Boolean): String? {
+    val trimmed = input.trim().trimEnd('/')
+    if (trimmed.isEmpty()) return null
+    // A bare scheme survives normalizeBaseUrl as nonsense ("https://" -> the
+    // scheme check fails on the trailing-slash-stripped "https:", so it gets a
+    // second https:// glued on and then parses). Reject it here.
+    if (trimmed.equals("http:", ignoreCase = true) || trimmed.equals("https:", ignoreCase = true)) {
+        return "That doesn't look like a server address."
+    }
+    val url = normalizeBaseUrl(trimmed).toHttpUrlOrNull()
+        ?: return "That doesn't look like a server address."
+    if (url.scheme != "http") return null
+    if (cleartextPermitted && url.host in CLEARTEXT_HOSTS) return null
+    return "This server must use https://. Android blocks unencrypted connections, " +
+        "so an http:// address would fail every request."
 }

@@ -28,8 +28,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.R
 import androidx.hilt.navigation.compose.hiltViewModel
+import systems.lupine.sheaf.data.repository.baseUrlError
 import systems.lupine.sheaf.ui.components.ErrorBanner
 
 @Composable
@@ -49,6 +51,7 @@ fun LoginScreen(
 
     var step by remember { mutableStateOf(if (savedBaseUrl.isBlank()) "url" else "auth") }
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
+    var urlError by remember { mutableStateOf<String?>(null) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var inviteCode by remember { mutableStateOf("") }
@@ -128,16 +131,21 @@ fun LoginScreen(
             when (currentStep) {
                 "url" -> ServerUrlStep(
                     urlDraft = urlDraft,
-                    onUrlChange = { urlDraft = it },
+                    onUrlChange = { urlDraft = it; urlError = null },
+                    error = urlError,
                     onContinue = {
                         // Default to the hosted instance when the user
-                        // leaves the field blank — most users land there
+                        // leaves the field blank - most users land there
                         // anyway, and the placeholder alone reads as an
                         // example rather than a "press Continue to use
                         // this" hint.
                         val resolved = urlDraft.trim().ifBlank { DEFAULT_HOSTED_INSTANCE }
-                        viewModel.saveBaseUrl(resolved)
-                        step = "auth"
+                        val problem = baseUrlError(resolved, BuildConfig.DEBUG)
+                        urlError = problem
+                        if (problem == null) {
+                            viewModel.saveBaseUrl(resolved)
+                            step = "auth"
+                        }
                     },
                 )
                 "auth" -> AuthStep(
@@ -255,6 +263,7 @@ private fun CfAccessDialog(
 private fun ServerUrlStep(
     urlDraft: String,
     onUrlChange: (String) -> Unit,
+    error: String?,
     onContinue: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -281,9 +290,11 @@ private fun ServerUrlStep(
             keyboardActions = KeyboardActions(onDone = { onContinue() }),
             modifier = Modifier.fillMaxWidth(),
         )
+        if (error != null) ErrorBanner(error)
         Text(
             "Leave blank to use $DEFAULT_HOSTED_INSTANCE. https:// is added " +
-                "automatically; use http:// explicitly only for plaintext servers.",
+                "automatically. Servers must use https; a path is fine " +
+                "(e.g. example.org/sheaf).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
