@@ -70,4 +70,9 @@ class LocalCache @Inject constructor(
 
     suspend fun getJournals(): List<JournalEntryRead>? =
         dao.get(KEY_JOURNALS)?.let { runCatching { journalListAdapter.fromJson(it.json) }.getOrNull() }
+
+    // Drop every cached blob. Called on sign-in and sign-out so one account
+    // never sees another's cached roster/fronts/history/etc. (cache keys are
+    // global, not namespaced by account).
+    suspend fun clearAll() = dao.clearAll()
 }

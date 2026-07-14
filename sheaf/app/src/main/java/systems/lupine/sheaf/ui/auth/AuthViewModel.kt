@@ -9,6 +9,7 @@ import systems.lupine.sheaf.data.model.AuthConfig
 import systems.lupine.sheaf.data.model.TokenResponse
 import systems.lupine.sheaf.data.model.UserLogin
 import systems.lupine.sheaf.data.model.UserRegister
+import systems.lupine.sheaf.data.repository.AccountDataWiper
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.ui.components.resolveDisplayZoneId
 import java.time.ZoneId
@@ -46,6 +47,7 @@ class AuthViewModel @Inject constructor(
     private val altchaSolver: AltchaSolver,
     private val watchSession: WatchSessionRepository,
     private val pushRegistrar: PushDeviceRegistrar,
+    private val accountDataWiper: AccountDataWiper,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -296,6 +298,9 @@ class AuthViewModel @Inject constructor(
             runCatching { pushRegistrar.unregisterCurrent() }
             runCatching { api.logout() }
             prefs.clearTokens()
+            // Wipe cached account data + the offline queue so the next account
+            // to sign in on this device can't see them or replay them.
+            accountDataWiper.wipe()
             // Trusted-device cookie deliberately persists across logout, same
             // as browser behaviour. It's a property of the device, not the
             // session. Revoke from the trusted-devices settings screen if you
@@ -327,6 +332,10 @@ class AuthViewModel @Inject constructor(
     private suspend fun finishAuth() {
         val access = pendingAccessToken ?: return
         val refresh = pendingRefreshToken ?: return
+        // Purge any prior account's cache + offline queue before committing the
+        // new session, so this login can't inherit another account's data or
+        // replay its queued mutations. (Token refresh does not route here.)
+        accountDataWiper.wipe()
         prefs.saveTokens(access, refresh)
         // Provision the wear app's companion session and push to the
         // watch. Best-effort: a wear-side error here doesn't block the
