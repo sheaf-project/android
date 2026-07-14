@@ -334,6 +334,8 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
+    fun clearDeleteError() = _state.update { it.copy(deleteError = null) }
+
     fun addFrontEntry(
         memberIds: List<String>,
         startedAt: String,

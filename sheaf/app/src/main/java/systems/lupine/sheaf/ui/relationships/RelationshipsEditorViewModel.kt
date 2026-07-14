@@ -56,7 +56,6 @@ class RelationshipsEditorViewModel @Inject constructor(
         if (loadedFor == scope to nodeId) return
         this.scope = scope
         this.nodeId = nodeId
-        loadedFor = scope to nodeId
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             val relationships = runCatching {
@@ -83,6 +82,10 @@ class RelationshipsEditorViewModel @Inject constructor(
 
             relationships
                 .onSuccess { rels ->
+                    // Only latch on success. Latching before the request meant one
+                    // failed load (offline, 5xx) suppressed every later attempt for
+                    // this node, with no way back short of leaving the screen.
+                    loadedFor = scope to nodeId
                     _state.update {
                         it.copy(
                             isLoading = false,
@@ -98,6 +101,9 @@ class RelationshipsEditorViewModel @Inject constructor(
                 }
         }
     }
+
+    /** Re-run a load that failed (the failed attempt is not latched, so this retries). */
+    fun retry() = load(scope, nodeId)
 
     fun add(edge: RelationshipEdgeCreate) {
         viewModelScope.launch {
@@ -127,14 +133,20 @@ class RelationshipsEditorViewModel @Inject constructor(
         }
     }
 
-    // Re-fetch just this node's edges (labels/direction are server-resolved).
+    // Re-fetch just this node's edges (labels/direction are server-resolved). The
+    // mutation itself already succeeded, so a failure here means the list on screen
+    // is stale rather than wrong: say so instead of silently showing the old list.
     private suspend fun reloadRelationships() {
         runCatching {
             if (scope == REL_SCOPE_GROUP) api.getGroupRelationships(nodeId)
             else api.getMemberRelationships(nodeId)
         }
             .onSuccess { rels -> _state.update { it.copy(isSaving = false, relationships = rels) } }
-            .onFailure { _state.update { it.copy(isSaving = false) } }
+            .onFailure { e ->
+                _state.update {
+                    it.copy(isSaving = false, error = e.toUserMessage("Saved, but couldn't refresh the list"))
+                }
+            }
     }
 
     fun clearError() = _state.update { it.copy(error = null) }

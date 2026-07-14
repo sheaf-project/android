@@ -3,6 +3,8 @@ package systems.lupine.sheaf.ui.relationships
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +33,11 @@ class RelationshipGraphViewModel @Inject constructor(
     private val _state = MutableStateFlow(RelationshipGraphUiState())
     val state: StateFlow<RelationshipGraphUiState> = _state.asStateFlow()
 
+    // Only the newest request may write to state. Flipping Members -> Groups fires a
+    // second load, and if the slower members response landed last it would paint the
+    // member graph under the Groups tab.
+    private var inFlight: Job? = null
+
     init { load(GRAPH_SCOPE_MEMBERS) }
 
     fun setScope(scope: String) {
@@ -38,11 +45,13 @@ class RelationshipGraphViewModel @Inject constructor(
     }
 
     fun load(scope: String = _state.value.scope) {
-        viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, scope = scope, error = null) }
+        inFlight?.cancel()
+        inFlight = viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, scope = scope, graph = null, error = null) }
             runCatching { api.getRelationshipGraph(scope) }
                 .onSuccess { graph -> _state.update { it.copy(isLoading = false, graph = graph) } }
                 .onFailure { e ->
+                    if (e is CancellationException) throw e
                     _state.update { it.copy(isLoading = false, error = e.toUserMessage("Couldn't load the graph")) }
                 }
         }
