@@ -60,6 +60,10 @@ fun RelationshipsEditor(
 
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            // A failed load is no longer latched, so this really does re-run it.
+            if (!state.isLoading && state.relationships.isEmpty() && state.types.isEmpty()) {
+                TextButton(onClick = { viewModel.retry() }) { Text("Retry") }
+            }
         }
 
         when {

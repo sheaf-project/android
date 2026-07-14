@@ -138,12 +138,18 @@ fun HistoryScreen(
     }
 
     if (state.deleteError != null) {
+        // Nothing cleared deleteError, so the dialog used to re-render forever:
+        // OK reloaded the list behind it, and back / scrim taps hit a no-op
+        // onDismissRequest. Every exit now clears the error.
         AlertDialog(
-            onDismissRequest = { },
+            onDismissRequest = { viewModel.clearDeleteError() },
             title = { Text("Delete failed") },
             text = { Text(state.deleteError!!) },
             confirmButton = {
-                TextButton(onClick = { viewModel.loadInitial() }) { Text("OK") }
+                TextButton(onClick = {
+                    viewModel.clearDeleteError()
+                    viewModel.loadInitial()
+                }) { Text("OK") }
             },
         )
     }
