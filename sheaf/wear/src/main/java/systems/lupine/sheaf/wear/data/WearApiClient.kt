@@ -45,8 +45,10 @@ class WearApiClient(private val auth: WearAuthManager) {
 
     // Refresh tokens are one-shot server-side: a second /refresh with the same
     // jti trips reuse detection and kills the session. Serialize refreshes so
-    // concurrent 401s collapse into a single rotation.
-    private val refreshMutex = Mutex()
+    // concurrent 401s collapse into a single rotation. The lock is process-wide
+    // (companion, below): the activity, Data Layer, and trampoline each build
+    // their own WearApiClient over the same on-disk credential store, so a
+    // per-instance mutex would not serialize their refreshes.
 
     private fun url(path: String) = "${auth.baseUrl.trimEnd('/')}$path"
 
@@ -266,5 +268,11 @@ class WearApiClient(private val auth: WearAuthManager) {
                 .delete()
                 .build()
         }
+    }
+
+    companion object {
+        // Shared across every WearApiClient in the process so their refreshes
+        // serialise; see the comment at the field's former site.
+        private val refreshMutex = Mutex()
     }
 }

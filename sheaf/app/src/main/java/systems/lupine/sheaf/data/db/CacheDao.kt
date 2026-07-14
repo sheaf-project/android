@@ -9,4 +9,7 @@ interface CacheDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun put(entry: CacheEntry)
+
+    @Query("DELETE FROM cache")
+    suspend fun clearAll()
 }

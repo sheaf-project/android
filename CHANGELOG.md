@@ -4,6 +4,22 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **Signing into another account no longer leaks the previous account's data.**
+  Signing in or out now clears the local response cache and the offline action
+  queue, so a new account can't briefly see the prior account's members, fronts
+  or history, and actions queued while offline under one account can no longer
+  replay under another's credentials.
+
+- **Wear: concurrent token refreshes no longer invalidate the session.** The
+  watch app, its tiles, and its complications each build their own API client;
+  their refresh lock is now shared process-wide, so two of them hitting an
+  expired token at once collapse into a single refresh instead of racing and
+  tripping the server's one-shot refresh-token reuse detection.
+
 ## [1.2.2] - 2026-07-11
 
 ### Added
