@@ -23,6 +23,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.relationships.REL_SCOPE_GROUP
+import systems.lupine.sheaf.ui.relationships.RelationshipsEditor
 
 // ── Groups list ───────────────────────────────────────────────────────────────
 
@@ -371,6 +373,12 @@ fun GroupDetailScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("Edit Members")
                 }
+
+                RelationshipsEditor(
+                    scope = REL_SCOPE_GROUP,
+                    nodeId = groupId,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }

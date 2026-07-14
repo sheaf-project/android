@@ -50,6 +50,8 @@ import kotlinx.coroutines.launch
 import systems.lupine.sheaf.data.model.ContentRevisionRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.relationships.REL_SCOPE_MEMBER
+import systems.lupine.sheaf.ui.relationships.RelationshipsEditor
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
@@ -815,6 +817,12 @@ fun MemberDetailScreen(
                 }
             }
 
+            // Relationships (existing members only; a new member has no id yet).
+            if (!viewModel.isNewMember) {
+                Spacer(Modifier.height(16.dp))
+                RelationshipsEditor(scope = REL_SCOPE_MEMBER, nodeId = memberId)
+            }
+
             Spacer(Modifier.height(8.dp))
 
             Button(
@@ -1114,6 +1122,13 @@ fun MemberProfileScreen(
                             }
                         }
                     }
+
+                    // Relationships (read-only; renders nothing when there are none).
+                    RelationshipsEditor(
+                        scope = REL_SCOPE_MEMBER,
+                        nodeId = member.id,
+                        readOnly = true,
+                    )
 
                     // Fronting actions
                     val isFronting = state.currentFronts.any { member.id in it.memberIds }

@@ -862,6 +862,42 @@ interface SheafApiService {
     @DELETE("/v1/reminders/{id}")
     suspend fun deleteReminder(@Path("id") id: String)
 
+    // ── Relationships ────────────────────────────────────────────────────────
+
+    @GET("/v1/relationship-types")
+    suspend fun listRelationshipTypes(): List<RelationshipTypeRead>
+
+    @POST("/v1/relationship-types")
+    suspend fun createRelationshipType(@Body body: RelationshipTypeCreate): RelationshipTypeRead
+
+    @PATCH("/v1/relationship-types/{id}")
+    suspend fun updateRelationshipType(
+        @Path("id") id: String,
+        @Body body: RelationshipTypeUpdate,
+    ): RelationshipTypeRead
+
+    // Cascades: deleting a type also removes every edge that uses it.
+    @DELETE("/v1/relationship-types/{id}")
+    suspend fun deleteRelationshipType(@Path("id") id: String)
+
+    @GET("/v1/members/{memberId}/relationships")
+    suspend fun getMemberRelationships(@Path("memberId") memberId: String): List<RelationshipFromViewpoint>
+
+    @POST("/v1/member-relationships")
+    suspend fun createMemberRelationship(@Body body: RelationshipEdgeCreate): RelationshipEdgeRead
+
+    @DELETE("/v1/member-relationships/{edgeId}")
+    suspend fun deleteMemberRelationship(@Path("edgeId") edgeId: String)
+
+    @GET("/v1/groups/{groupId}/relationships")
+    suspend fun getGroupRelationships(@Path("groupId") groupId: String): List<RelationshipFromViewpoint>
+
+    @POST("/v1/group-relationships")
+    suspend fun createGroupRelationship(@Body body: RelationshipEdgeCreate): RelationshipEdgeRead
+
+    @DELETE("/v1/group-relationships/{edgeId}")
+    suspend fun deleteGroupRelationship(@Path("edgeId") edgeId: String)
+
     // ── Polls ──────────────────────────────────────────────────────────────
 
     @GET("/v1/polls")
