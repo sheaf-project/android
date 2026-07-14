@@ -107,6 +107,7 @@ object Routes {
     const val SETTINGS_SYSTEM        = "settings/sys"
     const val ARCHIVED_MEMBERS       = "settings/archived-members"
     const val RELATIONSHIPS          = "settings/relationships"
+    const val RELATIONSHIP_GRAPH     = "settings/relationships/graph"
     const val SETTINGS_DATA          = "settings/data"
     const val SETTINGS_SAFETY        = "settings/safety-cat"
     const val SETTINGS_DANGER        = "settings/danger"
@@ -495,6 +496,12 @@ fun SheafApp(
             }
             composable(Routes.RELATIONSHIPS) {
                 systems.lupine.sheaf.ui.relationships.RelationshipTypesScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onOpenGraph = { navController.navigate(Routes.RELATIONSHIP_GRAPH) },
+                )
+            }
+            composable(Routes.RELATIONSHIP_GRAPH) {
+                systems.lupine.sheaf.ui.relationships.RelationshipGraphScreen(
                     onNavigateUp = { navController.navigateUp() },
                 )
             }
