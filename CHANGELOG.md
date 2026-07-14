@@ -6,6 +6,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Security
+
+- **Your data no longer goes into Android's cloud backup.** The phone and watch
+  apps now opt out of backup and device-to-device transfer entirely. Previously
+  the local cache (members, groups, front history, messages), the offline switch
+  queue and the watch's stored session were all eligible to be copied into a
+  Google-held backup of your device. Nothing about your system leaves the device
+  now; everything is restored by signing in again, and a watch re-pairs from the
+  phone.
+
 ### Fixed
 
 - **Signing into another account no longer leaks the previous account's data.**
@@ -51,15 +61,39 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   switch. A failed group-membership load no longer lets Save wipe the group's
   members.
 
-### Security
+- **"Resend Email" works after registering.** The resend request went out
+  without your credentials and failed, and the failure was hidden, so it looked
+  like the email had been sent again. It now sends, confirms when it does, and
+  tells you if it doesn't.
 
-- **Your data no longer goes into Android's cloud backup.** The phone and watch
-  apps now opt out of backup and device-to-device transfer entirely. Previously
-  the local cache (members, groups, front history, messages), the offline switch
-  queue and the watch's stored session were all eligible to be copied into a
-  Google-held backup of your device. Nothing about your system leaves the device
-  now; everything is restored by signing in again, and a watch re-pairs from the
-  phone.
+- **A failed history delete no longer traps you.** The "Delete failed" dialog
+  could not be dismissed (OK reloaded the list behind it and back did nothing);
+  it now closes.
+
+- **Backup downloads survive a rotation.** Choosing where to save a full backup
+  no longer silently drops the download if the screen was recreated while the
+  file picker was open.
+
+- **Relationships: a failed load can be retried.** One failed load (offline, or
+  a server hiccup) used to leave a member or group's relationships permanently
+  stuck until you left the screen. There is now a Retry, and a save whose
+  refresh fails says so instead of quietly showing a stale list.
+
+- **The relationship graph no longer shows members under the Groups tab** when
+  you switch tabs faster than the first request finishes.
+
+- **Widgets finish refreshing.** A widget refresh could be killed part-way
+  through because the app did not tell Android it was still working, leaving the
+  widget stale.
+
+- **Exporting a large system no longer risks running out of memory.** The JSON
+  export is now streamed to the file instead of being held in memory first.
+- **Retrying an import no longer risks importing twice.** If an import was
+  started but the app lost the connection while waiting for it to finish,
+  pressing Import again now resumes the same job instead of starting a second
+  one. Applies to every importer (Sheaf, PluralKit file and API, Tupperbox,
+  Prism, OpenPlural, PluralSpace, Simply Plural).
+
 
 ## [1.2.2] - 2026-07-11
 

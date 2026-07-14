@@ -174,7 +174,9 @@ fun LoginScreen(
                 )
                 "email-verify" -> EmailVerifyStep(
                     isLoading = isLoading,
-                    error = (uiState as? AuthUiState.Error)?.message,
+                    error = (uiState as? AuthUiState.Error)?.message
+                        ?: (uiState as? AuthUiState.AwaitingEmailVerification)?.error,
+                    resent = (uiState as? AuthUiState.AwaitingEmailVerification)?.resent == true,
                     onVerify = { token ->
                         focusManager.clearFocus()
                         viewModel.verifyEmail(token)
@@ -521,6 +523,7 @@ private fun TotpStep(
 private fun EmailVerifyStep(
     isLoading: Boolean,
     error: String?,
+    resent: Boolean,
     onVerify: (String) -> Unit,
     onResend: () -> Unit,
     onCancel: () -> Unit,
@@ -550,6 +553,12 @@ private fun EmailVerifyStep(
         )
 
         if (error != null) ErrorBanner(error)
+        else if (resent) Text(
+            "Verification email sent.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center,
+        )
 
         OutlinedTextField(
             value = token,

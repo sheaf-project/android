@@ -2,13 +2,8 @@ package systems.lupine.sheaf.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
-import androidx.glance.action.actionParametersOf
 import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class MemberTrackerWidgetReceiver : GlanceAppWidgetReceiver() {
 
@@ -20,13 +15,7 @@ class MemberTrackerWidgetReceiver : GlanceAppWidgetReceiver() {
         appWidgetIds: IntArray,
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        CoroutineScope(Dispatchers.IO).launch {
-            val glanceManager = GlanceAppWidgetManager(context)
-            appWidgetIds.forEach { appWidgetId ->
-                val glanceId = glanceManager.getGlanceIdBy(appWidgetId)
-                RefreshMemberTrackerAction().onAction(context, glanceId, actionParametersOf())
-            }
-        }
+        refreshWidgets(context, appWidgetIds, RefreshMemberTrackerAction())
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {

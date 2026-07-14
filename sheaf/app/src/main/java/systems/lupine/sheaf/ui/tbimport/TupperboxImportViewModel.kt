@@ -59,6 +59,7 @@ class TupperboxImportViewModel @Inject constructor(
     private var cachedFileName: String? = null
 
     fun pickFile(uri: Uri) {
+        idempotencyKey = null
         viewModelScope.launch {
             _state.update { it.copy(isPreviewing = true, error = null, preview = null, result = null) }
             fileUri = uri
@@ -105,6 +106,15 @@ class TupperboxImportViewModel @Inject constructor(
         _state.update { it.copy(options = it.options.copy(selectedMemberIds = updated)) }
     }
 
+    // Stable across retries of the same import attempt. If the job was created
+    // but polling then failed, the retry must not spawn a second import: reusing
+    // the key lets the server return the existing job instead of creating another.
+    // Reset when a new file is picked or the job reaches a terminal state.
+    private var idempotencyKey: String? = null
+
+    private fun nextIdempotencyKey(): String =
+        idempotencyKey ?: UUID.randomUUID().toString().also { idempotencyKey = it }
+
     fun runImport() {
         val uri = fileUri ?: return
         val name = cachedFileName ?: "tuppers.json"
@@ -122,7 +132,7 @@ class TupperboxImportViewModel @Inject constructor(
                 val job = api.createFileImport(
                     file = filePart(uri, name),
                     source = ImportJobSource.TUPPERBOX_FILE.toFormPart(),
-                    idempotencyKey = UUID.randomUUID().toString().toFormPart(),
+                    idempotencyKey = nextIdempotencyKey().toFormPart(),
                     options = buildTbOptionsJson(opts, narrowedMemberIds).toJsonPart(),
                 )
                 pollUntilTerminal(job)
@@ -144,6 +154,7 @@ class TupperboxImportViewModel @Inject constructor(
     }
 
     private fun handleTerminal(job: ImportJobRead) {
+        idempotencyKey = null
         when (job.status) {
             ImportJobStatus.COMPLETE -> {
                 val counts = job.counts

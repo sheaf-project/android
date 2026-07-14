@@ -34,8 +34,13 @@ sealed interface AuthUiState {
     data object SolvingCaptcha : AuthUiState
     // Login succeeded but TOTP code is required to complete auth
     data class AwaitingTotp(val error: String? = null) : AuthUiState
-    // Registration succeeded but email must be verified before proceeding
-    data object AwaitingEmailVerification : AuthUiState
+    // Registration succeeded but email must be verified before proceeding.
+    // Carries its own error/notice so a failed resend can be reported without
+    // flipping to Error, which would drop the user back to the login form.
+    data class AwaitingEmailVerification(
+        val error: String? = null,
+        val resent: Boolean = false,
+    ) : AuthUiState
     data class Error(val message: String) : AuthUiState
 }
 
@@ -209,7 +214,7 @@ class AuthViewModel @Inject constructor(
         pendingRefreshToken = tokens.refreshToken
         when {
             user?.emailVerified == false && config?.emailVerification != "none" ->
-                _uiState.value = AuthUiState.AwaitingEmailVerification
+                _uiState.value = AuthUiState.AwaitingEmailVerification()
             else ->
                 finishAuth()
         }
@@ -232,10 +237,14 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { tokens ->
                     _pendingOnboarding.value = true
                     if (config?.emailVerification != "none") {
-                        // Hold tokens in memory — don't persist so isLoggedIn stays false
+                        // Hold tokens in memory, don't persist, so isLoggedIn stays false.
+                        // pendingToken still has to be set: resend-verification is an
+                        // authenticated endpoint, and without this the freshly registered
+                        // user's "Resend Email" went out with no bearer and 401'd.
+                        authInterceptor.pendingToken = tokens.accessToken
                         pendingAccessToken = tokens.accessToken
                         pendingRefreshToken = tokens.refreshToken
-                        _uiState.value = AuthUiState.AwaitingEmailVerification
+                        _uiState.value = AuthUiState.AwaitingEmailVerification()
                     } else {
                         prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
                         runCatching {
@@ -282,9 +291,15 @@ class AuthViewModel @Inject constructor(
 
     fun resendVerificationEmail() {
         viewModelScope.launch {
-            // pendingToken already set — AuthInterceptor will attach it without prefs write
+            // pendingToken is set by both the login and the register path, so
+            // AuthInterceptor attaches it without a prefs write.
             runCatching { api.resendVerification() }
-            _uiState.value = AuthUiState.AwaitingEmailVerification
+                .onSuccess { _uiState.value = AuthUiState.AwaitingEmailVerification(resent = true) }
+                .onFailure { e ->
+                    _uiState.value = AuthUiState.AwaitingEmailVerification(
+                        error = e.toUserMessage("Couldn't resend the verification email"),
+                    )
+                }
         }
     }
 

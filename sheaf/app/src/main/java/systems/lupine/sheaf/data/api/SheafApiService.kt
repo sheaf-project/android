@@ -443,7 +443,13 @@ interface SheafApiService {
      * Synchronous JSON export. [format] is "sheaf" (native, full-fidelity
      * re-import) or "openplural" (v0.1 interchange, uri-only assets). No
      * step-up; this is metadata only, no image bytes.
+     *
+     * @Streaming so a large system's export goes socket -> file. Without it
+     * Retrofit buffers the entire body into a byte array before the caller sees
+     * it, so the caller's byteStream().copyTo() was copying from memory and a
+     * big enough export could exhaust the heap.
      */
+    @Streaming
     @GET("/v1/export")
     suspend fun exportAll(@Query("format") format: String = "sheaf"): okhttp3.ResponseBody
 
@@ -747,6 +753,7 @@ interface SheafApiService {
     ): AdminImportJobDetail
 
     // GDPR Article 15 metadata export; returns a downloadable JSON document.
+    @Streaming
     @POST("/v1/admin/users/{id}/dossier")
     suspend fun exportUserDossier(
         @Path("id") id: String,
