@@ -22,7 +22,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   Signing in or out now clears the local response cache and the offline action
   queue, so a new account can't briefly see the prior account's members, fronts
   or history, and actions queued while offline under one account can no longer
-  replay under another's credentials.
+  replay under another's credentials. The clear is now resilient: if wiping the
+  cache errors, the offline queue is still cleared (previously one failure
+  skipped the rest).
+
+- **Importing with a token that has a stray line break no longer fails.** Tokens
+  pasted from a chat client often pick up a trailing newline; the import request
+  now escapes it correctly instead of sending malformed JSON that the server
+  rejected.
 
 - **Wear: concurrent token refreshes no longer invalidate the session.** The
   watch app, its tiles, and its complications each build their own API client;

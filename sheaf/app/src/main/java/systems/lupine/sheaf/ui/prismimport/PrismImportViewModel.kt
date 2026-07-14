@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.ui.prismimport
 
+import systems.lupine.sheaf.ui.importcommon.jsonQuote
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -239,7 +240,7 @@ private fun buildOptionsJson(opts: PrismImportOptions, memberIds: List<String>?)
     parts += "\"member_board_posts\":${opts.memberBoardPosts}"
     parts += "\"media_attachments\":${opts.mediaAttachments}"
     if (memberIds != null) {
-        val ids = memberIds.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" }
+        val ids = memberIds.joinToString(",") { jsonQuote(it) }
         parts += "\"member_ids\":[$ids]"
     } else {
         parts += "\"member_ids\":null"
