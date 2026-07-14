@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.HourglassEmpty
+import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Archive
@@ -726,6 +727,7 @@ fun SystemCategoryScreen(
     onNavigateToCustomFields: () -> Unit,
     onNavigateToTags: () -> Unit,
     onNavigateToArchivedMembers: () -> Unit,
+    onNavigateToRelationships: () -> Unit,
 ) {
     CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
         SettingItem(
@@ -740,6 +742,13 @@ fun SystemCategoryScreen(
             title = "Custom Fields",
             subtitle = "Define additional fields for member profiles",
             onClick = onNavigateToCustomFields,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Hub,
+            title = "Relationships",
+            subtitle = "Define relationship types between members and groups",
+            onClick = onNavigateToRelationships,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(

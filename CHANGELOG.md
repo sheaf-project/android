@@ -16,6 +16,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   Front history, journal entries, and member revision times render in the
   chosen zone.
 
+### Added
+
+- **Relationships.** You can now map how your members (and groups) relate to
+  each other. Define relationship types under Settings > System >
+  Relationships - symmetric (one label, e.g. partner), directional (two
+  labels, e.g. parent / child), or either (both, with an optional "mutual")
+  - starting from a preset if you like. Then add relationships from a member
+  or group's edit screen, picking the other party and the direction; the
+  member and group profiles show them read-only. (The whole-system graph view
+  is still web-only for now.)
+
 ### Fixed
 
 - **Recovery codes work at login.** The two-factor login prompt now has a
