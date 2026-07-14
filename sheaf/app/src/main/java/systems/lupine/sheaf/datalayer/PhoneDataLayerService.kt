@@ -1,6 +1,7 @@
 package systems.lupine.sheaf.datalayer
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -65,6 +66,20 @@ class PhoneDataLayerService : WearableListenerService() {
                 .addOnFailureListener {
                     Log.w(TAG, "putDataItem(credentials) failed", it)
                 }
+        }
+
+        /**
+         * Delete the credentials DataItem so a signed-out phone leaves no live
+         * session on the watch: the watch drops its session on the delete event
+         * and a later restart finds no cached item to re-apply. The wildcard
+         * host matches the item whichever node published it. Called on logout.
+         */
+        fun clearWatchCredentials(context: Context) {
+            val uri = Uri.parse("wear://*$PATH_CREDENTIALS")
+            Wearable.getDataClient(context)
+                .deleteDataItems(uri)
+                .addOnSuccessListener { Log.i(TAG, "deleteDataItems(credentials) count=$it") }
+                .addOnFailureListener { Log.w(TAG, "deleteDataItems(credentials) failed", it) }
         }
 
         /**
