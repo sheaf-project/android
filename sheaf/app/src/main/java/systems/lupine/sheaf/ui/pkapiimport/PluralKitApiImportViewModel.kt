@@ -107,6 +107,15 @@ class PluralKitApiImportViewModel @Inject constructor(
         _state.update { it.copy(options = it.options.copy(selectedMemberIds = updated)) }
     }
 
+    // Stable across retries of the same import attempt. If the job was created
+    // but polling then failed, the retry must not spawn a second import: reusing
+    // the key lets the server return the existing job instead of creating another.
+    // Reset once the job reaches a terminal state, so the next run is a new import.
+    private var idempotencyKey: String? = null
+
+    private fun nextIdempotencyKey(): String =
+        idempotencyKey ?: UUID.randomUUID().toString().also { idempotencyKey = it }
+
     fun runImport() {
         val token = _state.value.token.trim().takeIf { it.isNotEmpty() } ?: return
         val opts = _state.value.options
@@ -122,7 +131,7 @@ class PluralKitApiImportViewModel @Inject constructor(
             runCatching {
                 val body = buildApiImportBodyJson(
                     token = token,
-                    idempotencyKey = UUID.randomUUID().toString(),
+                    idempotencyKey = nextIdempotencyKey(),
                     options = buildPkApiOptionsJson(opts, narrowedMemberIds),
                 )
                 val job = api.createApiImport(body.toRequestBody("application/json".toMediaType()))
@@ -145,6 +154,7 @@ class PluralKitApiImportViewModel @Inject constructor(
     }
 
     private fun handleTerminal(job: ImportJobRead) {
+        idempotencyKey = null
         when (job.status) {
             ImportJobStatus.COMPLETE -> {
                 val counts = job.counts
