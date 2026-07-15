@@ -7,66 +7,57 @@ import kotlin.test.assertTrue
 
 /**
  * Credentials (bearer, CF-Access secrets, the trusted-device cookie) may reach
- * only the instance's own origins. This is what stops the shared image client
- * from handing the user's session to whatever host an avatar or bio-embedded
- * image points at.
+ * only the configured API origin. Images use a separate credential-free client,
+ * so the CDN is deliberately not trusted here.
  */
 class CredentialOriginTest {
 
     private fun url(u: String) = u.toHttpUrl()
 
     private val api = "https://app.sheaf.sh"
-    private val cdn = "https://cdn.sheaf.sh"
 
-    @Test fun `a request to the API origin is trusted`() {
-        assertTrue(isTrustedCredentialOrigin(url("https://app.sheaf.sh/v1/members"), api, cdn))
+    @Test fun `a request to the API origin matches`() {
+        assertTrue(originMatches(url("https://app.sheaf.sh/v1/members"), api))
     }
 
-    @Test fun `a request to the configured CDN origin is trusted`() {
-        assertTrue(isTrustedCredentialOrigin(url("https://cdn.sheaf.sh/avatars/x.png"), api, cdn))
+    @Test fun `an external host never matches`() {
+        assertFalse(originMatches(url("https://evil.example.com/x.png"), api))
+        assertFalse(originMatches(url("https://imgur.com/a.png"), api))
     }
 
-    @Test fun `an external host is never trusted`() {
-        assertFalse(isTrustedCredentialOrigin(url("https://evil.example.com/x.png"), api, cdn))
-        assertFalse(isTrustedCredentialOrigin(url("https://imgur.com/a.png"), api, cdn))
+    @Test fun `the image CDN host is not the API origin`() {
+        // The API client must not send the session to the CDN; images fetch it
+        // via their own client with no credentials anyway.
+        assertFalse(originMatches(url("https://cdn.sheaf.sh/avatars/x.png"), api))
     }
 
-    @Test fun `a lookalike host is not trusted`() {
-        assertFalse(isTrustedCredentialOrigin(url("https://app.sheaf.sh.evil.com/x"), api, cdn))
-        assertFalse(isTrustedCredentialOrigin(url("https://notapp.sheaf.sh/x"), api, cdn))
+    @Test fun `a lookalike host does not match`() {
+        assertFalse(originMatches(url("https://app.sheaf.sh.evil.com/x"), api))
+        assertFalse(originMatches(url("https://notapp.sheaf.sh/x"), api))
     }
 
     @Test fun `scheme must match`() {
         // http vs https is a different origin; a downgrade must not carry creds.
-        assertFalse(isTrustedCredentialOrigin(url("http://app.sheaf.sh/v1/members"), api, cdn))
+        assertFalse(originMatches(url("http://app.sheaf.sh/v1/members"), api))
     }
 
     @Test fun `port must match`() {
-        assertFalse(isTrustedCredentialOrigin(url("https://app.sheaf.sh:8443/v1/members"), api, cdn))
+        assertFalse(originMatches(url("https://app.sheaf.sh:8443/v1/members"), api))
     }
 
-    @Test fun `the path prefix on the base URL is ignored for origin matching`() {
+    @Test fun `the path prefix on the base URL is ignored`() {
         val based = "https://example.org/sheaf"
-        assertTrue(isTrustedCredentialOrigin(url("https://example.org/v1/members"), based, null))
-        assertTrue(isTrustedCredentialOrigin(url("https://example.org/sheaf/v1/members"), based, null))
+        assertTrue(originMatches(url("https://example.org/v1/members"), based))
+        assertTrue(originMatches(url("https://example.org/sheaf/v1/members"), based))
     }
 
     @Test fun `host comparison is case-insensitive`() {
-        assertTrue(isTrustedCredentialOrigin(url("https://APP.sheaf.sh/v1/members"), api, cdn))
+        assertTrue(originMatches(url("https://APP.sheaf.sh/v1/members"), api))
     }
 
-    @Test fun `no CDN configured means only the API origin is trusted`() {
-        assertTrue(isTrustedCredentialOrigin(url("https://app.sheaf.sh/v1/members"), api, null))
-        assertFalse(isTrustedCredentialOrigin(url("https://cdn.sheaf.sh/x"), api, null))
-    }
-
-    @Test fun `a scheme-less CDN base is assumed https`() {
-        assertTrue(isTrustedCredentialOrigin(url("https://cdn.sheaf.sh/x"), api, "cdn.sheaf.sh"))
-    }
-
-    @Test fun `nothing is trusted when no base is configured`() {
-        assertFalse(isTrustedCredentialOrigin(url("https://app.sheaf.sh/v1/members"), null, null))
-        assertFalse(isTrustedCredentialOrigin(url("https://app.sheaf.sh/v1/members"), "", null))
+    @Test fun `nothing matches when no base is configured`() {
+        assertFalse(originMatches(url("https://app.sheaf.sh/v1/members"), null))
+        assertFalse(originMatches(url("https://app.sheaf.sh/v1/members"), ""))
     }
 
     // ── Server-change detection ─────────────────────────────────────────────

@@ -7,11 +7,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * Origin matching for deciding where credentials may be sent.
  *
  * The API auth stack (bearer token, Cloudflare Access secrets, the
- * trusted-device cookie) used to be attached host-blind, and the Coil image
- * client is cloned from the API client, so a member avatar or a bio-embedded
- * image hosted on an external server received the user's live credentials. The
- * interceptors now gate on origin: credentials go only to the instance's own
- * hosts, never to whatever host an image URL happens to point at.
+ * trusted-device cookie) used to be attached host-blind. The interceptors now
+ * gate on origin so the session reaches only the configured API host. (Images
+ * carry no credentials at all - they use their own client and are authorised by
+ * an in-URL HMAC signature - so the CDN host is not part of this.)
  */
 
 private fun normalizedOrigin(configured: String?): HttpUrl? {
@@ -29,14 +28,6 @@ internal fun originMatches(url: HttpUrl, configured: String?): Boolean {
         url.host.equals(base.host, ignoreCase = true) &&
         url.port == base.port
 }
-
-/**
- * Credentials may be sent to the API base origin and to the instance's
- * configured file CDN origin (both are infrastructure the user configured or
- * received from the instance's own config), and to nothing else.
- */
-internal fun isTrustedCredentialOrigin(url: HttpUrl, baseUrl: String?, fileCdnBase: String?): Boolean =
-    originMatches(url, baseUrl) || originMatches(url, fileCdnBase)
 
 /**
  * True when two configured base URLs point at the same origin. Used to decide

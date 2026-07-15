@@ -22,7 +22,6 @@ class AuthInterceptorTest {
 
     private val prefs = mockk<PreferencesRepository>().apply {
         every { baseUrl } returns flowOf("https://app.sheaf.sh")
-        every { fileCdnBase } returns flowOf("https://cdn.sheaf.sh")
         every { accessToken } returns flowOf("access-tok")
         every { cfClientId } returns flowOf("cf-id")
         every { cfClientSecret } returns flowOf("cf-secret")
@@ -53,13 +52,15 @@ class AuthInterceptorTest {
         assertEquals("cf-secret", sent.header("CF-Access-Client-Secret"))
     }
 
-    @Test fun `CDN image requests are still credentialed`() {
+    @Test fun `the image CDN host receives no credentials from the API client`() {
+        // Served images are authorised by their in-URL HMAC signature, so even
+        // the instance's own CDN host must not get the session token.
         val sent = send("https://cdn.sheaf.sh/avatars/x.png")
-        assertEquals("Bearer access-tok", sent.header("Authorization"))
-        assertEquals("cf-id", sent.header("CF-Access-Client-Id"))
+        assertNull(sent.header("Authorization"))
+        assertNull(sent.header("CF-Access-Client-Id"))
     }
 
-    @Test fun `an external image host receives no credentials`() {
+    @Test fun `an external host receives no credentials`() {
         val sent = send("https://images.example.com/remote-avatar.png")
         assertNull(sent.header("Authorization"))
         assertNull(sent.header("CF-Access-Client-Id"))

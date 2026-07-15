@@ -32,17 +32,12 @@ class AuthInterceptor @Inject constructor(
         val builder = request.newBuilder()
             .addHeader("X-Sheaf-Client", clientHeader)
 
-        // Credentials go only to the instance's own origins. The Coil image
-        // client shares this interceptor, and image URLs can point at an
-        // external host (a remote avatar, an image embedded in a bio), so an
-        // unconditional bearer / CF-Access header would hand the user's live
-        // session to whatever server that image lives on.
+        // Credentials go only to the configured API origin. Requests to any
+        // other host (an external URL, or the image CDN) must not carry the
+        // user's session. The image loader uses its own credential-free client,
+        // so this is defence in depth for the API client itself.
         val trusted = runBlocking {
-            isTrustedCredentialOrigin(
-                request.url,
-                prefs.baseUrl.firstOrNull(),
-                prefs.fileCdnBase.firstOrNull(),
-            )
+            originMatches(request.url, prefs.baseUrl.firstOrNull())
         }
         if (trusted) {
             val token = pendingToken ?: runBlocking { prefs.accessToken.firstOrNull() }

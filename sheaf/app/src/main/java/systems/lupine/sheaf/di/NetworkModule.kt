@@ -88,21 +88,28 @@ object NetworkModule {
                 }
             )
 
-        if (BuildConfig.DEBUG) {
-            val trustAll = object : X509TrustManager {
-                override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
-                override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
-                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-            }
-            val sslContext = SSLContext.getInstance("TLS").apply {
-                init(null, arrayOf<TrustManager>(trustAll), null)
-            }
-            builder
-                .sslSocketFactory(sslContext.socketFactory, trustAll)
-                .hostnameVerifier { _, _ -> true }
-        }
-
+        applyDebugTls(builder)
         return builder.build()
+    }
+
+    /**
+     * In debug builds, trust any certificate and host so a locally-run instance
+     * on a self-signed cert works. No-op in release. Shared by the API and image
+     * clients so both reach a local dev server.
+     */
+    private fun applyDebugTls(builder: OkHttpClient.Builder) {
+        if (!BuildConfig.DEBUG) return
+        val trustAll = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+        }
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf<TrustManager>(trustAll), null)
+        }
+        builder
+            .sslSocketFactory(sslContext.socketFactory, trustAll)
+            .hostnameVerifier { _, _ -> true }
     }
 
     @Provides
@@ -124,15 +131,22 @@ object NetworkModule {
     @Singleton
     fun provideImageLoader(
         @ApplicationContext context: Context,
-        okHttpClient: OkHttpClient,
         relativeUrlInterceptor: RelativeUrlInterceptor,
+        userAgentInterceptor: UserAgentInterceptor,
     ): ImageLoader {
-        // Cloned from the API client so it keeps the debug SSL-trust config for
-        // local dev servers. It also inherits AuthInterceptor, but that only
-        // attaches credentials to the instance's own origins now, so an image
-        // fetched from an external host carries none. (User-Agent and the
-        // cookie jar are inherited from the clone, so we don't re-add them.)
-        val imageClient = okHttpClient.newBuilder().build()
+        // A standalone client with NO auth stack, deliberately not cloned from
+        // the API client. Served images are authorised entirely by the HMAC
+        // signature already in their URL (?token=&expires=, verified by the API
+        // or the CDN worker), so they never need the bearer, the CF-Access
+        // secrets, the trusted-device cookie, or the 401 token-refresh
+        // authenticator. Cloning the API client would drag all of that onto
+        // every avatar fetch, including ones to the CDN host, sending the user's
+        // session through Cloudflare's edge for nothing. This carries only the
+        // user-agent and the debug TLS trust for local dev servers.
+        val imageClient = OkHttpClient.Builder()
+            .addInterceptor(userAgentInterceptor)
+            .also { applyDebugTls(it) }
+            .build()
         return ImageLoader.Builder(context)
             .okHttpClient(imageClient)
             .components {
