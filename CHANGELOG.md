@@ -6,6 +6,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Added
+
+- **Import from Ampersand.** Settings > Data now has an "Import from Ampersand"
+  option. Choose your Ampersand `.json` export and pick what to bring across
+  (members, custom fronts, tags, custom fields, front history, journals, notes,
+  board messages and polls, reminders, images, and Ampersand systems as groups);
+  the import runs in the background and shows a summary when it finishes.
+
 ### Security
 
 - **Your login credentials only ever go to your own server now.** The app used to
