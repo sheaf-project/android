@@ -38,6 +38,13 @@ class TokenAuthenticator @Inject constructor(
         // when the server can't bind the request to a session via the auth
         // path it expects (separate from our Bearer flow) — refreshing won't
         // help and was previously spinning to MAX_FOLLOW_UPS.
+        // Never react to a 401 from a host that isn't our API. The shared client
+        // is used to fetch avatars (e.g. from widgets), which can point at an
+        // external host; refreshing and retrying there would both waste a token
+        // rotation and hand the freshly minted bearer to that host.
+        val baseForGuard = runBlocking { prefs.baseUrl.firstOrNull() }
+        if (!originMatches(response.request.url, baseForGuard)) return null
+
         val path = response.request.url.encodedPath
         if (path.endsWith("/auth/refresh") ||
             path.endsWith("/auth/delete-account") ||
