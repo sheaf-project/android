@@ -11,9 +11,10 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 - **Your login credentials only ever go to your own server now.** The app used to
   attach your session token (and any Cloudflare Access secrets) to every network
   request, including image loads. An avatar or an image embedded in a bio that was
-  hosted on some other server would therefore receive your live credentials. They
-  are now sent only to your configured instance and its image host, never to any
-  other server. The "remember this device" cookie is scoped the same way.
+  hosted on another server would therefore receive your live credentials. They are
+  now sent only to your configured server's API. Images are loaded with no
+  credentials at all (they don't need any), and the "remember this device" cookie
+  is limited to your server too.
 
 - **Switching servers, or being signed out, fully clears the previous account.**
   Changing the server address while signed in now ends the old session and clears
