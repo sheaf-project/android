@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.AltchaSolver
 import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.api.sameConfiguredOrigin
+import kotlinx.coroutines.flow.firstOrNull
 import systems.lupine.sheaf.data.model.AuthConfig
 import systems.lupine.sheaf.data.model.TokenResponse
 import systems.lupine.sheaf.data.model.UserLogin
@@ -129,7 +131,19 @@ class AuthViewModel @Inject constructor(
     private var pendingCaptcha: String? = null
 
     fun saveBaseUrl(url: String) {
-        viewModelScope.launch { prefs.saveBaseUrl(url) }
+        viewModelScope.launch {
+            val previous = prefs.baseUrl.firstOrNull()
+            prefs.saveBaseUrl(url)
+            // Switching to a different instance must drop any session bound to
+            // the old one: otherwise the previous instance's tokens, cache and
+            // offline queue survive against the new host (and its bearer would
+            // ride to the new server).
+            if (!sameConfiguredOrigin(previous, url)) {
+                authInterceptor.pendingToken = null
+                prefs.clearTokens()
+                accountDataWiper.wipe()
+            }
+        }
     }
 
     fun saveCfTokens(clientId: String, clientSecret: String) {
@@ -246,6 +260,11 @@ class AuthViewModel @Inject constructor(
                         pendingRefreshToken = tokens.refreshToken
                         _uiState.value = AuthUiState.AwaitingEmailVerification()
                     } else {
+                        // This branch commits a session directly instead of via
+                        // finishAuth(), so wipe here too: without it a prior
+                        // account's cache and offline queue survive into the new
+                        // account (finishAuth is the only other path that wipes).
+                        accountDataWiper.wipe()
                         prefs.saveTokens(tokens.accessToken, tokens.refreshToken)
                         runCatching {
                             PhoneDataLayerService.pushWatchCredentials(

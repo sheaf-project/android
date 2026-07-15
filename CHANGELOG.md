@@ -8,6 +8,20 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Security
 
+- **Your login credentials only ever go to your own server now.** The app used to
+  attach your session token (and any Cloudflare Access secrets) to every network
+  request, including image loads. An avatar or an image embedded in a bio that was
+  hosted on some other server would therefore receive your live credentials. They
+  are now sent only to your configured instance and its image host, never to any
+  other server. The "remember this device" cookie is scoped the same way.
+
+- **Switching servers, or being signed out, fully clears the previous account.**
+  Changing the server address while signed in now ends the old session and clears
+  its cached data and pending offline actions instead of leaving them behind;
+  a registration that skips email verification, and a forced sign-out when your
+  session expires, now clear the same data. Previously some of these paths left a
+  prior account's cache or offline queue on the device.
+
 - **Your data no longer goes into Android's cloud backup.** The phone and watch
   apps now opt out of backup and device-to-device transfer entirely. Previously
   the local cache (members, groups, front history, messages), the offline switch

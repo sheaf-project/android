@@ -13,6 +13,7 @@ import okhttp3.Response
 import okhttp3.Route
 import systems.lupine.sheaf.data.model.TokenRefresh
 import systems.lupine.sheaf.data.model.TokenResponse
+import systems.lupine.sheaf.data.repository.AccountDataWiper
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,6 +23,9 @@ class TokenAuthenticator @Inject constructor(
     private val prefs: PreferencesRepository,
     private val moshi: Moshi,
     private val lazyClient: Lazy<OkHttpClient>,
+    // Lazy so the OkHttp graph doesn't have to build the Room-backed wiper up
+    // front; it's only needed on the rare forced-logout path.
+    private val accountDataWiper: Lazy<AccountDataWiper>,
 ) : Authenticator {
 
     // Synchronized to prevent concurrent refresh races: if two 401s arrive at once,
@@ -77,7 +81,13 @@ class TokenAuthenticator @Inject constructor(
             // Only a 401 means the refresh token is genuinely invalid/expired.
             // Any other failure (5xx, 503, etc.) is transient — don't destroy the session.
             if (refreshResponse.code == 401) {
-                runBlocking { prefs.clearTokens() }
+                // Forced logout: clear the tokens AND wipe the account's cache
+                // and offline queue, so the next account signed in on this device
+                // can't inherit them (clearTokens alone left both behind).
+                runBlocking {
+                    prefs.clearTokens()
+                    accountDataWiper.get().wipe()
+                }
             }
             return null
         }

@@ -126,11 +126,13 @@ object NetworkModule {
         @ApplicationContext context: Context,
         okHttpClient: OkHttpClient,
         relativeUrlInterceptor: RelativeUrlInterceptor,
-        userAgentInterceptor: UserAgentInterceptor,
     ): ImageLoader {
-        val imageClient = okHttpClient.newBuilder()
-            .addInterceptor(userAgentInterceptor)
-            .build()
+        // Cloned from the API client so it keeps the debug SSL-trust config for
+        // local dev servers. It also inherits AuthInterceptor, but that only
+        // attaches credentials to the instance's own origins now, so an image
+        // fetched from an external host carries none. (User-Agent and the
+        // cookie jar are inherited from the clone, so we don't re-add them.)
+        val imageClient = okHttpClient.newBuilder().build()
         return ImageLoader.Builder(context)
             .okHttpClient(imageClient)
             .components {
