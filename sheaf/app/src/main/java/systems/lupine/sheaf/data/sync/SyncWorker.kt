@@ -121,9 +121,19 @@ class SyncWorker @AssistedInject constructor(
                 .setConstraints(Constraints(requiredNetworkType = NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
+            // KEEP, not REPLACE: a drain that is already running must not be
+            // cancelled by a fresh enqueue. createFront is posted before its row
+            // is deleted (see doWork), so a REPLACE cancellation mid-drain is
+            // exactly the window that can duplicate a front. With KEEP, an
+            // enqueue while a run is in flight is dropped rather than cancelling
+            // it; any rows added after that run snapshotted the queue are picked
+            // up by the next schedule() (each offline action, plus reconnect,
+            // calls this). Trading a little latency on the tail for not
+            // double-creating fronts. True exactly-once still needs the backend
+            // Idempotency-Key noted in doWork.
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP,
                 request,
             )
         }
