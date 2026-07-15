@@ -33,8 +33,9 @@ class WearStore(
     // Serialises the offline-switch queue drain. loadAll()/refreshNow() run from
     // many triggers (onResume, nav, manual refresh, post-switch, phone nudge);
     // without this, two concurrent drains could both submit the same queued row
-    // before either removed it, double-creating a front.
-    private val queueDrainMutex = Mutex()
+    // before either removed it, double-creating a front. The mutex lives in the
+    // companion object (see below) so it is shared across every WearStore in the
+    // process.
 
     val frontingMembers: List<WearMember>
         get() {
@@ -277,6 +278,16 @@ class WearStore(
         // share the same fire-and-forget shape: if the watch isn't paired
         // or the complications aren't currently in use, no harm done.
         systems.lupine.sheaf.wear.complications.requestAllComplicationUpdates(context)
+    }
+
+    companion object {
+        // Process-wide, not per-instance: the activity, the Data Layer service
+        // and the quick-switch trampoline each build their own WearStore, but
+        // they drain one shared SharedPreferences queue. A per-instance mutex
+        // let two of them snapshot and re-submit the same row, double-creating a
+        // front. Mirrors WearApiClient.refreshMutex, which was hoisted for the
+        // same reason.
+        private val queueDrainMutex = Mutex()
     }
 }
 
