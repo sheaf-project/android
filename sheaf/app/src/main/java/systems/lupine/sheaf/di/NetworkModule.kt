@@ -4,6 +4,7 @@ import android.content.Context
 import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
+import systems.lupine.sheaf.data.api.CredentialGuardInterceptor
 import systems.lupine.sheaf.data.api.FrontUpdateJsonAdapter
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.api.SheafApiService
@@ -53,11 +54,17 @@ object NetworkModule {
         tokenAuthenticator: TokenAuthenticator,
         cookieJar: TrustedDeviceCookieJar,
         userAgentInterceptor: UserAgentInterceptor,
+        credentialGuard: CredentialGuardInterceptor,
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .cookieJar(cookieJar)
             .addInterceptor(baseUrlInterceptor)
             .addInterceptor(authInterceptor)
+            // Network (not application) interceptor: runs on every hop, so it
+            // strips credentials from redirect follow-ups and authenticator
+            // retries that leave the API origin, which the application-level
+            // AuthInterceptor above can't see.
+            .addNetworkInterceptor(credentialGuard)
             .authenticator(tokenAuthenticator)
             // Send "Sheaf Android/<version>" on every API call instead of
             // OkHttp's default "okhttp/<lib version>". The server records

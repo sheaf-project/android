@@ -168,15 +168,16 @@ class SettingsViewModel @Inject constructor(
     fun saveBaseUrl(url: String) {
         viewModelScope.launch {
             val previous = prefs.baseUrl.firstOrNull()
-            prefs.saveBaseUrl(url)
             // Changing the server here means switching instances while signed in.
-            // Drop the old session so its tokens, cache and offline queue can't
-            // carry over to (or leak toward) the new host.
+            // Drop the old session BEFORE storing the new origin: saving first
+            // leaves a window where the new host is configured but the old token
+            // is still present, letting a concurrent request carry it across.
             if (!systems.lupine.sheaf.data.api.sameConfiguredOrigin(previous, url)) {
                 authInterceptor.pendingToken = null
                 prefs.clearTokens()
                 accountDataWiper.wipe()
             }
+            prefs.saveBaseUrl(url)
         }
     }
 

@@ -133,16 +133,16 @@ class AuthViewModel @Inject constructor(
     fun saveBaseUrl(url: String) {
         viewModelScope.launch {
             val previous = prefs.baseUrl.firstOrNull()
-            prefs.saveBaseUrl(url)
-            // Switching to a different instance must drop any session bound to
-            // the old one: otherwise the previous instance's tokens, cache and
-            // offline queue survive against the new host (and its bearer would
-            // ride to the new server).
+            // Clear the old session BEFORE storing the new origin. Saving first
+            // opens a window where the base URL is the new host but the old token
+            // is still present, so a concurrent request would be treated as
+            // trusted and carry the old bearer to the new host.
             if (!sameConfiguredOrigin(previous, url)) {
                 authInterceptor.pendingToken = null
                 prefs.clearTokens()
                 accountDataWiper.wipe()
             }
+            prefs.saveBaseUrl(url)
         }
     }
 
