@@ -83,6 +83,8 @@ class SettingsViewModel @Inject constructor(
     private val prefs: PreferencesRepository,
     private val notificationHelper: FrontNotificationHelper,
     private val watchSession: WatchSessionRepository,
+    private val accountDataWiper: systems.lupine.sheaf.data.repository.AccountDataWiper,
+    private val authInterceptor: systems.lupine.sheaf.data.api.AuthInterceptor,
     @dagger.hilt.android.qualifiers.ApplicationContext
     private val appContext: android.content.Context,
 ) : ViewModel() {
@@ -164,7 +166,18 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun saveBaseUrl(url: String) {
-        viewModelScope.launch { prefs.saveBaseUrl(url) }
+        viewModelScope.launch {
+            val previous = prefs.baseUrl.firstOrNull()
+            prefs.saveBaseUrl(url)
+            // Changing the server here means switching instances while signed in.
+            // Drop the old session so its tokens, cache and offline queue can't
+            // carry over to (or leak toward) the new host.
+            if (!systems.lupine.sheaf.data.api.sameConfiguredOrigin(previous, url)) {
+                authInterceptor.pendingToken = null
+                prefs.clearTokens()
+                accountDataWiper.wipe()
+            }
+        }
     }
 
     fun saveTheme(mode: String) {

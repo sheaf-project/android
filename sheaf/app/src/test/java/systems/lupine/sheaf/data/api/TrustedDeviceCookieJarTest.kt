@@ -4,6 +4,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import okhttp3.Cookie
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import systems.lupine.sheaf.data.repository.PreferencesRepository
@@ -19,7 +20,10 @@ import kotlin.test.assertTrue
  */
 class TrustedDeviceCookieJarTest {
 
-    private val prefs = mockk<PreferencesRepository>(relaxed = true)
+    private val prefs = mockk<PreferencesRepository>(relaxed = true).also {
+        // isApiOrigin reads the configured base URL to host-scope the cookie.
+        every { it.baseUrl } returns flowOf("https://app.sheaf.sh")
+    }
     private val jar = TrustedDeviceCookieJar(prefs)
 
     private val authUrl = "https://app.sheaf.sh/v1/auth/login".toHttpUrl()
@@ -69,5 +73,22 @@ class TrustedDeviceCookieJarTest {
         every { prefs.trustedDeviceCookieBlocking() } returns null
 
         assertTrue(jar.loadForRequest(authUrl).isEmpty())
+    }
+
+    @Test fun `the cookie is not attached to a different host's auth path`() {
+        // Host-scoping: even a /v1/auth/ request to another instance (e.g. after
+        // the user changed servers) must not receive the old instance's token.
+        every { prefs.trustedDeviceCookieBlocking() } returns "tdc-1"
+
+        assertTrue(jar.loadForRequest("https://other.example.org/v1/auth/login".toHttpUrl()).isEmpty())
+    }
+
+    @Test fun `a cookie from a different host is not stored`() {
+        jar.saveFromResponse(
+            "https://other.example.org/v1/auth/login".toHttpUrl(),
+            listOf(cookie("sheaf_trusted_device", "tdc-evil")),
+        )
+
+        coVerify(exactly = 0) { prefs.saveTrustedDeviceCookie(any(), any()) }
     }
 }

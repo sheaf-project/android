@@ -28,17 +28,33 @@ class AuthInterceptor @Inject constructor(
     private val clientHeader = "Sheaf Android/${BuildConfig.VERSION_NAME}"
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = pendingToken ?: runBlocking { prefs.accessToken.firstOrNull() }
-        val cfClientId = runBlocking { prefs.cfClientId.firstOrNull() }
-        val cfClientSecret = runBlocking { prefs.cfClientSecret.firstOrNull() }
-        val builder = chain.request().newBuilder()
+        val request = chain.request()
+        val builder = request.newBuilder()
             .addHeader("X-Sheaf-Client", clientHeader)
-        if (token != null) {
-            builder.addHeader("Authorization", "Bearer $token")
+
+        // Credentials go only to the instance's own origins. The Coil image
+        // client shares this interceptor, and image URLs can point at an
+        // external host (a remote avatar, an image embedded in a bio), so an
+        // unconditional bearer / CF-Access header would hand the user's live
+        // session to whatever server that image lives on.
+        val trusted = runBlocking {
+            isTrustedCredentialOrigin(
+                request.url,
+                prefs.baseUrl.firstOrNull(),
+                prefs.fileCdnBase.firstOrNull(),
+            )
         }
-        if (cfClientId != null && cfClientSecret != null) {
-            builder.addHeader("CF-Access-Client-Id", cfClientId)
-            builder.addHeader("CF-Access-Client-Secret", cfClientSecret)
+        if (trusted) {
+            val token = pendingToken ?: runBlocking { prefs.accessToken.firstOrNull() }
+            if (token != null) {
+                builder.addHeader("Authorization", "Bearer $token")
+            }
+            val cfClientId = runBlocking { prefs.cfClientId.firstOrNull() }
+            val cfClientSecret = runBlocking { prefs.cfClientSecret.firstOrNull() }
+            if (cfClientId != null && cfClientSecret != null) {
+                builder.addHeader("CF-Access-Client-Id", cfClientId)
+                builder.addHeader("CF-Access-Client-Secret", cfClientSecret)
+            }
         }
         return chain.proceed(builder.build())
     }
