@@ -525,6 +525,12 @@ interface SheafApiService {
         @Part file: MultipartBody.Part,
     ): PluralSpacePreviewSummary
 
+    @Multipart
+    @POST("/v1/import/ampersand/preview")
+    suspend fun previewAmpersandImport(
+        @Part file: MultipartBody.Part,
+    ): AmpersandPreviewSummary
+
     /**
      * Preview an OpenPlural v0.1 import. Accepts a bare `.json` export or an
      * `.openplural.zip` bundle (the endpoint sniffs the zip magic). Reuses the

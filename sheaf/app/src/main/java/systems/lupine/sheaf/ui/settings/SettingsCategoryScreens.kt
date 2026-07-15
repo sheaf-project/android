@@ -815,6 +815,7 @@ fun DataSettingsScreen(
     onNavigateToPluralSpaceImport: () -> Unit,
     onNavigateToPrismImport: () -> Unit,
     onNavigateToOpenPluralImport: () -> Unit,
+    onNavigateToAmpersandImport: () -> Unit,
     onNavigateToImportHistory: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -919,6 +920,13 @@ fun DataSettingsScreen(
             title = "Import from OpenPlural",
             subtitle = "Use an OpenPlural .json or .openplural.zip export",
             onClick = onNavigateToOpenPluralImport,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        SettingItem(
+            icon = Icons.Outlined.Upload,
+            title = "Import from Ampersand",
+            subtitle = "Use an Ampersand .json data export",
+            onClick = onNavigateToAmpersandImport,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(

@@ -1002,7 +1002,31 @@ object ImportJobSource {
     // and the .openplural.zip bundle; the runner sniffs the zip magic and
     // unpacks images when present (no separate archive source like Sheaf).
     const val OPENPLURAL_FILE = "openplural_file"
+    const val AMPERSAND_FILE = "ampersand_file"
 }
+
+// ── Ampersand import ──────────────────────────────────────────────────────────
+//
+// Ampersand exports a plain .json file. The preview reports category counts
+// only (no per-member list), so selective member import isn't offered on
+// Android; every real member is imported. `groups` imports Ampersand systems as
+// Sheaf groups; `board_messages` also gates polls.
+@JsonClass(generateAdapter = true)
+data class AmpersandPreviewSummary(
+    @Json(name = "system_count") val systemCount: Int = 0,
+    @Json(name = "member_count") val memberCount: Int = 0,
+    @Json(name = "custom_front_count") val customFrontCount: Int = 0,
+    @Json(name = "front_history_count") val frontHistoryCount: Int = 0,
+    @Json(name = "tag_count") val tagCount: Int = 0,
+    @Json(name = "custom_field_count") val customFieldCount: Int = 0,
+    @Json(name = "journal_count") val journalCount: Int = 0,
+    @Json(name = "note_count") val noteCount: Int = 0,
+    @Json(name = "board_message_count") val boardMessageCount: Int = 0,
+    @Json(name = "poll_count") val pollCount: Int = 0,
+    @Json(name = "reminder_count") val reminderCount: Int = 0,
+    @Json(name = "asset_count") val assetCount: Int = 0,
+    @Json(name = "limit_warnings") val limitWarnings: List<String> = emptyList(),
+)
 
 // ── Export ──────────────────────────────────────────────────────────────────
 
