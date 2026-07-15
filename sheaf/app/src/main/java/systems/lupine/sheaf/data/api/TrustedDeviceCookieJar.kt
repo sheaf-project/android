@@ -1,5 +1,6 @@
 package systems.lupine.sheaf.data.api
 
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
 import okhttp3.Cookie
 import okhttp3.CookieJar
@@ -40,6 +41,9 @@ class TrustedDeviceCookieJar @Inject constructor(
 ) : CookieJar {
 
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        // Only store the cookie when it came from our own API origin, so a
+        // response from some other host can't seed it.
+        if (!isApiOrigin(url)) return
         val tdc = cookies.firstOrNull { it.name == COOKIE_NAME } ?: return
         runBlocking {
             prefs.saveTrustedDeviceCookie(tdc.value, tdc.expiresAt)
@@ -47,7 +51,11 @@ class TrustedDeviceCookieJar @Inject constructor(
     }
 
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        // Host-scope as well as path-scope: the trusted-device token is bound to
+        // the instance that issued it and must not ride along to another host
+        // (e.g. after the user points the app at a different server).
         if (!url.encodedPath.startsWith(COOKIE_PATH)) return emptyList()
+        if (!isApiOrigin(url)) return emptyList()
         val value = prefs.trustedDeviceCookieBlocking() ?: return emptyList()
         return listOf(
             Cookie.Builder()
@@ -58,6 +66,9 @@ class TrustedDeviceCookieJar @Inject constructor(
                 .build()
         )
     }
+
+    private fun isApiOrigin(url: HttpUrl): Boolean =
+        originMatches(url, runBlocking { prefs.baseUrl.firstOrNull() })
 
     private companion object {
         const val COOKIE_NAME = "sheaf_trusted_device"
