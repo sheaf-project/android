@@ -18,6 +18,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Watch: a queued offline switch can no longer be created twice.** The watch
+  app, its data-layer service and its tile trampoline each drained the offline
+  switch queue with their own lock, so two of them could submit the same queued
+  switch at once. They now share one lock across the whole app.
+
+- **Phone: syncing offline actions no longer risks duplicating a front.** A new
+  sync could previously cancel one already in progress at the moment it was
+  creating a front, which could create it twice; a running sync is now left to
+  finish.
+
 - **Signing into another account no longer leaks the previous account's data.**
   Signing in or out now clears the local response cache and the offline action
   queue, so a new account can't briefly see the prior account's members, fronts
