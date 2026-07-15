@@ -4,7 +4,7 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
-## [Unreleased]
+## [1.2.3] - 2026-07-15
 
 ### Added
 
@@ -14,30 +14,23 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   board messages and polls, reminders, images, and Ampersand systems as groups);
   the import runs in the background and shows a summary when it finishes.
 
-### Security
+- **Display timezone.** You can now choose the timezone timestamps are shown
+  in. Set an account-wide default (synced across your devices) under
+  Settings > Appearance, and optionally override it on this device only
+  ("follow the account", "this device's own clock", or a specific zone).
+  "Automatic" keeps the previous behaviour of using each device's own clock.
+  Front history, journal entries, and member revision times render in the
+  chosen zone.
 
-- **Your login credentials only ever go to your own server now.** The app used to
-  attach your session token (and any Cloudflare Access secrets) to every network
-  request, including image loads. An avatar or an image embedded in a bio that was
-  hosted on another server would therefore receive your live credentials. They are
-  now sent only to your configured server's API. Images are loaded with no
-  credentials at all (they don't need any), and the "remember this device" cookie
-  is limited to your server too.
-
-- **Switching servers, or being signed out, fully clears the previous account.**
-  Changing the server address while signed in now ends the old session and clears
-  its cached data and pending offline actions instead of leaving them behind;
-  a registration that skips email verification, and a forced sign-out when your
-  session expires, now clear the same data. Previously some of these paths left a
-  prior account's cache or offline queue on the device.
-
-- **Your data no longer goes into Android's cloud backup.** The phone and watch
-  apps now opt out of backup and device-to-device transfer entirely. Previously
-  the local cache (members, groups, front history, messages), the offline switch
-  queue and the watch's stored session were all eligible to be copied into a
-  Google-held backup of your device. Nothing about your system leaves the device
-  now; everything is restored by signing in again, and a watch re-pairs from the
-  phone.
+- **Relationships.** You can now map how your members (and groups) relate to
+  each other. Define relationship types under Settings > System >
+  Relationships - symmetric (one label, e.g. partner), directional (two
+  labels, e.g. parent / child), or either (both, with an optional "mutual")
+  - starting from a preset if you like. Then add relationships from a member
+  or group's edit screen, picking the other party and the direction; the
+  member and group profiles show them read-only. A relationship graph (reachable
+  from the Relationships settings screen) draws the whole system as a
+  pan-and-zoom force-directed map, with a Members / Groups toggle.
 
 ### Fixed
 
@@ -142,30 +135,32 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   one. Applies to every importer (Sheaf, PluralKit file and API, Tupperbox,
   Prism, OpenPlural, PluralSpace, Simply Plural).
 
+### Security
+
+- **Your login credentials only ever go to your own server now.** The app used to
+  attach your session token (and any Cloudflare Access secrets) to every network
+  request, including image loads. An avatar or an image embedded in a bio that was
+  hosted on another server would therefore receive your live credentials. They are
+  now sent only to your configured server's API. Images are loaded with no
+  credentials at all (they don't need any), and the "remember this device" cookie
+  is limited to your server too.
+
+- **Switching servers, or being signed out, fully clears the previous account.**
+  Changing the server address while signed in now ends the old session and clears
+  its cached data and pending offline actions instead of leaving them behind;
+  a registration that skips email verification, and a forced sign-out when your
+  session expires, now clear the same data. Previously some of these paths left a
+  prior account's cache or offline queue on the device.
+
+- **Your data no longer goes into Android's cloud backup.** The phone and watch
+  apps now opt out of backup and device-to-device transfer entirely. Previously
+  the local cache (members, groups, front history, messages), the offline switch
+  queue and the watch's stored session were all eligible to be copied into a
+  Google-held backup of your device. Nothing about your system leaves the device
+  now; everything is restored by signing in again, and a watch re-pairs from the
+  phone.
 
 ## [1.2.2] - 2026-07-11
-
-### Added
-
-- **Display timezone.** You can now choose the timezone timestamps are shown
-  in. Set an account-wide default (synced across your devices) under
-  Settings > Appearance, and optionally override it on this device only
-  ("follow the account", "this device's own clock", or a specific zone).
-  "Automatic" keeps the previous behaviour of using each device's own clock.
-  Front history, journal entries, and member revision times render in the
-  chosen zone.
-
-### Added
-
-- **Relationships.** You can now map how your members (and groups) relate to
-  each other. Define relationship types under Settings > System >
-  Relationships - symmetric (one label, e.g. partner), directional (two
-  labels, e.g. parent / child), or either (both, with an optional "mutual")
-  - starting from a preset if you like. Then add relationships from a member
-  or group's edit screen, picking the other party and the direction; the
-  member and group profiles show them read-only. A relationship graph (reachable
-  from the Relationships settings screen) draws the whole system as a
-  pan-and-zoom force-directed map, with a Members / Groups toggle.
 
 ### Fixed
 
