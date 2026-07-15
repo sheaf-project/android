@@ -19,20 +19,32 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.Coil
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import kotlinx.coroutines.launch
 import systems.lupine.sheaf.data.model.RelationshipGraph
 import systems.lupine.sheaf.data.model.RelationshipGraphEdge
 import systems.lupine.sheaf.ui.components.ErrorBanner
@@ -141,6 +153,44 @@ private fun GraphCanvas(graph: RelationshipGraph, scopeKey: String) {
         }
     }
 
+    // Edges between the same pair of nodes are fanned apart so they don't stack
+    // on one line: each gets a sideways curvature (screen px) AND its label is
+    // staggered along the edge, so labels separate lengthwise rather than piling
+    // up at the shared midpoint. A lone edge stays straight with a centred label.
+    val edgeFan = remember(graph) {
+        val byPair = edgeIdx.groupBy { (s, t, _) -> if (s < t) s to t else t to s }
+        val out = HashMap<String, EdgeFan>(edgeIdx.size)
+        byPair.values.forEach { group ->
+            val m = group.size
+            group.forEachIndexed { k, (_, _, e) ->
+                out[e.id] = if (m == 1) EdgeFan(0f, 0f)
+                else {
+                    val spread = k - (m - 1) / 2f
+                    EdgeFan(spread * CURVE_STEP_PX, spread * LABEL_T_STEP)
+                }
+            }
+        }
+        out
+    }
+
+    // Avatars, loaded off-canvas into ImageBitmaps and drawn clipped to a circle.
+    // Falls back to the colour + initial while loading or when a node has none.
+    val context = LocalContext.current
+    val avatarBitmaps = remember(graph) { mutableStateMapOf<String, ImageBitmap>() }
+    LaunchedEffect(graph) {
+        val loader = Coil.imageLoader(context)
+        graph.nodes.forEach { node ->
+            val url = node.avatarUrl
+            if (!url.isNullOrBlank()) launch {
+                val req = ImageRequest.Builder(context).data(url).allowHardware(false).build()
+                val result = runCatching { loader.execute(req) }.getOrNull()
+                if (result is SuccessResult) {
+                    runCatching { avatarBitmaps[node.id] = result.drawable.toBitmap().asImageBitmap() }
+                }
+            }
+        }
+    }
+
     // Fit the current layout into the canvas with padding.
     fun fit() {
         if (n == 0 || canvasSize == IntSize.Zero) return
@@ -232,28 +282,74 @@ private fun GraphCanvas(graph: RelationshipGraph, scopeKey: String) {
 
             val nodeRadius = 20.dp.toPx()
 
-            // Edges first (under the nodes).
+            // Edges first (under the nodes). Curved when they share a node pair.
             for ((s, t, e) in edgeIdx) {
                 val a = screen(s); val b = screen(t)
-                drawLine(edgeColor, a, b, strokeWidth = 2f)
-                drawEdgeLabel(textMeasurer, e, a, b, onSurfaceVariant, labelBg)
-                if (e.directed) drawArrowhead(a, b, nodeRadius, edgeColor)
+                val fan = edgeFan[e.id] ?: EdgeFan(0f, 0f)
+                val curve = fan.curve
+                // Fan about the canonical low->high axis so a group bows around
+                // one line rather than each edge picking its own side.
+                val pa = screen(min(s, t)); val pb = screen(max(s, t))
+                val dxp = pb.x - pa.x; val dyp = pb.y - pa.y
+                val plen = max(1f, sqrt(dxp * dxp + dyp * dyp))
+                val perp = Offset(-dyp / plen, dxp / plen)
+                val mid = Offset((a.x + b.x) / 2f, (a.y + b.y) / 2f)
+                val control = mid + perp * curve
+
+                if (curve == 0f) {
+                    drawLine(edgeColor, a, b, strokeWidth = 2f)
+                } else {
+                    val path = Path().apply {
+                        moveTo(a.x, a.y)
+                        quadraticTo(control.x, control.y, b.x, b.y)
+                    }
+                    drawPath(path, edgeColor, style = Stroke(width = 2f))
+                }
+
+                // Label staggered along the edge so siblings separate lengthwise
+                // (the same-pair labels don't all land on the shared midpoint).
+                val labelT = (0.5f + fan.labelT).coerceIn(0.2f, 0.8f)
+                drawEdgeLabel(textMeasurer, e, quadPoint(a, control, b, labelT), onSurfaceVariant, labelBg)
+
+                if (e.directed) {
+                    // Arrowhead follows the curve's incoming tangent at the target.
+                    val inDir = if (curve == 0f) (b - a) else (b - control)
+                    drawArrowhead(b, inDir, nodeRadius, edgeColor)
+                }
             }
 
             // Nodes.
             graph.nodes.forEachIndexed { i, node ->
                 val p = screen(i)
                 val color = parseNodeColor(node.color, FALLBACK_NODE_COLORS[i % FALLBACK_NODE_COLORS.size])
-                drawCircle(color, radius = nodeRadius, center = p)
-                val initial = node.name.trim().firstOrNull()?.uppercase() ?: "?"
-                val initialLayout = textMeasurer.measure(
-                    initial,
-                    style = TextStyle(color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                )
-                drawText(
-                    initialLayout,
-                    topLeft = p - Offset(initialLayout.size.width / 2f, initialLayout.size.height / 2f),
-                )
+                val bmp = avatarBitmaps[node.id]
+                if (bmp != null) {
+                    // Centre-crop the avatar to a square, then clip to the circle.
+                    val sq = min(bmp.width, bmp.height)
+                    val srcOff = IntOffset((bmp.width - sq) / 2, (bmp.height - sq) / 2)
+                    val d = (nodeRadius * 2f).toInt()
+                    clipPath(Path().apply { addOval(Rect(p.x - nodeRadius, p.y - nodeRadius, p.x + nodeRadius, p.y + nodeRadius)) }) {
+                        drawImage(
+                            image = bmp,
+                            srcOffset = srcOff,
+                            srcSize = IntSize(sq, sq),
+                            dstOffset = IntOffset((p.x - nodeRadius).toInt(), (p.y - nodeRadius).toInt()),
+                            dstSize = IntSize(d, d),
+                        )
+                    }
+                    drawCircle(color, radius = nodeRadius, center = p, style = Stroke(width = 3f))
+                } else {
+                    drawCircle(color, radius = nodeRadius, center = p)
+                    val initial = node.name.trim().firstOrNull()?.uppercase() ?: "?"
+                    val initialLayout = textMeasurer.measure(
+                        initial,
+                        style = TextStyle(color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                    )
+                    drawText(
+                        initialLayout,
+                        topLeft = p - Offset(initialLayout.size.width / 2f, initialLayout.size.height / 2f),
+                    )
+                }
                 val nameLayout = textMeasurer.measure(
                     node.name,
                     style = TextStyle(color = onSurface, fontSize = 11.sp),
@@ -281,17 +377,30 @@ private fun GraphCanvas(graph: RelationshipGraph, scopeKey: String) {
     }
 }
 
+// Screen-space sideways separation between fanned edges that share a node pair,
+// and how far along the edge each sibling's label is nudged so they stack
+// lengthwise instead of at the shared midpoint.
+private const val CURVE_STEP_PX = 34f
+private const val LABEL_T_STEP = 0.16f
+
+/** Per-edge fan offsets: sideways curvature (px) and label position nudge (0..1 of the edge). */
+private data class EdgeFan(val curve: Float, val labelT: Float)
+
+/** Point at parameter [t] on the quadratic Bezier a -> control -> b. */
+private fun quadPoint(a: Offset, control: Offset, b: Offset, t: Float): Offset {
+    val mt = 1f - t
+    return a * (mt * mt) + control * (2f * mt * t) + b * (t * t)
+}
+
 private fun DrawScope.drawEdgeLabel(
     textMeasurer: TextMeasurer,
     edge: RelationshipGraphEdge,
-    a: Offset,
-    b: Offset,
+    at: Offset,
     textColor: Color,
     bg: Color,
 ) {
-    val mid = Offset((a.x + b.x) / 2f, (a.y + b.y) / 2f)
     val layout = textMeasurer.measure(edge.sourceLabel, style = TextStyle(color = textColor, fontSize = 10.sp))
-    val topLeft = Offset(mid.x - layout.size.width / 2f, mid.y - layout.size.height / 2f)
+    val topLeft = Offset(at.x - layout.size.width / 2f, at.y - layout.size.height / 2f)
     drawRoundRect(
         color = bg.copy(alpha = 0.85f),
         topLeft = topLeft - Offset(3f, 1f),
@@ -301,13 +410,14 @@ private fun DrawScope.drawEdgeLabel(
     drawText(layout, topLeft = topLeft)
 }
 
-private fun DrawScope.drawArrowhead(a: Offset, b: Offset, nodeRadius: Float, color: Color) {
-    val dir = b - a
-    val len = sqrt(dir.x * dir.x + dir.y * dir.y)
+// [target] is the target node centre; [inDir] the (unnormalised) incoming
+// direction, so the head aligns with a curved edge's tangent.
+private fun DrawScope.drawArrowhead(target: Offset, inDir: Offset, nodeRadius: Float, color: Color) {
+    val len = sqrt(inDir.x * inDir.x + inDir.y * inDir.y)
     if (len < 1f) return
-    val ux = dir.x / len; val uy = dir.y / len
+    val ux = inDir.x / len; val uy = inDir.y / len
     // Tip sits at the target node's boundary.
-    val tip = Offset(b.x - ux * nodeRadius, b.y - uy * nodeRadius)
+    val tip = Offset(target.x - ux * nodeRadius, target.y - uy * nodeRadius)
     val size = 12f
     val backX = tip.x - ux * size; val backY = tip.y - uy * size
     val perpX = -uy; val perpY = ux
