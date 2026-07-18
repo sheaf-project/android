@@ -103,8 +103,8 @@ private fun FilePickSection(onPick: () -> Unit) {
         Text("Choose your Ampersand export to get started.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Button(onClick = onPick) { Text("Choose file") }
         Text(
-            "In Ampersand, open Settings → Import & export → Export, and save the " +
-                ".json file. Then select it here.",
+            "In Ampersand, open Settings → Import & export → Export your data to a JSON file (note: this is a different option to 'Export your data', which " +
+                "produces an incompatible file format), and save the .json file. Then select it here.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
