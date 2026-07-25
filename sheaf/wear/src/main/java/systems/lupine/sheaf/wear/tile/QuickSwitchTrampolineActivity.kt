@@ -89,8 +89,11 @@ class QuickSwitchTrampolineActivity : ComponentActivity() {
         val store = WearStore(api, applicationContext)
 
         lifecycleScope.launch {
-            val ok = store.switchFront(selected, replaceFronts = endExisting)
-            val msg = if (ok) "Switched to $name" else "Switch failed"
+            val msg = when (store.switchFront(selected, replaceFronts = endExisting)) {
+                systems.lupine.sheaf.wear.data.SwitchOutcome.SWITCHED -> "Switched to $name"
+                systems.lupine.sheaf.wear.data.SwitchOutcome.ALREADY_FRONTING -> "$name already fronting"
+                systems.lupine.sheaf.wear.data.SwitchOutcome.FAILED -> "Switch failed"
+            }
             Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
             // Always reset transient state on commit attempts. If the call
             // failed the user can re-pick; leaving the selection sticky

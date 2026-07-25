@@ -47,17 +47,32 @@ class WearAuthManager(context: Context) {
         !secureString("access_token").isNullOrBlank() &&
         !secureString("base_url").isNullOrBlank()
 
-    private val _isAuthenticatedFlow = MutableStateFlow(isCredentialed())
-    val isAuthenticatedFlow: StateFlow<Boolean> = _isAuthenticatedFlow.asStateFlow()
+    // Auth state is a PROCESS-WIDE flow, not a per-instance one. The data-layer
+    // service, the activity, tiles and complications each build their own
+    // WearAuthManager over the same encrypted store; a per-instance flow meant
+    // the service applying a phone-pushed token updated only its own copy, so
+    // the login screen (observing the activity's copy) never saw it and the
+    // user had to leave and re-enter the screen. A shared flow means any
+    // instance's saveCredentials/clearCredentials updates the exact flow the UI
+    // collects. The signal-counter listener below stays as a belt for any write
+    // that bypasses this class.
+    val isAuthenticatedFlow: StateFlow<Boolean> = sharedAuthFlow.asStateFlow()
 
-    val isAuthenticated: Boolean get() = _isAuthenticatedFlow.value
+    val isAuthenticated: Boolean get() = sharedAuthFlow.value
+
+    init {
+        // Reconcile the shared flow with what's actually on disk for this
+        // (process-wide) store, so a freshly constructed manager reflects the
+        // current credential state.
+        sharedAuthFlow.value = isCredentialed()
+    }
 
     // React to credential writes from other instances (e.g. the data-layer
     // service handling a phone push) via the non-secret signal counter.
     private val signalListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_CREDS_VERSION) {
-                _isAuthenticatedFlow.value = isCredentialed()
+                sharedAuthFlow.value = isCredentialed()
             }
         }
 
@@ -83,7 +98,7 @@ class WearAuthManager(context: Context) {
         // Applying credentials means we're signed in again, so drop any manual
         // sign-out latch (a phone push or a manual watch login both land here).
         signal.edit().putBoolean(KEY_MANUALLY_SIGNED_OUT, false).apply()
-        _isAuthenticatedFlow.value = true
+        sharedAuthFlow.value = true
         notifyCredsChanged()
     }
 
@@ -114,7 +129,7 @@ class WearAuthManager(context: Context) {
             .remove("access_token")
             .remove("refresh_token")
             .apply()
-        _isAuthenticatedFlow.value = false
+        sharedAuthFlow.value = false
         notifyCredsChanged()
     }
 
@@ -185,6 +200,11 @@ class WearAuthManager(context: Context) {
     }
 
     private companion object {
+        // Process-wide auth state, shared across every WearAuthManager instance
+        // in the process so a credential write from one (e.g. the data-layer
+        // service) is observed by the others (e.g. the login screen).
+        val sharedAuthFlow = MutableStateFlow(false)
+
         const val TAG = "WearAuthManager"
         const val LEGACY_FILE = "wear_auth"
         const val SECURE_FILE = "wear_auth_secure"

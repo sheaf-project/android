@@ -9,6 +9,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/** Result of a [WearStore.switchFront] attempt, so callers can word the toast. */
+enum class SwitchOutcome {
+    /** The switch was applied (or captured offline and will land). */
+    SWITCHED,
+    /** An open front already had this exact member set; nothing to do. */
+    ALREADY_FRONTING,
+    /** A permanent client error the user should be told about. */
+    FAILED,
+}
+
 class WearStore(
     val apiClient: WearApiClient,
     private val context: Context,
@@ -137,22 +147,28 @@ class WearStore(
         }
     }
 
-    suspend fun switchFront(memberIds: List<String>, replaceFronts: Boolean? = null): Boolean {
+    suspend fun switchFront(memberIds: List<String>, replaceFronts: Boolean? = null): SwitchOutcome {
         error.value = null
         // Try the direct API path first. Common case; succeeds when the
         // watch has its own network.
         runCatching { apiClient.createFront(memberIds, replaceFronts) }
             .onSuccess {
                 loadAll()
-                return true
+                return SwitchOutcome.SWITCHED
             }
             .onFailure { e ->
-                // A permanent client error (deleted member, bad payload) will
-                // never succeed on replay, so don't queue it or report success:
-                // surface it instead of silently dropping the switch on the floor.
-                if (e is WearApiException && isPermanentSwitchError(e.code)) {
-                    error.value = "Couldn't switch front (error ${e.code})"
-                    return false
+                if (e is WearApiException) {
+                    // 409 = an open front already has this exact member set. The
+                    // state the user wanted already holds, so this isn't a
+                    // failure; say so specifically instead of "switch failed".
+                    if (e.code == 409) return SwitchOutcome.ALREADY_FRONTING
+                    // Any other permanent client error (deleted member, bad
+                    // payload) will never succeed on replay, so don't queue it or
+                    // report success: surface it instead of dropping the switch.
+                    if (isPermanentSwitchError(e.code)) {
+                        error.value = "Couldn't switch front (error ${e.code})"
+                        return SwitchOutcome.FAILED
+                    }
                 }
             }
         // Direct call failed (most often: watch is offline). Two
@@ -170,11 +186,10 @@ class WearStore(
         if (!WearSwitchQueue.sendToPhone(context, queued)) {
             WearSwitchQueue.enqueue(context, queued)
         }
-        // Report success either way: the user pressed switch, the
-        // system has captured it, and it will land — surfacing a
-        // transient "network failed" they can't act on would be
-        // worse UX than the rare lost-on-floor case below.
-        return true
+        // Report a switch either way: the user pressed switch, the system has
+        // captured it, and it will land. Surfacing a transient "network failed"
+        // they can't act on would be worse UX than the rare lost-on-floor case.
+        return SwitchOutcome.SWITCHED
     }
 
     suspend fun createMember(name: String, displayName: String?, pronouns: String?): WearMember {
