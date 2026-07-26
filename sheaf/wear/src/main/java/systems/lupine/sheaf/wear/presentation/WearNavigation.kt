@@ -12,7 +12,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.wear.remote.interactions.RemoteActivityHelper
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -32,6 +39,27 @@ import systems.lupine.sheaf.wear.R
 import systems.lupine.sheaf.wear.data.WearAuthManager
 import systems.lupine.sheaf.wear.data.WearSettingsStore
 import systems.lupine.sheaf.wear.data.WearStore
+
+/**
+ * Ask the paired phone to open the Sheaf app. Uses RemoteActivityHelper (a
+ * system-mediated remote start, so it isn't blocked by the phone's background-
+ * activity-launch limits) with a `sheaf://open` deep link the phone app
+ * registers. Toasts if the phone can't be reached.
+ */
+private fun openSheafOnPhone(context: Context) {
+    val intent = Intent(Intent.ACTION_VIEW)
+        .addCategory(Intent.CATEGORY_BROWSABLE)
+        .setData(Uri.parse("sheaf://open"))
+    val future = RemoteActivityHelper(context).startRemoteActivity(intent)
+    future.addListener(
+        {
+            runCatching { future.get() }.onFailure {
+                Toast.makeText(context, "Couldn't reach your phone", Toast.LENGTH_SHORT).show()
+            }
+        },
+        ContextCompat.getMainExecutor(context),
+    )
+}
 
 val LocalWearStore    = staticCompositionLocalOf<WearStore> { error("No WearStore") }
 val LocalWearAuth     = staticCompositionLocalOf<WearAuthManager> { error("No WearAuthManager") }
@@ -64,6 +92,7 @@ fun WearNavigation(
     }
 
     if (!isAuthenticated) {
+        val context = LocalContext.current
         var showLogin by remember { mutableStateOf(false) }
         if (showLogin) {
             WearLoginScreen(
@@ -91,9 +120,17 @@ fun WearNavigation(
                     }
                     item {
                         Chip(
+                            label = { Text("Open on phone") },
+                            onClick = { openSheafOnPhone(context) },
+                            colors = ChipDefaults.primaryChipColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    item {
+                        Chip(
                             label = { Text("Retry Sync") },
                             onClick = onRequestSync,
-                            colors = ChipDefaults.primaryChipColors(),
+                            colors = ChipDefaults.secondaryChipColors(),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

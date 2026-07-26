@@ -95,6 +95,8 @@ dependencies {
     // Wearable Data Layer
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
+    // Opening the companion app on the phone from the watch
+    implementation(libs.wear.remote.interactions)
 
     // Networking
     implementation(libs.okhttp.logging)

@@ -131,6 +131,19 @@
                     android:host="notifications"
                     android:path="/redeem" />
             </intent-filter>
+            <!-- "Open Sheaf on phone" from the watch. The wear app fires this
+                 via RemoteActivityHelper when the user is stuck on the watch's
+                 "open on your phone to sign in" screen; it just brings the app
+                 to the foreground (the URL carries no redeem params, so
+                 captureRedemptionDeepLink ignores it). -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="sheaf"
+                    android:host="open" />
+            </intent-filter>
             <!-- Verified App Link for the canonical domain. sheaf.sh hosts
                  /.well-known/assetlinks.json, so autoVerify lets these open
                  the app directly with no browser/chooser. Self-hosted

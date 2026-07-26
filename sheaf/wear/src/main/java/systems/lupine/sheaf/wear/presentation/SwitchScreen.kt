@@ -65,10 +65,12 @@ fun SwitchScreen(navController: NavController) {
     // one-shot override for this switch and doesn't change the saved default.
     var endExisting by remember(endExistingDefault) { mutableStateOf(endExistingDefault) }
     var isSwitching by remember { mutableStateOf(false) }
-    var switched by remember { mutableStateOf(false) }
+    // Non-null once a switch attempt resolved to a "done" state: the confirm
+    // text to flash before popping (either "Switched!" or "Already fronting").
+    var confirmText by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(switched) {
-        if (switched) {
+    LaunchedEffect(confirmText) {
+        if (confirmText != null) {
             delay(1000)
             navController.popBackStack()
         }
@@ -90,10 +92,10 @@ fun SwitchScreen(navController: NavController) {
                     CircularProgressIndicator()
                 }
             }
-            switched -> {
+            confirmText != null -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Switched!",
+                        text = confirmText!!,
                         style = MaterialTheme.typography.title3,
                         color = MaterialTheme.colors.secondary,
                     )
@@ -187,9 +189,14 @@ fun SwitchScreen(navController: NavController) {
                         onClick = {
                             isSwitching = true
                             scope.launch {
-                                val ok = store.switchFront(selected.toList(), endExisting)
+                                val outcome = store.switchFront(selected.toList(), endExisting)
                                 isSwitching = false
-                                if (ok) switched = true
+                                confirmText = when (outcome) {
+                                    systems.lupine.sheaf.wear.data.SwitchOutcome.SWITCHED -> "Switched!"
+                                    systems.lupine.sheaf.wear.data.SwitchOutcome.ALREADY_FRONTING -> "Already fronting"
+                                    // Failure: store.error drives the banner; stay on the screen.
+                                    systems.lupine.sheaf.wear.data.SwitchOutcome.FAILED -> null
+                                }
                             }
                         },
                         // Mint-green commit accent so the action chip reads
