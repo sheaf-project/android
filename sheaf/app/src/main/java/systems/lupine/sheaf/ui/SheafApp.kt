@@ -9,7 +9,10 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import android.net.Uri
@@ -204,41 +207,47 @@ fun SheafApp(
         LocalFileCdnBase provides fileCdnBase,
         LocalDisplayTimeZone provides displayZone,
     ) {
-    Scaffold(
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    val currentDest = navBackStack?.destination
-                    topLevelDestinations.forEach { dest ->
-                        val selected = currentDest?.hierarchy?.any { it.route == dest.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(dest.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    if (selected) dest.selectedIcon else dest.unselectedIcon,
-                                    contentDescription = dest.label,
-                                )
-                            },
-                            label = { Text(dest.label) },
+    // Adaptive top-level chrome: a bottom bar on compact widths (phones), a
+    // navigation rail on wider ones (tablets, landscape, foldables, large
+    // windows), and nothing at all on non-top-level (full-screen) destinations.
+    // 600dp is the standard compact/medium width breakpoint.
+    val currentDest = navBackStack?.destination
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val navSuiteType = when {
+        !showBottomBar -> NavigationSuiteType.None
+        wide -> NavigationSuiteType.NavigationRail
+        else -> NavigationSuiteType.NavigationBar
+    }
+    NavigationSuiteScaffold(
+        layoutType = navSuiteType,
+        navigationSuiteItems = {
+            topLevelDestinations.forEach { dest ->
+                val selected = currentDest?.hierarchy?.any { it.route == dest.route } == true
+                item(
+                    selected = selected,
+                    onClick = {
+                        navController.navigate(dest.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    icon = {
+                        Icon(
+                            if (selected) dest.selectedIcon else dest.unselectedIcon,
+                            contentDescription = dest.label,
                         )
-                    }
-                }
+                    },
+                    label = { Text(dest.label) },
+                )
             }
         },
-    ) { innerPadding ->
+    ) {
         NavHost(
             navController = navController,
             startDestination = Routes.LOGIN,
-            modifier = Modifier.padding(innerPadding),
             enterTransition = { fadeIn() },
             exitTransition = { fadeOut() },
             popEnterTransition = { fadeIn() },
