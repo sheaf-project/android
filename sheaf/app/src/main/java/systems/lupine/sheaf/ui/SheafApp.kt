@@ -154,8 +154,10 @@ data class TopLevelDest(
 private val MAX_CONTENT_WIDTH = 840.dp
 
 // Destinations that should use the full window width rather than the capped
-// content pane (a pan/zoom canvas wants all the room it can get).
-private val FULL_BLEED_ROUTES = setOf(Routes.RELATIONSHIP_GRAPH)
+// content pane: the pan/zoom graph canvas wants all the room it can get, and
+// Home lays its fronting cards out in a grid that flows more columns the wider
+// it gets (so capping it would just cost columns).
+private val FULL_BLEED_ROUTES = setOf(Routes.RELATIONSHIP_GRAPH, Routes.HOME)
 
 val topLevelDestinations = listOf(
     TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,                  Icons.Outlined.Home),

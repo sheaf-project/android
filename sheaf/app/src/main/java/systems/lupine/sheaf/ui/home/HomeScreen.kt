@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.People
@@ -227,12 +231,25 @@ fun HomeScreen(
                     }
                 }
                 else -> {
-                    LazyColumn(
+                    // Adaptive grid: one column on phones, flowing to two or
+                    // more as the window widens (tablet, landscape, unfolded),
+                    // so the fronting cards fill the space instead of a lone
+                    // centred column. Announcements and the trailing spacer
+                    // span the full row. Home opts out of the app-wide content
+                    // width cap (see FULL_BLEED_ROUTES) so the grid gets the
+                    // whole width to lay columns across.
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 340.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(state.visibleAnnouncements, key = { "ann_${it.id}" }) { announcement ->
+                        items(
+                            state.visibleAnnouncements,
+                            key = { "ann_${it.id}" },
+                            span = { GridItemSpan(maxLineSpan) },
+                        ) { announcement ->
                             AnnouncementCard(
                                 announcement = announcement,
                                 onDismiss = { viewModel.dismissAnnouncement(announcement.id) },
@@ -249,7 +266,7 @@ fun HomeScreen(
                         }
                         // Spacer clears the FAB and the pinned quick-switch
                         // bottomBar above the system nav.
-                        item { Spacer(Modifier.height(80.dp)) }
+                        item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(80.dp)) }
                     }
                 }
             }
