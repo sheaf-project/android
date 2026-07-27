@@ -535,7 +535,6 @@ fun NotificationSettingsScreen(
     onNavigateToReceiving: () -> Unit,
     onNavigateToYourDevices: () -> Unit,
     onNavigateToChannelsYouOwn: () -> Unit,
-    onNavigateToReminders: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val frontNotificationEnabled by viewModel.frontNotificationEnabled.collectAsState()
@@ -563,13 +562,6 @@ fun NotificationSettingsScreen(
             title = "Channels you own",
             subtitle = "Invite people to receive notifications from your system",
             onClick = onNavigateToChannelsYouOwn,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Alarm,
-            title = "Reminders",
-            subtitle = "Schedule pings or send pings on front changes",
-            onClick = onNavigateToReminders,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
@@ -740,7 +732,6 @@ fun SystemCategoryScreen(
     onNavigateToCustomFields: () -> Unit,
     onNavigateToTags: () -> Unit,
     onNavigateToArchivedMembers: () -> Unit,
-    onNavigateToRelationships: () -> Unit,
 ) {
     CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
         SettingItem(
@@ -755,13 +746,6 @@ fun SystemCategoryScreen(
             title = "Custom Fields",
             subtitle = "Define additional fields for member profiles",
             onClick = onNavigateToCustomFields,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Hub,
-            title = "Relationships",
-            subtitle = "Define relationship types between members and groups",
-            onClick = onNavigateToRelationships,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
