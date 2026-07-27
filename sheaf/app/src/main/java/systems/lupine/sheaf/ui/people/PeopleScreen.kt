@@ -30,7 +30,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import systems.lupine.sheaf.data.model.GroupRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.groups.GroupCard
 import systems.lupine.sheaf.ui.groups.GroupsViewModel
+import systems.lupine.sheaf.ui.groups.orderGroupsHierarchically
 import systems.lupine.sheaf.ui.members.MembersViewModel
 
 private enum class PeopleTab { MEMBERS, GROUPS }
@@ -41,13 +43,17 @@ fun PeopleScreen(
     onMemberClick: (String) -> Unit,
     onGroupClick: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
+    /** Open on the Groups tab, for the drawer's Groups destination. */
+    startOnGroups: Boolean = false,
     membersViewModel: MembersViewModel = hiltViewModel(),
     groupsViewModel: GroupsViewModel = hiltViewModel(),
 ) {
     val membersState by membersViewModel.state.collectAsState()
     val groupsState by groupsViewModel.state.collectAsState()
 
-    var tab by rememberSaveable { mutableStateOf(PeopleTab.MEMBERS) }
+    var tab by rememberSaveable {
+        mutableStateOf(if (startOnGroups) PeopleTab.GROUPS else PeopleTab.MEMBERS)
+    }
     var memberQuery by rememberSaveable { mutableStateOf("") }
     var groupQuery by rememberSaveable { mutableStateOf("") }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
@@ -176,6 +182,11 @@ fun PeopleScreen(
                     showSearch = searchOpen,
                     onRetry = { groupsViewModel.load() },
                     onGroupClick = onGroupClick,
+                    expanded = groupsState.expanded,
+                    groupMembers = groupsState.groupMembers,
+                    loadingMembers = groupsState.loadingMembers,
+                    memberLoadErrors = groupsState.memberLoadErrors,
+                    onToggleExpand = { groupsViewModel.toggleExpand(it) },
                 )
             }
         }
@@ -256,6 +267,11 @@ private fun GroupsTabBody(
     showSearch: Boolean,
     onRetry: () -> Unit,
     onGroupClick: (String) -> Unit,
+    expanded: Set<String>,
+    groupMembers: Map<String, List<MemberRead>>,
+    loadingMembers: Set<String>,
+    memberLoadErrors: Map<String, String>,
+    onToggleExpand: (String) -> Unit,
 ) {
     when {
         isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -300,8 +316,21 @@ private fun GroupsTabBody(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(groups, key = { it.id }) { group ->
-                        GroupCard(group = group, onClick = { onGroupClick(group.id) })
+                    // Subgroups sit indented under their parent. Filtering by
+                    // search can strand a child whose parent didn't match; the
+                    // ordering treats those as roots so nothing is dropped.
+                    val ordered = orderGroupsHierarchically(groups)
+                    items(ordered, key = { it.first.id }) { (group, depth) ->
+                        GroupCard(
+                            group = group,
+                            depth = depth,
+                            expanded = group.id in expanded,
+                            members = groupMembers[group.id],
+                            loading = group.id in loadingMembers,
+                            error = memberLoadErrors[group.id],
+                            onToggleExpand = { onToggleExpand(group.id) },
+                            onEdit = { onGroupClick(group.id) },
+                        )
                     }
                 }
             }
@@ -329,46 +358,6 @@ private fun MemberCard(member: MemberRead, onClick: () -> Unit) {
                 if (!member.pronouns.isNullOrBlank()) {
                     Text(
                         member.pronouns!!,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GroupCard(group: GroupRead, onClick: () -> Unit) {
-    val accent = parseColor(group.color ?: "#534AB7") ?: MaterialTheme.colorScheme.primary
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(accent.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.Folder, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
-            }
-            Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
-                Text(
-                    group.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (!group.description.isNullOrBlank()) {
-                    Text(
-                        group.description,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         maxLines = 1,

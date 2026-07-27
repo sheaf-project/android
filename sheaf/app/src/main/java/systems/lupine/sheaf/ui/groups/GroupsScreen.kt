@@ -26,92 +26,16 @@ import systems.lupine.sheaf.ui.components.*
 import systems.lupine.sheaf.ui.relationships.REL_SCOPE_GROUP
 import systems.lupine.sheaf.ui.relationships.RelationshipsEditor
 
-// ── Groups list ───────────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun GroupsScreen(
-    onGroupClick: (String) -> Unit,
-    onNavigateToSettings: () -> Unit,
-    viewModel: GroupsViewModel = hiltViewModel(),
-) {
-    val state by viewModel.state.collectAsState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.load()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            SheafLargeFlexibleTopAppBar(
-                title = { Text("Groups") },
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                },
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { onGroupClick("new") }) {
-                Icon(Icons.Default.Add, contentDescription = "Add group")
-            }
-        },
-    ) { padding ->
-        when {
-            state.isLoading -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            state.error != null -> Column(
-                Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                ErrorBanner(state.error!!)
-                Button(onClick = { viewModel.load() }) { Text("Retry") }
-            }
-            state.groups.isEmpty() -> EmptyState(
-                icon = Icons.Default.FolderOpen,
-                title = "No groups yet",
-                subtitle = "Tap + to create your first group.",
-                modifier = Modifier.fillMaxSize().padding(padding),
-            )
-            else -> LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp,
-                    top = padding.calculateTopPadding() + 8.dp,
-                    bottom = padding.calculateBottomPadding() + 80.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                val ordered = orderGroupsHierarchically(state.groups)
-                items(ordered, key = { it.first.id }) { (group, depth) ->
-                    GroupCard(
-                        group = group,
-                        depth = depth,
-                        expanded = group.id in state.expanded,
-                        members = state.groupMembers[group.id],
-                        loading = group.id in state.loadingMembers,
-                        error = state.memberLoadErrors[group.id],
-                        onToggleExpand = { viewModel.toggleExpand(group.id) },
-                        onEdit = { onGroupClick(group.id) },
-                    )
-                }
-            }
-        }
-    }
-}
+// ── Group list card ───────────────────────────────────────────────────────────
 
 @Composable
-private fun GroupCard(
+/**
+ * A group row: indented by nesting depth, tap to expand its members inline,
+ * with an edit affordance. Lives here next to the group detail screen but is
+ * rendered by the Groups tab of the People screen, which is the only place
+ * groups are listed.
+ */
+internal fun GroupCard(
     group: systems.lupine.sheaf.data.model.GroupRead,
     depth: Int,
     expanded: Boolean,
@@ -523,7 +447,7 @@ private fun collectDescendants(
  * with no parent (or a parent that isn't in the set); orphans fall back to
  * roots so nothing is dropped.
  */
-private fun orderGroupsHierarchically(
+internal fun orderGroupsHierarchically(
     groups: List<systems.lupine.sheaf.data.model.GroupRead>,
 ): List<Pair<systems.lupine.sheaf.data.model.GroupRead, Int>> {
     val byId = groups.associateBy { it.id }
