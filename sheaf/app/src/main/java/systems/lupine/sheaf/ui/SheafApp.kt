@@ -2,14 +2,23 @@ package systems.lupine.sheaf.ui
 
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import android.net.Uri
@@ -139,6 +148,15 @@ data class TopLevelDest(
     val unselectedIcon: ImageVector,
 )
 
+// Widest a single content pane grows to; beyond this, centre it with gutters
+// rather than stretching forms and lists across a whole tablet. A no-op on
+// anything narrower (phones, split-screen).
+private val MAX_CONTENT_WIDTH = 840.dp
+
+// Destinations that should use the full window width rather than the capped
+// content pane (a pan/zoom canvas wants all the room it can get).
+private val FULL_BLEED_ROUTES = setOf(Routes.RELATIONSHIP_GRAPH)
+
 val topLevelDestinations = listOf(
     TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,                  Icons.Outlined.Home),
     TopLevelDest(Routes.PEOPLE,   "Members",  Icons.Filled.People,                Icons.Outlined.People),
@@ -204,41 +222,56 @@ fun SheafApp(
         LocalFileCdnBase provides fileCdnBase,
         LocalDisplayTimeZone provides displayZone,
     ) {
-    Scaffold(
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    val currentDest = navBackStack?.destination
-                    topLevelDestinations.forEach { dest ->
-                        val selected = currentDest?.hierarchy?.any { it.route == dest.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(dest.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    if (selected) dest.selectedIcon else dest.unselectedIcon,
-                                    contentDescription = dest.label,
-                                )
-                            },
-                            label = { Text(dest.label) },
+    // Adaptive top-level chrome: a bottom bar on compact widths (phones), a
+    // navigation rail on wider ones (tablets, landscape, foldables, large
+    // windows), and nothing at all on non-top-level (full-screen) destinations.
+    // 600dp is the standard compact/medium width breakpoint.
+    val currentDest = navBackStack?.destination
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val navSuiteType = when {
+        !showBottomBar -> NavigationSuiteType.None
+        wide -> NavigationSuiteType.NavigationRail
+        else -> NavigationSuiteType.NavigationBar
+    }
+    NavigationSuiteScaffold(
+        layoutType = navSuiteType,
+        navigationSuiteItems = {
+            topLevelDestinations.forEach { dest ->
+                val selected = currentDest?.hierarchy?.any { it.route == dest.route } == true
+                item(
+                    selected = selected,
+                    onClick = {
+                        navController.navigate(dest.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    icon = {
+                        Icon(
+                            if (selected) dest.selectedIcon else dest.unselectedIcon,
+                            contentDescription = dest.label,
                         )
-                    }
-                }
+                    },
+                    label = { Text(dest.label) },
+                )
             }
         },
-    ) { innerPadding ->
+    ) {
+        // Cap content width on wide windows so forms and lists don't stretch
+        // across a whole tablet; centre what remains. widthIn is a no-op below
+        // the cap, so phones are unaffected. Full-bleed screens (the pan/zoom
+        // relationship graph) opt out and use the whole area.
+        val fullBleed = currentRoute in FULL_BLEED_ROUTES
+        val contentModifier = if (fullBleed) Modifier.fillMaxSize()
+            else Modifier.fillMaxHeight().widthIn(max = MAX_CONTENT_WIDTH)
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         NavHost(
             navController = navController,
             startDestination = Routes.LOGIN,
-            modifier = Modifier.padding(innerPadding),
+            modifier = contentModifier,
             enterTransition = { fadeIn() },
             exitTransition = { fadeOut() },
             popEnterTransition = { fadeIn() },
@@ -674,6 +707,7 @@ fun SheafApp(
                     },
                 )
             }
+        }
         }
     }
     }
