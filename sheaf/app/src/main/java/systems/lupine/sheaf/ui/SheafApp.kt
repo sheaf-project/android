@@ -2,7 +2,13 @@ package systems.lupine.sheaf.ui
 
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -142,6 +148,15 @@ data class TopLevelDest(
     val unselectedIcon: ImageVector,
 )
 
+// Widest a single content pane grows to; beyond this, centre it with gutters
+// rather than stretching forms and lists across a whole tablet. A no-op on
+// anything narrower (phones, split-screen).
+private val MAX_CONTENT_WIDTH = 840.dp
+
+// Destinations that should use the full window width rather than the capped
+// content pane (a pan/zoom canvas wants all the room it can get).
+private val FULL_BLEED_ROUTES = setOf(Routes.RELATIONSHIP_GRAPH)
+
 val topLevelDestinations = listOf(
     TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,                  Icons.Outlined.Home),
     TopLevelDest(Routes.PEOPLE,   "Members",  Icons.Filled.People,                Icons.Outlined.People),
@@ -245,9 +260,18 @@ fun SheafApp(
             }
         },
     ) {
+        // Cap content width on wide windows so forms and lists don't stretch
+        // across a whole tablet; centre what remains. widthIn is a no-op below
+        // the cap, so phones are unaffected. Full-bleed screens (the pan/zoom
+        // relationship graph) opt out and use the whole area.
+        val fullBleed = currentRoute in FULL_BLEED_ROUTES
+        val contentModifier = if (fullBleed) Modifier.fillMaxSize()
+            else Modifier.fillMaxHeight().widthIn(max = MAX_CONTENT_WIDTH)
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         NavHost(
             navController = navController,
             startDestination = Routes.LOGIN,
+            modifier = contentModifier,
             enterTransition = { fadeIn() },
             exitTransition = { fadeOut() },
             popEnterTransition = { fadeIn() },
@@ -683,6 +707,7 @@ fun SheafApp(
                     },
                 )
             }
+        }
         }
     }
     }
