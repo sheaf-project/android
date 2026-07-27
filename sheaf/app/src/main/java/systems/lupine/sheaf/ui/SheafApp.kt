@@ -33,12 +33,13 @@ import systems.lupine.sheaf.ui.components.LocalDisplayTimeZone
 import systems.lupine.sheaf.ui.components.LocalFileCdnBase
 import systems.lupine.sheaf.ui.debug.DebugScreen
 import systems.lupine.sheaf.ui.groups.GroupDetailScreen
-import systems.lupine.sheaf.ui.groups.GroupsScreen
 import systems.lupine.sheaf.ui.analytics.AnalyticsScreen
 import systems.lupine.sheaf.ui.history.HistoryScreen
 import systems.lupine.sheaf.ui.journals.JournalDetailScreen
 import systems.lupine.sheaf.ui.journals.JournalsScreen
 import systems.lupine.sheaf.ui.home.HomeScreen
+import systems.lupine.sheaf.ui.navigation.AppDrawerContent
+import systems.lupine.sheaf.ui.navigation.drawerRoutes
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
@@ -66,6 +67,7 @@ import systems.lupine.sheaf.ui.admin.AdminPanelScreen
 import systems.lupine.sheaf.ui.settings.SettingsScreen
 import systems.lupine.sheaf.ui.settings.SystemEditScreen
 import systems.lupine.sheaf.ui.settings.SystemSafetyScreen
+import kotlinx.coroutines.launch
 
 // ── Route constants ───────────────────────────────────────────────────────────
 
@@ -159,13 +161,23 @@ private val MAX_CONTENT_WIDTH = 840.dp
 // it gets (so capping it would just cost columns).
 private val FULL_BLEED_ROUTES = setOf(Routes.RELATIONSHIP_GRAPH, Routes.HOME)
 
+// The fast path, not the whole app: Home plus three destinations, with a
+// "More" entry alongside them that opens the drawer. Everything else (Polls,
+// Analytics, Reminders, Relationships, Files, ...) lives in the drawer, which
+// is the complete list.
 val topLevelDestinations = listOf(
     TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,                  Icons.Outlined.Home),
     TopLevelDest(Routes.PEOPLE,   "Members",  Icons.Filled.People,                Icons.Outlined.People),
     TopLevelDest(Routes.HISTORY,  "History",  Icons.Filled.History,               Icons.Outlined.History),
     TopLevelDest(Routes.JOURNALS, "Journals", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook),
-    TopLevelDest(Routes.POLLS,    "Polls",    Icons.Filled.HowToVote,             Icons.Outlined.HowToVote),
 )
+
+// Destinations that keep the bar/rail on screen: the bar's own four, plus
+// everything reachable from the drawer. Without the drawer routes here,
+// stepping to a drawer destination would drop the app chrome and strand the
+// user on a screen with no way back but the system back gesture.
+private val chromeRoutes: Set<String> =
+    topLevelDestinations.mapTo(mutableSetOf()) { it.route } + drawerRoutes
 
 // ── Root composable ───────────────────────────────────────────────────────────
 
@@ -216,7 +228,7 @@ fun SheafApp(
     // Decide whether to show the bottom bar based on current destination
     val navBackStack by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStack?.destination?.route
-    val showBottomBar = currentRoute in topLevelDestinations.map { it.route }
+    val showBottomBar = currentRoute in chromeRoutes
 
     // Provide the file CDN base (image hosted/external classification) and the
     // resolved display timezone (timestamp rendering) app-wide.
@@ -235,6 +247,36 @@ fun SheafApp(
         wide -> NavigationSuiteType.NavigationRail
         else -> NavigationSuiteType.NavigationBar
     }
+
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    // Switching top-level destination is a "start over here" move, not a step
+    // deeper, so drawer and bar navigation share the same options: reset to the
+    // graph start, keep each destination's own scroll/selection state.
+    val goTo: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    // Edge-swipe opens the drawer only where the bar/rail is showing. On detail
+    // screens, editors and the pan/zoom graph, a horizontal drag belongs to the
+    // content; a swipe that is already dragging the drawer open can always
+    // close it again.
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = drawerState.isOpen || showBottomBar,
+        drawerContent = {
+            AppDrawerContent(
+                currentRoute = currentRoute,
+                onNavigate = { route ->
+                    scope.launch { drawerState.close() }
+                    goTo(route)
+                },
+            )
+        },
+    ) {
     NavigationSuiteScaffold(
         layoutType = navSuiteType,
         navigationSuiteItems = {
@@ -242,15 +284,7 @@ fun SheafApp(
                 val selected = currentDest?.hierarchy?.any { it.route == dest.route } == true
                 item(
                     selected = selected,
-                    onClick = {
-                        navController.navigate(dest.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onClick = { goTo(dest.route) },
                     icon = {
                         Icon(
                             if (selected) dest.selectedIcon else dest.unselectedIcon,
@@ -260,6 +294,18 @@ fun SheafApp(
                     label = { Text(dest.label) },
                 )
             }
+            // Overflow entry. Reads as selected whenever the current screen is
+            // a drawer destination that has no slot of its own, so the chrome
+            // still shows where you are.
+            val onDrawerDest = currentRoute != null &&
+                currentRoute in drawerRoutes &&
+                topLevelDestinations.none { it.route == currentRoute }
+            item(
+                selected = onDrawerDest,
+                onClick = { scope.launch { drawerState.open() } },
+                icon = { Icon(Icons.Filled.Menu, contentDescription = "More") },
+                label = { Text("More") },
+            )
         },
     ) {
         // Cap content width on wide windows so forms and lists don't stretch
@@ -344,12 +390,20 @@ fun SheafApp(
                 val memberId = backStack.arguments?.getString("memberId") ?: return@composable
                 MemberDetailScreen(memberId = memberId, onNavigateUp = { navController.navigateUp() })
             }
+            // Same screen as PEOPLE, opened on its Groups tab. Groups is a tab
+            // rather than a screen of its own, but it still earns a drawer
+            // destination, and landing on Members after tapping Groups would be
+            // its own small betrayal.
             composable(Routes.GROUPS) {
-                GroupsScreen(
+                PeopleScreen(
+                    onMemberClick = { id ->
+                        navController.navigate(if (id == "new") "members/new" else "members/$id")
+                    },
                     onGroupClick = { id ->
                         navController.navigate(if (id == "new") "groups/new" else "groups/$id")
                     },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                    startOnGroups = true,
                 )
             }
             composable(Routes.GROUP_DETAIL) { backStack ->
@@ -711,6 +765,7 @@ fun SheafApp(
             }
         }
         }
+    }
     }
     }
 }
