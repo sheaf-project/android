@@ -39,7 +39,10 @@ import systems.lupine.sheaf.ui.journals.JournalDetailScreen
 import systems.lupine.sheaf.ui.journals.JournalsScreen
 import systems.lupine.sheaf.ui.home.HomeScreen
 import systems.lupine.sheaf.ui.navigation.AppDrawerContent
+import systems.lupine.sheaf.ui.navigation.NavPinsScreen
+import systems.lupine.sheaf.ui.navigation.NavPinsViewModel
 import systems.lupine.sheaf.ui.navigation.drawerRoutes
+import systems.lupine.sheaf.ui.navigation.homeDest
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
@@ -114,6 +117,7 @@ object Routes {
     const val SETTINGS_ACCOUNT       = "settings/account"
     const val SETTINGS_ADMIN_ACTIVITY = "settings/account/admin-activity"
     const val SETTINGS_APPEARANCE    = "settings/appearance"
+    const val SETTINGS_NAV_BAR       = "settings/appearance/nav-bar"
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_SERVER        = "settings/server"
     const val SETTINGS_SYSTEM        = "settings/sys"
@@ -161,23 +165,11 @@ private val MAX_CONTENT_WIDTH = 840.dp
 // it gets (so capping it would just cost columns).
 private val FULL_BLEED_ROUTES = setOf(Routes.RELATIONSHIP_GRAPH, Routes.HOME)
 
-// The fast path, not the whole app: Home plus three destinations, with a
-// "More" entry alongside them that opens the drawer. Everything else (Polls,
-// Analytics, Reminders, Relationships, Files, ...) lives in the drawer, which
-// is the complete list.
-val topLevelDestinations = listOf(
-    TopLevelDest(Routes.HOME,     "Home",     Icons.Filled.Home,                  Icons.Outlined.Home),
-    TopLevelDest(Routes.PEOPLE,   "Members",  Icons.Filled.People,                Icons.Outlined.People),
-    TopLevelDest(Routes.HISTORY,  "History",  Icons.Filled.History,               Icons.Outlined.History),
-    TopLevelDest(Routes.JOURNALS, "Journals", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook),
-)
-
-// Destinations that keep the bar/rail on screen: the bar's own four, plus
-// everything reachable from the drawer. Without the drawer routes here,
-// stepping to a drawer destination would drop the app chrome and strand the
-// user on a screen with no way back but the system back gesture.
-private val chromeRoutes: Set<String> =
-    topLevelDestinations.mapTo(mutableSetOf()) { it.route } + drawerRoutes
+// Destinations that keep the bar/rail on screen: everything the drawer can
+// reach, which is a superset of whatever is currently pinned to the bar.
+// Without this, stepping to a drawer destination would drop the app chrome and
+// strand the user on a screen with no way back but the system back gesture.
+private val chromeRoutes: Set<String> = drawerRoutes
 
 // ── Root composable ───────────────────────────────────────────────────────────
 
@@ -185,6 +177,7 @@ private val chromeRoutes: Set<String> =
 fun SheafApp(
     pendingRedemption: PendingRedemptionHolder,
     authViewModel: AuthViewModel = hiltViewModel(),
+    navPinsViewModel: NavPinsViewModel = hiltViewModel(),
 ) {
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
     val pendingRedeem by pendingRedemption.pending.collectAsState()
@@ -248,6 +241,10 @@ fun SheafApp(
         else -> NavigationSuiteType.NavigationBar
     }
 
+    // Home owns the first slot always; the rest are the user's pins.
+    val pinned by navPinsViewModel.pins.collectAsState()
+    val barDestinations = remember(pinned) { listOf(homeDest) + pinned }
+
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     // Switching top-level destination is a "start over here" move, not a step
@@ -280,14 +277,14 @@ fun SheafApp(
     NavigationSuiteScaffold(
         layoutType = navSuiteType,
         navigationSuiteItems = {
-            topLevelDestinations.forEach { dest ->
+            barDestinations.forEach { dest ->
                 val selected = currentDest?.hierarchy?.any { it.route == dest.route } == true
                 item(
                     selected = selected,
                     onClick = { goTo(dest.route) },
                     icon = {
                         Icon(
-                            if (selected) dest.selectedIcon else dest.unselectedIcon,
+                            if (selected) dest.selectedIcon else dest.icon,
                             contentDescription = dest.label,
                         )
                     },
@@ -299,7 +296,7 @@ fun SheafApp(
             // still shows where you are.
             val onDrawerDest = currentRoute != null &&
                 currentRoute in drawerRoutes &&
-                topLevelDestinations.none { it.route == currentRoute }
+                barDestinations.none { it.route == currentRoute }
             item(
                 selected = onDrawerDest,
                 onClick = { scope.launch { drawerState.open() } },
@@ -352,8 +349,6 @@ fun SheafApp(
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
                     onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
-                    onNavigateToMessages = { navController.navigate(Routes.MESSAGES) },
-                    onNavigateToNotifications = { navController.navigate(Routes.SETTINGS_NOTIFICATIONS) },
                 )
             }
             composable(Routes.PEOPLE) {
@@ -472,7 +467,11 @@ fun SheafApp(
             composable(Routes.SETTINGS_APPEARANCE) {
                 systems.lupine.sheaf.ui.settings.AppearanceSettingsScreen(
                     onNavigateUp = { navController.navigateUp() },
+                    onNavigateToNavBar = { navController.navigate(Routes.SETTINGS_NAV_BAR) },
                 )
+            }
+            composable(Routes.SETTINGS_NAV_BAR) {
+                NavPinsScreen(onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.SETTINGS_NOTIFICATIONS) {
                 systems.lupine.sheaf.ui.settings.NotificationSettingsScreen(

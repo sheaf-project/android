@@ -79,6 +79,11 @@ class PreferencesRepository @Inject constructor(
         //    account; "auto" = pin this device to its own clock; else an IANA zone.
         val KEY_ACCOUNT_TIMEZONE = stringPreferencesKey("account_timezone")
         val KEY_TIMEZONE_OVERRIDE = stringPreferencesKey("timezone_override")
+        // Which destinations the user pinned to the bottom bar, in order, as
+        // newline-separated routes. Per-device like the theme override: which
+        // three things you want under your thumb is an ergonomics choice about
+        // this phone, not an account setting. Absent = the seeded defaults.
+        val KEY_NAV_PINS = stringPreferencesKey("nav_pins")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -101,6 +106,11 @@ class PreferencesRepository @Inject constructor(
     val historyPageSize: Flow<Int> = context.dataStore.data.map { it[KEY_HISTORY_PAGE_SIZE] ?: 50 }
     val accountTimezone: Flow<String?> = context.dataStore.data.map { it[KEY_ACCOUNT_TIMEZONE] }
     val timezoneOverride: Flow<String?> = context.dataStore.data.map { it[KEY_TIMEZONE_OVERRIDE] }
+    // null means "never chosen" (the nav layer seeds its defaults); an empty
+    // list is a real choice to pin nothing, and is kept distinct from it.
+    val navPins: Flow<List<String>?> = context.dataStore.data.map { prefs ->
+        prefs[KEY_NAV_PINS]?.lines()?.filter { it.isNotBlank() }
+    }
 
     suspend fun saveBaseUrl(url: String) {
         context.dataStore.edit { it[KEY_BASE_URL] = normalizeBaseUrl(url) }
@@ -196,6 +206,15 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveHistoryPageSize(size: Int) {
         context.dataStore.edit { it[KEY_HISTORY_PAGE_SIZE] = size }
+    }
+
+    suspend fun saveNavPins(routes: List<String>) {
+        context.dataStore.edit { it[KEY_NAV_PINS] = routes.joinToString("\n") }
+    }
+
+    /** Forget the user's pins so the bar falls back to the seeded defaults. */
+    suspend fun clearNavPins() {
+        context.dataStore.edit { it.remove(KEY_NAV_PINS) }
     }
 
     suspend fun clearTokens() {

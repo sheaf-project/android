@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Devices
@@ -120,6 +121,7 @@ private fun CategoryScaffold(
 @Composable
 fun AppearanceSettingsScreen(
     onNavigateUp: () -> Unit,
+    onNavigateToNavBar: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsState()
@@ -164,6 +166,13 @@ fun AppearanceSettingsScreen(
         ThemeSyncRow(
             synced = themeSynced,
             onChange = { viewModel.setThemeSynced(it) },
+        )
+        HorizontalDivider()
+        SettingItem(
+            icon = Icons.Outlined.Dashboard,
+            title = "Navigation bar",
+            subtitle = "Choose which destinations sit in the bar",
+            onClick = onNavigateToNavBar,
         )
         HorizontalDivider()
         TimezoneSection()
