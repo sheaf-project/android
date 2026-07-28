@@ -109,7 +109,7 @@ object Routes {
     const val FILES          = "settings/files"
     const val EXPORT_DATA    = "settings/export"
     const val DEBUG          = "settings/debug"
-    const val SUPPORT        = "settings/support"
+    const val SUPPORT        = "support"
     // Categorized settings detail screens.
     const val SETTINGS_ACCOUNT       = "settings/account"
     const val SETTINGS_ADMIN_ACTIVITY = "settings/account/admin-activity"
@@ -118,8 +118,8 @@ object Routes {
     const val SETTINGS_SERVER        = "settings/server"
     const val SETTINGS_SYSTEM        = "settings/sys"
     const val ARCHIVED_MEMBERS       = "settings/archived-members"
-    const val RELATIONSHIPS          = "settings/relationships"
-    const val RELATIONSHIP_GRAPH     = "settings/relationships/graph"
+    const val RELATIONSHIPS          = "relationships"
+    const val RELATIONSHIP_GRAPH     = "relationships/graph"
     const val SETTINGS_DATA          = "settings/data"
     const val SETTINGS_SAFETY        = "settings/safety-cat"
     const val SETTINGS_DANGER        = "settings/danger"
@@ -131,9 +131,9 @@ object Routes {
     const val NOTIFICATIONS_OWNED     = "settings/notifications/owned"
     const val NOTIFICATIONS_CREATE    = "settings/notifications/owned/new"
     const val NOTIFICATIONS_CHANNEL_DETAIL = "settings/notifications/owned/{channelId}"
-    const val NOTIFICATIONS_REMINDERS  = "settings/notifications/reminders"
-    const val NOTIFICATIONS_REMINDER_NEW  = "settings/notifications/reminders/new"
-    const val NOTIFICATIONS_REMINDER_EDIT = "settings/notifications/reminders/{id}"
+    const val NOTIFICATIONS_REMINDERS  = "reminders"
+    const val NOTIFICATIONS_REMINDER_NEW  = "reminders/new"
+    const val NOTIFICATIONS_REMINDER_EDIT = "reminders/{id}"
     const val POLLS                = "polls"
     const val POLL_DETAIL          = "polls/{pollId}"
     const val POLL_NEW             = "polls/new"
@@ -480,7 +480,6 @@ fun SheafApp(
                     onNavigateToReceiving = { navController.navigate(Routes.NOTIFICATIONS_RECEIVING) },
                     onNavigateToYourDevices = { navController.navigate(Routes.NOTIFICATIONS_DEVICES) },
                     onNavigateToChannelsYouOwn = { navController.navigate(Routes.NOTIFICATIONS_OWNED) },
-                    onNavigateToReminders = { navController.navigate(Routes.NOTIFICATIONS_REMINDERS) },
                 )
             }
             composable(Routes.NOTIFICATIONS_RECEIVING) {
@@ -525,7 +524,7 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onCreateNew = { navController.navigate(Routes.NOTIFICATIONS_REMINDER_NEW) },
                     onEdit = { id ->
-                        navController.navigate("settings/notifications/reminders/$id")
+                        navController.navigate("reminders/$id")
                     },
                 )
             }
@@ -582,7 +581,6 @@ fun SheafApp(
                     onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
                     onNavigateToTags = { navController.navigate(Routes.SETTINGS_TAGS) },
                     onNavigateToArchivedMembers = { navController.navigate(Routes.ARCHIVED_MEMBERS) },
-                    onNavigateToRelationships = { navController.navigate(Routes.RELATIONSHIPS) },
                 )
             }
             composable(Routes.RELATIONSHIPS) {
