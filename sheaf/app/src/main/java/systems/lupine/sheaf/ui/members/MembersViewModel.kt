@@ -697,6 +697,9 @@ data class MemberProfileUiState(
      *  the map are unset (display as em-dash). Fields the viewer isn't
      *  allowed to see are absent because the server omitted them. */
     val customFieldValues: Map<String, Any?> = emptyMap(),
+    /** System display preference: show this member's created date. Off unless
+     *  the system opted in, and off if we couldn't read the system at all. */
+    val showCreatedDate: Boolean = false,
 )
 
 @HiltViewModel
@@ -732,20 +735,36 @@ class MemberProfileViewModel @Inject constructor(
                     val vals = runCatching { api.getMemberFieldValues(memberId) }
                         .getOrDefault(emptyList())
                         .associate { it.fieldId to it.value }
+                    // Display preference comes from the cached system rather than
+                    // its own request: this screen's loads are sequential, so a
+                    // fifth call would add a round-trip to every profile open for
+                    // a setting that changes about never. Home refreshes the
+                    // cache on every resume and the system editor writes through
+                    // on save, so it doesn't go stale in practice.
+                    val showCreated = cache.getSystem()?.showMemberCreatedDate ?: false
                     _state.update {
                         it.copy(
                             member = member,
                             currentFronts = fronts,
                             customFields = defs,
                             customFieldValues = vals,
+                            showCreatedDate = showCreated,
                             isLoading = false,
                         )
                     }
                 }.onFailure { e ->
                     val cached = cache.getMember(memberId)
                     val fronts = cache.getFronts() ?: emptyList()
+                    val showCreated = cache.getSystem()?.showMemberCreatedDate ?: false
                     if (cached != null) {
-                        _state.update { it.copy(member = cached, currentFronts = fronts, isLoading = false) }
+                        _state.update {
+                            it.copy(
+                                member = cached,
+                                currentFronts = fronts,
+                                showCreatedDate = showCreated,
+                                isLoading = false,
+                            )
+                        }
                     } else {
                         _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
                     }
@@ -753,8 +772,16 @@ class MemberProfileViewModel @Inject constructor(
             } else {
                 val cached = cache.getMember(memberId)
                 val fronts = cache.getFronts() ?: emptyList()
+                val showCreated = cache.getSystem()?.showMemberCreatedDate ?: false
                 if (cached != null) {
-                    _state.update { it.copy(member = cached, currentFronts = fronts, isLoading = false) }
+                    _state.update {
+                        it.copy(
+                            member = cached,
+                            currentFronts = fronts,
+                            showCreatedDate = showCreated,
+                            isLoading = false,
+                        )
+                    }
                 } else {
                     _state.update { it.copy(isLoading = false) }
                 }

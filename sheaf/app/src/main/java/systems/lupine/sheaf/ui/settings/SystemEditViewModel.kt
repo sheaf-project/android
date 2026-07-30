@@ -24,6 +24,7 @@ data class SystemEditForm(
     val avatarUrl: String = "",
     val color: String = "",
     val privacy: String = "private",
+    val showMemberCreatedDate: Boolean = false,
 )
 
 data class SystemEditUiState(
@@ -37,6 +38,7 @@ data class SystemEditUiState(
 @HiltViewModel
 class SystemEditViewModel @Inject constructor(
     private val api: SheafApiService,
+    private val cache: systems.lupine.sheaf.data.db.LocalCache,
     @ApplicationContext private val context: Context,
     val markdownImages: systems.lupine.sheaf.ui.components.MarkdownImageDelegate,
 ) : ViewModel() {
@@ -65,6 +67,7 @@ class SystemEditViewModel @Inject constructor(
                         avatarUrl = system.avatarUrl ?: "",
                         color = system.color ?: "",
                         privacy = system.privacy,
+                        showMemberCreatedDate = system.showMemberCreatedDate,
                     )
                     _state.update { it.copy(isLoading = false) }
                 }
@@ -91,9 +94,16 @@ class SystemEditViewModel @Inject constructor(
                     avatarUrl = f.avatarUrl.takeIf { it.isNotBlank() },
                     color = f.color.takeIf { it.isNotBlank() },
                     privacy = f.privacy,
+                    showMemberCreatedDate = f.showMemberCreatedDate,
                 ))
             }
-                .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
+                .onSuccess { updated ->
+                    // Write through so display preferences read from the cached
+                    // system (the member profile's created-date row) reflect the
+                    // change straight away, without waiting for a Home refresh.
+                    runCatching { cache.saveSystem(updated) }
+                    _state.update { it.copy(isSaving = false, saved = true) }
+                }
                 .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
         }
     }

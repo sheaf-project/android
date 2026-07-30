@@ -842,6 +842,34 @@ fun SystemEditScreen(
                 }
             }
 
+            SectionHeader("Display")
+            // Part of this form rather than an instant-apply toggle, so it
+            // saves with the Save Changes button like everything else here.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        viewModel.updateForm {
+                            copy(showMemberCreatedDate = !showMemberCreatedDate)
+                        }
+                    }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Show member created dates", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Show when each member was added, on their profile.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = form.showMemberCreatedDate,
+                    onCheckedChange = { viewModel.updateForm { copy(showMemberCreatedDate = it) } },
+                )
+            }
+
             Spacer(Modifier.height(8.dp))
 
             Button(

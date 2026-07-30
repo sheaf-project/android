@@ -90,4 +90,46 @@ class ModelContractsTest {
         assertEquals(false, active.isArchived)
         assertEquals(true, active.copy(archivedAt = "2026-01-02T00:00:00Z").isArchived)
     }
+
+    @Test fun `show_member_created_date round-trips under its wire name`() {
+        // A camelCase slip here wouldn't fail anything loudly: the toggle would
+        // just never stick, because the server ignores unknown keys on PATCH and
+        // reports its unchanged value back.
+        val adapter = moshi.adapter(SystemUpdate::class.java)
+        assertEquals(
+            """{"show_member_created_date":true}""",
+            adapter.toJson(SystemUpdate(showMemberCreatedDate = true)),
+        )
+        val read = moshi.adapter(SystemRead::class.java).fromJson(
+            """
+            {"id":"s1","name":"Sys","description":null,"tag":null,"avatar_url":null,
+             "color":null,"privacy":"private","delete_confirmation":null,
+             "show_member_created_date":true,
+             "created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}
+            """.trimIndent(),
+        )
+        assertEquals(true, read?.showMemberCreatedDate)
+    }
+
+    @Test fun `an omitted show_member_created_date reads as off`() {
+        // Older cached payloads and older servers won't carry the field; the
+        // display has to default to off rather than blow up or leak the date.
+        val read = moshi.adapter(SystemRead::class.java).fromJson(
+            """
+            {"id":"s1","name":"Sys","description":null,"tag":null,"avatar_url":null,
+             "color":null,"privacy":"private","delete_confirmation":null,
+             "created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}
+            """.trimIndent(),
+        )
+        assertEquals(false, read?.showMemberCreatedDate)
+    }
+
+    @Test fun `a false toggle is still sent rather than omitted`() {
+        // Turning the setting back off has to reach the wire. Moshi drops nulls,
+        // so the form's Boolean must be non-null false, not null.
+        assertEquals(
+            """{"show_member_created_date":false}""",
+            moshi.adapter(SystemUpdate::class.java).toJson(SystemUpdate(showMemberCreatedDate = false)),
+        )
+    }
 }
