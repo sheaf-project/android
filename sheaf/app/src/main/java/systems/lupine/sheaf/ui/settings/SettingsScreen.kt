@@ -212,21 +212,21 @@ fun SettingsScreen(
             SettingItem(
                 icon = Icons.Outlined.Person,
                 title = "Account",
-                subtitle = "Email, two-factor auth, API keys, sessions",
+                subtitle = "Two-factor auth, API keys, sessions, watch pairing",
                 onClick = onNavigateToAccount,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
                 icon = Icons.Outlined.Palette,
                 title = "Appearance",
-                subtitle = "Theme, timezone",
+                subtitle = "Theme, palette, navigation bar, timezone",
                 onClick = onNavigateToAppearance,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
                 icon = Icons.AutoMirrored.Outlined.List,
                 title = "System",
-                subtitle = "Custom fields",
+                subtitle = "Tags, custom fields, archived members",
                 onClick = onNavigateToSystem,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
@@ -240,14 +240,14 @@ fun SettingsScreen(
             SettingItem(
                 icon = Icons.Outlined.Folder,
                 title = "Data",
-                subtitle = "Files, export, import",
+                subtitle = "Storage, files, export, import",
                 onClick = onNavigateToData,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
                 icon = Icons.Outlined.Notifications,
                 title = "Notifications & Lock",
-                subtitle = "Fronting notification, app lock",
+                subtitle = "Subscriptions, channels, devices, fronting notification, app lock",
                 onClick = onNavigateToNotifications,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
@@ -549,11 +549,11 @@ internal fun formatBytes(bytes: Long): String = when {
 }
 
 internal fun formatSafetySubtitle(level: String?): String = when (level) {
-    "none" -> "Re-auth: none"
-    "password" -> "Re-auth: password"
-    "totp" -> "Re-auth: authenticator code"
-    "both" -> "Re-auth: password + authenticator"
-    else -> "Grace period and re-auth for destructive actions"
+    "none" -> "Revision retention \u00b7 re-auth: none"
+    "password" -> "Revision retention \u00b7 re-auth: password"
+    "totp" -> "Revision retention \u00b7 re-auth: authenticator code"
+    "both" -> "Revision retention \u00b7 re-auth: password + authenticator"
+    else -> "Revision retention, grace period, re-auth for destructive actions"
 }
 
 // ── System stats row ──────────────────────────────────────────────────────────
