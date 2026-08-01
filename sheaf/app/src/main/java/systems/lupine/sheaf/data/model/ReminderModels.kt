@@ -68,4 +68,7 @@ data class ReminderRead(
     @Json(name = "last_fired_at") val lastFiredAt: String? = null,
     @Json(name = "pending_count") val pendingCount: Int = 0,
     @Json(name = "next_fire_at") val nextFireAt: String? = null,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )

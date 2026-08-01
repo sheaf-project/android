@@ -57,6 +57,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JTimeTextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import androidx.compose.ui.draw.alpha
+import systems.lupine.sheaf.ui.components.PENDING_DELETE_ALPHA
+import systems.lupine.sheaf.ui.components.PendingDeleteBadge
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -602,10 +605,14 @@ private fun FrontHistoryCard(
 ) {
     val isActive = front.endedAt == null
     Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .alpha(if (front.pendingDeleteAt != null) PENDING_DELETE_ALPHA else 1f),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            PendingDeleteBadge(front.pendingDeleteAt)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),

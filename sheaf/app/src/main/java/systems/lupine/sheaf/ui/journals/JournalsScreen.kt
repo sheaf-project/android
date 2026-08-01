@@ -46,6 +46,7 @@ import systems.lupine.sheaf.ui.components.*
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.draw.alpha
 
 // ── Journals list ─────────────────────────────────────────────────────────────
 
@@ -180,10 +181,13 @@ private fun JournalCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (entry.pendingDeleteAt != null) PENDING_DELETE_ALPHA else 1f),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            PendingDeleteBadge(entry.pendingDeleteAt)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     entry.title?.takeIf { it.isNotBlank() } ?: "Untitled",
@@ -327,6 +331,7 @@ fun JournalDetailScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (state.error != null) ErrorBanner(state.error!!)
+            PendingDeleteBadge(state.entry?.pendingDeleteAt)
 
             if (state.isEditing) {
                 JournalEditor(

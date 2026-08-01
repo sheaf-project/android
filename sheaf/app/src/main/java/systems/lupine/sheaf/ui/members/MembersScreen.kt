@@ -966,6 +966,11 @@ fun MemberProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    // Above everything, including the banner: if this member is
+                    // queued for deletion that is the most important thing on
+                    // the screen, and the list row that led here said so too.
+                    PendingDeleteBadge(member.pendingDeleteAt)
+
                     // Banner header (3:1), shown only when set. Profile-only;
                     // member lists deliberately omit it to stay scannable.
                     if (!member.bannerUrl.isNullOrEmpty()) {

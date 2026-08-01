@@ -34,6 +34,7 @@ import systems.lupine.sheaf.ui.groups.GroupCard
 import systems.lupine.sheaf.ui.groups.GroupsViewModel
 import systems.lupine.sheaf.ui.groups.orderGroupsHierarchically
 import systems.lupine.sheaf.ui.members.MembersViewModel
+import androidx.compose.ui.draw.alpha
 
 private enum class PeopleTab { MEMBERS, GROUPS }
 
@@ -340,9 +341,14 @@ private fun GroupsTabBody(
 
 @Composable
 private fun MemberCard(member: MemberRead, onClick: () -> Unit) {
+    val pending = member.pendingDeleteAt != null
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            // Dim the whole row, badge included: a queued delete should read as
+            // "on its way out" at a glance, before any label is read.
+            .alpha(if (pending) PENDING_DELETE_ALPHA else 1f),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -364,6 +370,10 @@ private fun MemberCard(member: MemberRead, onClick: () -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                PendingDeleteBadge(
+                    member.pendingDeleteAt,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
         }
     }

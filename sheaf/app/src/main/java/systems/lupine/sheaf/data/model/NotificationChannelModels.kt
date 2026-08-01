@@ -19,6 +19,9 @@ data class WatchTokenRead(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     @Json(name = "channel_count") val channelCount: Int = 0,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )
 
 // ── Layer-2 / Layer-3 rule specs ─────────────────────────────────────────────

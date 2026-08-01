@@ -25,6 +25,7 @@ import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.ui.components.*
 import systems.lupine.sheaf.ui.relationships.REL_SCOPE_GROUP
 import systems.lupine.sheaf.ui.relationships.RelationshipsEditor
+import androidx.compose.ui.draw.alpha
 
 // ── Group list card ───────────────────────────────────────────────────────────
 
@@ -46,11 +47,15 @@ internal fun GroupCard(
     onEdit: () -> Unit,
 ) {
     val accent = parseColor(group.color ?: "#534AB7") ?: MaterialTheme.colorScheme.primary
+    val pending = group.pendingDeleteAt != null
     Card(
         onClick = onToggleExpand,
         // Indent subgroups under their parent. Capped so deep nesting stays
         // usable on a narrow screen.
-        modifier = Modifier.fillMaxWidth().padding(start = (minOf(depth, 4) * 16).dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = (minOf(depth, 4) * 16).dp)
+            .alpha(if (pending) PENDING_DELETE_ALPHA else 1f),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(
@@ -83,6 +88,10 @@ internal fun GroupCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                PendingDeleteBadge(
+                    group.pendingDeleteAt,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
             IconButton(onClick = onEdit) {
                 Icon(
@@ -223,6 +232,7 @@ fun GroupDetailScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (state.error != null) ErrorBanner(state.error!!)
+            PendingDeleteBadge(state.group?.pendingDeleteAt)
 
             OutlinedTextField(
                 value = form.name,

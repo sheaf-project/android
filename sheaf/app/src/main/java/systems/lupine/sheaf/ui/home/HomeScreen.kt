@@ -669,7 +669,7 @@ private fun SafetyPendingBanner(
 }
 
 private fun safetyBannerMessage(kind: SafetyBannerKind, count: Int, earliest: OffsetDateTime?): String {
-    val time = earliest?.let { formatRelativeFinalize(it) } ?: "soon"
+    val time = earliest?.let { formatFinalizeCountdown(it) } ?: "soon"
     return when (kind) {
         SafetyBannerKind.ACTIONS ->
             if (count == 1) "1 pending destructive action — finalizes $time."
@@ -680,23 +680,10 @@ private fun safetyBannerMessage(kind: SafetyBannerKind, count: Int, earliest: Of
     }
 }
 
-private fun formatRelativeFinalize(target: OffsetDateTime): String {
-    val duration = Duration.between(OffsetDateTime.now(), target)
-    if (duration.isNegative || duration.isZero) return "any moment"
-    val hours = duration.toHours()
-    if (hours < 24) {
-        val h = (duration.toMinutes() + 59) / 60
-        return "in ${h}h"
-    }
-    val days = (duration.toMinutes() + 24 * 60 - 1) / (24 * 60)
-    return if (days == 1L) "in 1 day" else "in $days days"
-}
-
-private fun parseFinalize(iso: String): OffsetDateTime? = try {
-    OffsetDateTime.parse(iso)
-} catch (_: DateTimeParseException) {
-    null
-}
+// Countdown + parsing live in ui/components/PendingDelete.kt: the banner here
+// and the per-row badges describe the same deadline, so they share one
+// implementation rather than drifting apart.
+private fun parseFinalize(iso: String): OffsetDateTime? = parseFinalizeAt(iso)
 
 // ── Retention trim-notice banner ──────────────────────────────────────────────
 
@@ -730,7 +717,7 @@ private fun TrimNoticePendingBanner(
                 tint = onContainerColor,
                 modifier = Modifier.size(20.dp),
             )
-            val time = effectiveAt?.let { formatRelativeFinalize(it) } ?: "soon"
+            val time = effectiveAt?.let { formatFinalizeCountdown(it) } ?: "soon"
             Text(
                 "Plan downgrade trim pending: revisions over the new tier limits will be pruned $time. Tap to review.",
                 style = MaterialTheme.typography.bodyMedium,

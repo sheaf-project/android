@@ -55,6 +55,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.MessageRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import androidx.compose.ui.draw.alpha
+import systems.lupine.sheaf.ui.components.PENDING_DELETE_ALPHA
+import systems.lupine.sheaf.ui.components.PendingDeleteBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -287,7 +290,12 @@ private fun MessageBubble(
     onJumpToParent: (parentId: String) -> Unit,
     parentIsOnPage: Boolean,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(if (message.pendingDeleteAt != null) PENDING_DELETE_ALPHA else 1f),
+    ) {
+        PendingDeleteBadge(message.pendingDeleteAt)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 message.authorMemberName ?: "[deleted member]",

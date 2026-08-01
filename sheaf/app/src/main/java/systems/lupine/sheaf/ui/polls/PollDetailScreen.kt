@@ -58,6 +58,7 @@ import systems.lupine.sheaf.data.model.PollRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import systems.lupine.sheaf.ui.components.PendingDeleteBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +110,7 @@ fun PollDetailScreen(
 private fun Content(state: PollDetailUiState, vm: PollDetailViewModel) {
     val poll = state.poll!!
     Spacer(Modifier.height(8.dp))
+    PendingDeleteBadge(poll.pendingDeleteAt)
     Text(poll.question, style = MaterialTheme.typography.headlineSmall)
     if (!poll.description.isNullOrBlank()) {
         Spacer(Modifier.height(4.dp))

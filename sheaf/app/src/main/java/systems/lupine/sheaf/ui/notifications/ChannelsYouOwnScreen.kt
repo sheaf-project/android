@@ -51,6 +51,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.NotificationChannelRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import androidx.compose.ui.draw.alpha
+import systems.lupine.sheaf.ui.components.PENDING_DELETE_ALPHA
+import systems.lupine.sheaf.ui.components.PendingDeleteBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,7 +164,9 @@ private fun ChannelRow(
     val isPending = channel.destinationState.equals("pending_registration", ignoreCase = true)
     val isDisabled = channel.destinationState.equals("disabled", ignoreCase = true)
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .alpha(if (channel.pendingDeleteAt != null) PENDING_DELETE_ALPHA else 1f),
         headlineContent = { Text(channel.name) },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -186,6 +191,7 @@ private fun ChannelRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                PendingDeleteBadge(channel.pendingDeleteAt)
             }
         },
         leadingContent = {

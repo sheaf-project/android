@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.CustomFieldRead
 import systems.lupine.sheaf.ui.components.*
+import androidx.compose.ui.draw.alpha
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -183,7 +184,10 @@ private fun FieldListItem(
             Text(field.name, style = MaterialTheme.typography.titleMedium)
         },
         supportingContent = {
-            Text(field.fieldTypeDisplay, style = MaterialTheme.typography.bodySmall)
+            Column {
+                Text(field.fieldTypeDisplay, style = MaterialTheme.typography.bodySmall)
+                PendingDeleteBadge(field.pendingDeleteAt)
+            }
         },
         leadingContent = {
             Icon(
@@ -215,7 +219,10 @@ private fun FieldListItem(
                 }
             }
         },
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .alpha(if (field.pendingDeleteAt != null) PENDING_DELETE_ALPHA else 1f),
     )
     HorizontalDivider()
 }

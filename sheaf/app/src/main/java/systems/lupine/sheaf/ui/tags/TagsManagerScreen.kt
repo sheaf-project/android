@@ -25,6 +25,9 @@ import systems.lupine.sheaf.ui.components.ColorPicker
 import systems.lupine.sheaf.ui.components.ColorSwatch
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import androidx.compose.ui.draw.alpha
+import systems.lupine.sheaf.ui.components.PENDING_DELETE_ALPHA
+import systems.lupine.sheaf.ui.components.PendingDeleteBadge
 
 private const val DEFAULT_NEW_COLOR = "#10B981"
 
@@ -149,9 +152,11 @@ private fun TagRow(
     onDelete: () -> Unit,
 ) {
     ListItem(
+        modifier = Modifier.alpha(if (tag.pendingDeleteAt != null) PENDING_DELETE_ALPHA else 1f),
         headlineContent = {
             Text(tag.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
+        supportingContent = tag.pendingDeleteAt?.let { { PendingDeleteBadge(it) } },
         leadingContent = {
             ColorSwatch(hex = tag.color ?: "#10B981", size = 24.dp)
         },
