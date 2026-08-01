@@ -430,6 +430,9 @@ data class MemberRead(
     // endpoint still returns archived members, so the client filters them
     // out of the main roster and surfaces them separately.
     @Json(name = "archived_at") val archivedAt: String? = null,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 ) {
     val displayNameOrName: String get() = displayName?.takeIf { it.isNotBlank() } ?: name
     val isArchived: Boolean get() = archivedAt != null
@@ -500,6 +503,9 @@ data class FrontRead(
     // Member ids whose member_since hit the server-side walk-back depth cap.
     // Their timestamp is a lower bound; UI should prefix with "> ".
     @Json(name = "member_since_capped") val memberSinceCapped: List<String> = emptyList(),
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -541,6 +547,9 @@ data class GroupRead(
     @Json(name = "parent_id") val parentId: String?,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -574,6 +583,9 @@ data class TagRead(
     val color: String?,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -621,6 +633,9 @@ data class CustomFieldRead(
     val privacy: String,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 ) {
     val fieldTypeDisplay: String get() = fieldType.replaceFirstChar { it.uppercase() }
     val privacyDisplay: String get() = privacy.replaceFirstChar { it.uppercase() }
@@ -1465,6 +1480,9 @@ data class JournalEntryRead(
     @Json(name = "author_member_names") val authorMemberNames: List<String> = emptyList(),
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -1481,6 +1499,9 @@ data class JournalEntryReadWithCount(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     @Json(name = "revision_count") val revisionCount: Int = 0,
+    // Mirrors JournalEntryRead: the detail screen reads this variant, so the
+    // field has to exist on both or the entry looks safe once you open it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

@@ -31,6 +31,9 @@ data class MessageRead(
     @Json(name = "body") val body: String,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
+    // Set when a System Safety grace period has this queued for deletion.
+    // Still returned and still usable until the window closes; the UI marks it.
+    @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

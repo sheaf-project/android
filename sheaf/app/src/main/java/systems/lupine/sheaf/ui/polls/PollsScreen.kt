@@ -40,6 +40,9 @@ import systems.lupine.sheaf.data.model.PollRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import androidx.compose.ui.draw.alpha
+import systems.lupine.sheaf.ui.components.PENDING_DELETE_ALPHA
+import systems.lupine.sheaf.ui.components.PendingDeleteBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,7 +113,9 @@ fun PollsScreen(
 @Composable
 private fun PollRow(poll: PollRead, onClick: () -> Unit) {
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .alpha(if (poll.pendingDeleteAt != null) PENDING_DELETE_ALPHA else 1f),
         headlineContent = { Text(poll.question) },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -126,6 +131,7 @@ private fun PollRow(poll: PollRead, onClick: () -> Unit) {
                     color = if (poll.isClosed) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.tertiary,
                 )
+                PendingDeleteBadge(poll.pendingDeleteAt)
             }
         },
         leadingContent = {
