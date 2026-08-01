@@ -4,6 +4,57 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.3.0] - 2026-07-31
+
+### Added
+
+- **Tablets and landscape.** The app no longer sits in a portrait box with
+  black bars either side on a tablet, foldable or landscape phone: it fills the
+  screen and rotates. On wide screens the bottom navigation becomes a rail down
+  the side, the fronting cards on Home flow into two or more columns instead of
+  one, and forms and lists stop stretching the full width of a large display.
+
+- **A drawer with everything in it.** Tapping "More" in the bottom bar (or
+  swiping from the edge) opens a list of every destination, grouped. Features
+  that were previously two or three taps deep inside Settings now have a home
+  there: Analytics, Reminders, Relationships, Board messages, Polls and Files
+  are all one tap from anywhere.
+
+- **Choose what's in the bottom bar.** Home keeps the first slot; the other
+  three are yours to pick and arrange under Settings > Appearance >
+  Navigation bar. Everything you don't pin stays one tap away under More. Your
+  choice is per-device, so a phone and a tablet can each have their own, and it
+  survives signing out.
+
+- **Pending deletions are marked.** When your System Safety grace period has
+  something queued for deletion, it now says so on the item itself, wherever it
+  is listed: the row dims and shows how long is left ("Deletes in 18h"). This
+  covers members, groups, front history, journals, board messages, polls,
+  reminders, tags, custom fields and notification channels, and shows on the
+  item's own screen too. Cancelling is still done from Settings > Safety.
+
+### Fixed
+
+- **Settings is settings again.** Reminders and Relationships have moved out of
+  Settings and into the drawer, so Settings holds configuration rather than
+  doubling as a feature menu. Each category on the Settings list also now
+  describes what is actually inside it.
+
+- **Watch: "Open on phone".** The watch app's sign-in screen now offers to open
+  Sheaf on your phone, and picks up a new sign-in as soon as the phone sends it
+  rather than needing you to leave the screen and come back.
+
+- **Watch: switching to who is already fronting.** Asking the watch to switch to
+  a set of members that is already fronting now says so, instead of reporting a
+  failure.
+
+- **Time remaining on queued deletions.** Countdowns for pending destructive
+  actions rounded up, so 25 hours left showed as "in 2 days". They now round
+  down and never overstate the time you have left to cancel.
+
+- **Import wording.** The two Ampersand import options now make it clearer which
+  export file each one expects.
+
 ## [1.2.3] - 2026-07-15
 
 ### Added
