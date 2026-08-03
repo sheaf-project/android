@@ -58,6 +58,7 @@ fun SettingsScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToAccount: () -> Unit,
     onNavigateToAppearance: () -> Unit,
+    onNavigateToFronting: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToServer: () -> Unit,
     onNavigateToSystem: () -> Unit,
@@ -221,6 +222,13 @@ fun SettingsScreen(
                 title = "Appearance",
                 subtitle = "Theme, palette, navigation bar, timezone",
                 onClick = onNavigateToAppearance,
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.SwitchAccount,
+                title = "Fronting",
+                subtitle = "What a quick-switch tap does with open fronts",
+                onClick = onNavigateToFronting,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(

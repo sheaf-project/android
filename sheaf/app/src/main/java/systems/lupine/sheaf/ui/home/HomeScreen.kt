@@ -122,7 +122,7 @@ fun HomeScreen(
         bottomBar = {
             QuickSwitchCarousel(
                 members = state.quickSwitchMembers,
-                defaultReplaceFronts = state.system?.replaceFrontsDefault ?: true,
+                defaultReplaceFronts = state.quickSwitchReplace,
                 onSwitch = { id, replace -> viewModel.quickSwitch(id, replace) },
             )
         },

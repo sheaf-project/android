@@ -118,6 +118,7 @@ object Routes {
     const val SETTINGS_ADMIN_ACTIVITY = "settings/account/admin-activity"
     const val SETTINGS_APPEARANCE    = "settings/appearance"
     const val SETTINGS_NAV_BAR       = "settings/appearance/nav-bar"
+    const val SETTINGS_FRONTING      = "settings/fronting"
     const val SETTINGS_NOTIFICATIONS = "settings/notifications"
     const val SETTINGS_SERVER        = "settings/server"
     const val SETTINGS_SYSTEM        = "settings/sys"
@@ -440,6 +441,7 @@ fun SheafApp(
                     onNavigateToProfile       = { navController.navigate(Routes.SYSTEM_EDIT) },
                     onNavigateToAccount       = { navController.navigate(Routes.SETTINGS_ACCOUNT) },
                     onNavigateToAppearance    = { navController.navigate(Routes.SETTINGS_APPEARANCE) },
+                    onNavigateToFronting      = { navController.navigate(Routes.SETTINGS_FRONTING) },
                     onNavigateToNotifications = { navController.navigate(Routes.SETTINGS_NOTIFICATIONS) },
                     onNavigateToServer        = { navController.navigate(Routes.SETTINGS_SERVER) },
                     onNavigateToSystem        = { navController.navigate(Routes.SETTINGS_SYSTEM) },
@@ -468,6 +470,11 @@ fun SheafApp(
                 systems.lupine.sheaf.ui.settings.AppearanceSettingsScreen(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToNavBar = { navController.navigate(Routes.SETTINGS_NAV_BAR) },
+                )
+            }
+            composable(Routes.SETTINGS_FRONTING) {
+                systems.lupine.sheaf.ui.settings.FrontingSettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.SETTINGS_NAV_BAR) {
