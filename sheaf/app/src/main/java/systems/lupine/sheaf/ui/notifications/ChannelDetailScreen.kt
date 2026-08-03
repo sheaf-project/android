@@ -429,31 +429,40 @@ private fun TriggersCard(
             checked = channel.triggerOnCofrontChange,
             onChange = { v -> onPatch { it.copy(triggerOnCofrontChange = v) } },
         )
-        if (channel.triggerOnCofrontChange) {
-            // Cofront redaction only meaningful when the payload itself
-            // names members. Mirror web's behaviour of greying-out the
-            // dropdown when payload sensitivity isn't "full".
-            val cofrontDisabled = channel.payloadSensitivity != "full"
+        // Redaction governs how an excluded or private member fronting
+        // alongside a visible one appears in the message. It applies to start
+        // and stop notifications too, not only co-front ones, so it was wrong
+        // to nest it under that trigger: a channel with just "starts fronting"
+        // on could not reach the setting at all. Shown whenever this channel
+        // can emit a name-bearing notification, i.e. some trigger is on and
+        // the payload isn't already hiding names.
+        val anyTrigger = channel.triggerOnStart ||
+            channel.triggerOnStop ||
+            channel.triggerOnCofrontChange
+        if (anyTrigger && channel.payloadSensitivity == "full") {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Hidden co-fronters",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                "When an excluded or private member is fronting alongside " +
+                    "someone this channel can see, how should they appear? " +
+                    "Applies to start, stop, and co-front notifications.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(8.dp))
             EnumDropdown(
-                label = "Co-fronter redaction",
+                label = "Hidden co-fronters",
                 value = channel.cofrontRedaction,
-                enabled = !cofrontDisabled,
                 options = listOf(
-                    "count" to "Count only (\"1 other\")",
-                    "someone" to "\"Someone joined\"",
-                    "suppress" to "Suppress if any invisible",
+                    "count" to "Count only (\"and 1 other\")",
+                    "someone" to "Vaguer (\"someone\")",
+                    "suppress" to "Send nothing if anyone is hidden",
                 ),
                 onChange = { v -> onPatch { it.copy(cofrontRedaction = v) } },
             )
-            if (cofrontDisabled) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Only meaningful when payload sensitivity is full.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
@@ -735,7 +744,8 @@ private fun DeliveryCard(
             value = channel.debounceSeconds,
             min = 0,
             max = 86400,
-            helper = "Minimum gap between deliveries on this channel.",
+            helper = "Minimum gap between deliveries on this channel. Changes that " +
+                "arrive inside the gap are held and sent afterward, not dropped.",
             onChange = { v -> onPatch { it.copy(debounceSeconds = v) } },
         )
         Spacer(Modifier.height(8.dp))
@@ -744,7 +754,11 @@ private fun DeliveryCard(
             value = channel.aggregationWindowSeconds,
             min = 0,
             max = 86400,
-            helper = "0 = realtime. Higher batches multiple events into one.",
+            helper = "0 = off (each change is delivered on its own). Above 0, front " +
+                "changes in this many seconds are batched and sent as one " +
+                "notification when the window closes, so a quick series (like a " +
+                "co-front swap) arrives as a single message. Adds up to this much " +
+                "delay.",
             onChange = { v -> onPatch { it.copy(aggregationWindowSeconds = v) } },
         )
         Spacer(Modifier.height(12.dp))
