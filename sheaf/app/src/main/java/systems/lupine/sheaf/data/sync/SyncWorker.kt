@@ -15,6 +15,7 @@ import systems.lupine.sheaf.data.db.SheafDatabase
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontUpdate
 import java.time.Instant
+import systems.lupine.sheaf.data.model.FrontReplace
 
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -62,7 +63,14 @@ class SyncWorker @AssistedInject constructor(
                 if (remaining.isEmpty()) {
                     api.updateFront(front.id, FrontUpdate(endedAt = removedAtIso))
                 } else {
-                    api.updateFront(front.id, FrontUpdate(memberIds = remaining))
+                    // Same replace-don't-edit rule as the online path, so a
+                    // removal queued offline lands identically when it drains.
+                    // startedAt carries the original removal time, keeping the
+                    // history boundary where the user actually made the change.
+                    api.replaceFront(
+                        front.id,
+                        FrontReplace(memberIds = remaining, startedAt = removedAtIso),
+                    )
                 }
             }
         }.fold(

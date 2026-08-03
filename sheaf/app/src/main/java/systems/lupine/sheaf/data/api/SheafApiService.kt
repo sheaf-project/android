@@ -253,6 +253,16 @@ interface SheafApiService {
     @DELETE("/v1/fronts/{id}")
     suspend fun deleteFront(@Path("id") id: String)
 
+    /**
+     * End one open front and start its replacement in a single transaction,
+     * without touching any other open front. Use this whenever the change is
+     * "these people are fronting instead of those" within one front: it keeps
+     * per-member history entries intact and emits one aggregated notification
+     * rather than a stop followed by a start.
+     */
+    @POST("/v1/fronts/{id}/replace")
+    suspend fun replaceFront(@Path("id") id: String, @Body body: FrontReplace): FrontRead
+
     // ── Groups ────────────────────────────────────────────────────────────────
 
     @GET("/v1/groups")
