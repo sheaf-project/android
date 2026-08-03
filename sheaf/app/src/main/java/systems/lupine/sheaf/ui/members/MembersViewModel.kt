@@ -88,7 +88,14 @@ class MembersViewModel @Inject constructor(
             runCatching {
                 val activeFront = _state.value.currentFronts.firstOrNull()
                 if (activeFront != null) {
-                    api.updateFront(activeFront.id, FrontUpdate(memberIds = activeFront.memberIds + memberId))
+                    // Replace rather than edit the member list in place: this
+                    // keeps each member's stint as its own history entry and
+                    // lands as one aggregated notification instead of a stop
+                    // and a start. Other open fronts are untouched.
+                    api.replaceFront(
+                        activeFront.id,
+                        FrontReplace(memberIds = activeFront.memberIds + memberId),
+                    )
                 } else {
                     api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
                 }
@@ -106,9 +113,17 @@ class MembersViewModel @Inject constructor(
             runCatching {
                 _state.value.currentFronts.filter { memberId in it.memberIds }.forEach { front ->
                     if (front.memberIds.size == 1) {
+                        // Last one out: the front itself ends. Replace needs a
+                        // non-empty member list, so this stays an end.
                         api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
                     } else {
-                        api.updateFront(front.id, FrontUpdate(memberIds = front.memberIds - memberId))
+                        // Co-front shrinking. Replace keeps the remaining
+                        // members' history entries intact and lands as one
+                        // aggregated change; editing in place did neither.
+                        api.replaceFront(
+                            front.id,
+                            FrontReplace(memberIds = front.memberIds - memberId),
+                        )
                     }
                 }
             }.onFailure { e ->
@@ -123,10 +138,17 @@ class MembersViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(error = null) }
             runCatching {
-                _state.value.currentFronts.forEach { front ->
-                    api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
-                }
-                api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
+                // One call, not an end-each-then-create: the server ends every
+                // open front and opens the new one in a single transaction, so
+                // this lands as one aggregated notification rather than a stop
+                // per front followed by a start.
+                api.createFront(
+                    FrontCreate(
+                        memberIds = listOf(memberId),
+                        startedAt = Instant.now().toString(),
+                        replaceFronts = true,
+                    )
+                )
             }.onFailure { e ->
                 _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
@@ -744,7 +766,12 @@ class MemberProfileViewModel @Inject constructor(
             runCatching {
                 val active = _state.value.currentFronts.firstOrNull()
                 if (active != null) {
-                    api.updateFront(active.id, FrontUpdate(memberIds = active.memberIds + memberId))
+                    // See MembersViewModel.addToFront: replace rather than edit
+                    // in place, so history and notifications both stay right.
+                    api.replaceFront(
+                        active.id,
+                        FrontReplace(memberIds = active.memberIds + memberId),
+                    )
                 } else {
                     api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
                 }
@@ -760,9 +787,17 @@ class MemberProfileViewModel @Inject constructor(
             runCatching {
                 _state.value.currentFronts.filter { memberId in it.memberIds }.forEach { front ->
                     if (front.memberIds.size == 1) {
+                        // Last one out: the front itself ends. Replace needs a
+                        // non-empty member list, so this stays an end.
                         api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
                     } else {
-                        api.updateFront(front.id, FrontUpdate(memberIds = front.memberIds - memberId))
+                        // Co-front shrinking. Replace keeps the remaining
+                        // members' history entries intact and lands as one
+                        // aggregated change; editing in place did neither.
+                        api.replaceFront(
+                            front.id,
+                            FrontReplace(memberIds = front.memberIds - memberId),
+                        )
                     }
                 }
             }.onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) }
@@ -775,10 +810,17 @@ class MemberProfileViewModel @Inject constructor(
     fun switchSoleFronter() {
         viewModelScope.launch {
             runCatching {
-                _state.value.currentFronts.forEach { front ->
-                    api.updateFront(front.id, FrontUpdate(endedAt = Instant.now().toString()))
-                }
-                api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
+                // One call, not an end-each-then-create: the server ends every
+                // open front and opens the new one in a single transaction, so
+                // this lands as one aggregated notification rather than a stop
+                // per front followed by a start.
+                api.createFront(
+                    FrontCreate(
+                        memberIds = listOf(memberId),
+                        startedAt = Instant.now().toString(),
+                        replaceFronts = true,
+                    )
+                )
             }.onFailure { e -> _state.update { it.copy(error = e.toUserMessage()) }
                 return@launch
             }

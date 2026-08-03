@@ -517,6 +517,26 @@ data class FrontCreate(
     @Json(name = "custom_status") val customStatus: String? = null,
 )
 
+/**
+ * Body for `POST /v1/fronts/{id}/replace`: end one specific open front and
+ * open a replacement in its place, atomically, leaving every other open front
+ * untouched.
+ *
+ * This is the correct way to change who is in a co-front. Editing the member
+ * list in place loses each member's stint as its own history entry, and
+ * ending-then-creating emits two notifications for one change; this does both
+ * halves in one transaction, so it reads as a single aggregated change.
+ *
+ * `memberIds` must be non-empty (to end a front entirely, end it instead).
+ * Omitting `customStatus` carries the replaced front's status over.
+ */
+@JsonClass(generateAdapter = true)
+data class FrontReplace(
+    @Json(name = "member_ids") val memberIds: List<String>,
+    @Json(name = "started_at") val startedAt: String? = null,
+    @Json(name = "custom_status") val customStatus: String? = null,
+)
+
 // Serialized by the hand-written FrontUpdateJsonAdapter rather than codegen,
 // because the wire contract is tristate-by-presence (omit = leave as-is,
 // JSON null = clear, value = set) and Moshi cannot emit an explicit null on
