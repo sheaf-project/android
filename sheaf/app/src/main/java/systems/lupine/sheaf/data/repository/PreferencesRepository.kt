@@ -84,6 +84,12 @@ class PreferencesRepository @Inject constructor(
         // three things you want under your thumb is an ergonomics choice about
         // this phone, not an account setting. Absent = the seeded defaults.
         val KEY_NAV_PINS = stringPreferencesKey("nav_pins")
+        // Whether a quick-switch tap (Home carousel, quick-switch widget) ends
+        // the other open fronts. Three states: absent = follow the account's
+        // replace_fronts_default, "true" = always end them, "false" = never.
+        // Per-device, because which behaviour you want is about how you use
+        // the one-tap control on this device, not about the account.
+        val KEY_QUICK_SWITCH_REPLACE = stringPreferencesKey("quick_switch_replace")
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { it[KEY_BASE_URL] }
@@ -108,6 +114,15 @@ class PreferencesRepository @Inject constructor(
     val timezoneOverride: Flow<String?> = context.dataStore.data.map { it[KEY_TIMEZONE_OVERRIDE] }
     // null means "never chosen" (the nav layer seeds its defaults); an empty
     // list is a real choice to pin nothing, and is kept distinct from it.
+    /** null = follow the account default; true/false = this device overrides it. */
+    val quickSwitchReplace: Flow<Boolean?> = context.dataStore.data.map { prefs ->
+        when (prefs[KEY_QUICK_SWITCH_REPLACE]) {
+            "true" -> true
+            "false" -> false
+            else -> null
+        }
+    }
+
     val navPins: Flow<List<String>?> = context.dataStore.data.map { prefs ->
         prefs[KEY_NAV_PINS]?.lines()?.filter { it.isNotBlank() }
     }
@@ -206,6 +221,14 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveHistoryPageSize(size: Int) {
         context.dataStore.edit { it[KEY_HISTORY_PAGE_SIZE] = size }
+    }
+
+    /** Pass null to clear the override and follow the account default again. */
+    suspend fun saveQuickSwitchReplace(value: Boolean?) {
+        context.dataStore.edit {
+            if (value == null) it.remove(KEY_QUICK_SWITCH_REPLACE)
+            else it[KEY_QUICK_SWITCH_REPLACE] = value.toString()
+        }
     }
 
     suspend fun saveNavPins(routes: List<String>) {

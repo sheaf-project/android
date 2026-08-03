@@ -83,7 +83,18 @@ data class HomeUiState(
     // data to fall back on. The UI surfaces this so the user knows what
     // they're looking at may be stale.
     val refreshFailed: Boolean = false,
+    // Device override for what a quick-switch tap does with the fronts that
+    // are already open. null = follow the account. See [quickSwitchReplace].
+    val quickSwitchReplaceOverride: Boolean? = null,
 ) {
+    /**
+     * Whether a one-tap quick switch ends the other open fronts. This device's
+     * setting wins; without one, the account default; without that, end them,
+     * which is what the server assumes.
+     */
+    val quickSwitchReplace: Boolean
+        get() = quickSwitchReplaceOverride ?: system?.replaceFrontsDefault ?: true
+
     val visibleAnnouncements: List<AnnouncementPublic>
         get() = announcements.filter {
             it.id !in dismissedAnnouncementIds && it.id !in permanentlyDismissedAnnouncementIds
@@ -116,6 +127,13 @@ class HomeViewModel @Inject constructor(
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
+        // Device quick-switch preference, live: changing it in Settings takes
+        // effect on the carousel without a reload.
+        viewModelScope.launch {
+            prefs.quickSwitchReplace.collect { override ->
+                _state.update { it.copy(quickSwitchReplaceOverride = override) }
+            }
+        }
         // Track online state and pending op count continuously.
         viewModelScope.launch {
             networkMonitor.isOnline.collect { online ->

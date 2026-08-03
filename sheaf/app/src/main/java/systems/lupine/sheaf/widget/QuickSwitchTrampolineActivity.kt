@@ -24,9 +24,11 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.ui.theme.SheafTheme
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 
 /**
  * Confirmation surface for the QuickSwitchWidget. The widget tile launches
@@ -40,6 +42,7 @@ import javax.inject.Inject
 class QuickSwitchTrampolineActivity : ComponentActivity() {
 
     @Inject lateinit var api: SheafApiService
+    @Inject lateinit var prefs: PreferencesRepository
 
     companion object {
         const val EXTRA_MEMBER_ID = "member_id"
@@ -71,7 +74,14 @@ class QuickSwitchTrampolineActivity : ComponentActivity() {
     private fun commitSwitch(memberId: String, widgetId: Int) {
         lifecycleScope.launch {
             val result = runCatching {
-                api.createFront(FrontCreate(memberIds = listOf(memberId)))
+                // Honour the device's quick-switch preference, same as the
+                // carousel on Home: this is the same one-tap action, just from
+                // the home screen. Without an override, fall through to the
+                // account default by leaving replaceFronts null.
+                val override = prefs.quickSwitchReplace.first()
+                api.createFront(
+                    FrontCreate(memberIds = listOf(memberId), replaceFronts = override),
+                )
             }
             if (result.isSuccess) {
                 Toast.makeText(this@QuickSwitchTrampolineActivity, "Switched", Toast.LENGTH_SHORT).show()
