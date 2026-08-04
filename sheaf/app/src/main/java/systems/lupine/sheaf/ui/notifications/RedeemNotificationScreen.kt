@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -60,6 +61,9 @@ fun RedeemNotificationScreen(
     LaunchedEffect(activationCode) { viewModel.redeem(activationCode) }
 
     Scaffold(
+        // The app root holds content clear of the system bars for every screen
+        // (see SheafApp); a Scaffold that also applies its own would pad twice.
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
                 title = { Text("Subscribe to notifications") },

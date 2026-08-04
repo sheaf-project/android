@@ -7,6 +7,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
@@ -312,7 +319,27 @@ fun SheafApp(
         val fullBleed = currentRoute in FULL_BLEED_ROUTES
         val contentModifier = if (fullBleed) Modifier.fillMaxSize()
             else Modifier.fillMaxHeight().widthIn(max = MAX_CONTENT_WIDTH)
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Box(
+            // Every screen's own Scaffold passes contentWindowInsets =
+            // WindowInsets(0), because the app root has always been the one
+            // holding content clear of the system bars. It used to do that with
+            // a Scaffold's innerPadding; NavigationSuiteScaffold only insets for
+            // its own bar or rail, so the top inset has to be applied here or
+            // content draws under the status bar.
+            //
+            // Top and horizontal only: the bottom is already handled, by the
+            // navigation suite where it shows and by the screens that pin
+            // something above the system nav. Horizontal covers a landscape
+            // display cutout, which matters now the app can rotate.
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(
+                    WindowInsets.systemBars
+                        .union(WindowInsets.displayCutout)
+                        .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                ),
+            contentAlignment = Alignment.TopCenter,
+        ) {
         NavHost(
             navController = navController,
             startDestination = Routes.LOGIN,
