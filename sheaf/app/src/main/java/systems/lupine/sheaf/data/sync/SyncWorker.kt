@@ -16,6 +16,7 @@ import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontUpdate
 import java.time.Instant
 import systems.lupine.sheaf.data.model.FrontReplace
+import systems.lupine.sheaf.data.api.replaceFrontMembers
 
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -67,9 +68,10 @@ class SyncWorker @AssistedInject constructor(
                     // removal queued offline lands identically when it drains.
                     // startedAt carries the original removal time, keeping the
                     // history boundary where the user actually made the change.
-                    api.replaceFront(
+                    api.replaceFrontMembers(
                         front.id,
-                        FrontReplace(memberIds = remaining, startedAt = removedAtIso),
+                        memberIds = remaining,
+                        startedAt = removedAtIso,
                     )
                 }
             }

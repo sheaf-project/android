@@ -22,6 +22,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.Instant
 import javax.inject.Inject
+import systems.lupine.sheaf.data.api.replaceFrontMembers
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
@@ -92,9 +93,9 @@ class MembersViewModel @Inject constructor(
                     // keeps each member's stint as its own history entry and
                     // lands as one aggregated notification instead of a stop
                     // and a start. Other open fronts are untouched.
-                    api.replaceFront(
+                    api.replaceFrontMembers(
                         activeFront.id,
-                        FrontReplace(memberIds = activeFront.memberIds + memberId),
+                        activeFront.memberIds + memberId,
                     )
                 } else {
                     api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
@@ -120,9 +121,9 @@ class MembersViewModel @Inject constructor(
                         // Co-front shrinking. Replace keeps the remaining
                         // members' history entries intact and lands as one
                         // aggregated change; editing in place did neither.
-                        api.replaceFront(
+                        api.replaceFrontMembers(
                             front.id,
-                            FrontReplace(memberIds = front.memberIds - memberId),
+                            front.memberIds - memberId,
                         )
                     }
                 }
@@ -768,9 +769,9 @@ class MemberProfileViewModel @Inject constructor(
                 if (active != null) {
                     // See MembersViewModel.addToFront: replace rather than edit
                     // in place, so history and notifications both stay right.
-                    api.replaceFront(
+                    api.replaceFrontMembers(
                         active.id,
-                        FrontReplace(memberIds = active.memberIds + memberId),
+                        active.memberIds + memberId,
                     )
                 } else {
                     api.createFront(FrontCreate(memberIds = listOf(memberId), startedAt = Instant.now().toString()))
@@ -794,9 +795,9 @@ class MemberProfileViewModel @Inject constructor(
                         // Co-front shrinking. Replace keeps the remaining
                         // members' history entries intact and lands as one
                         // aggregated change; editing in place did neither.
-                        api.replaceFront(
+                        api.replaceFrontMembers(
                             front.id,
-                            FrontReplace(memberIds = front.memberIds - memberId),
+                            front.memberIds - memberId,
                         )
                     }
                 }

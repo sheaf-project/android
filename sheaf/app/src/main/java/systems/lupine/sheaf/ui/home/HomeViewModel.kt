@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
 import systems.lupine.sheaf.data.model.FrontReplace
+import systems.lupine.sheaf.data.api.replaceFrontMembers
 
 data class HomeUiState(
     val user: UserRead? = null,
@@ -551,7 +552,7 @@ class HomeViewModel @Inject constructor(
                             // Replace, not an in-place member edit: keeps each
                             // remaining member's stint as its own history entry
                             // and emits one aggregated change.
-                            api.replaceFront(front.id, FrontReplace(memberIds = remaining))
+                            api.replaceFrontMembers(front.id, remaining)
                         }
                     }
                 }.onFailure { e ->
