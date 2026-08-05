@@ -4,6 +4,46 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.3.1] - 2026-08-05
+
+### Added
+
+- **Choose what a quick-switch tap does.** Settings > Fronting now controls
+  whether tapping someone in the quick-switch carousel (or the quick-switch
+  widget) ends the fronts that are already open, or adds them alongside. Follow
+  your account's default, or override it just on this device. The full switch
+  sheet is unchanged: it still asks every time.
+
+### Fixed
+
+- **Content no longer draws under the status bar.** A regression in 1.3.0 left
+  every screen's top bar tucked under the clock and battery icons.
+
+- **The setting for how hidden co-fronters appear is reachable again.** It only
+  showed when "Co-front composition changes" notifications were switched on,
+  even though it also governs how an excluded or private member appears in
+  ordinary start and stop notifications. It now sits on its own, under the
+  clearer name "Hidden co-fronters", and its options say what they actually do.
+
+- **Clearer notification delivery settings.** The debounce setting now says that
+  changes arriving inside the gap are held and sent afterward rather than
+  dropped, and the aggregation window explains that it batches a quick series of
+  changes (like a co-front swap) into one notification, and adds up to that much
+  delay.
+
+- **Adding or removing someone from a co-front keeps everyone's history
+  straight.** It used to rewrite the front's member list in place, so a front
+  that was two people and became two different people read as though the newest
+  had been there all along. Each person's stint is now its own history entry,
+  the change arrives as a single notification rather than a stop and a start,
+  and any other front running at the same time is left alone. On a server that
+  predates this, the previous behaviour is used instead, so nothing breaks on an
+  instance that has not been upgraded yet.
+
+- **"Set as sole fronter" sends one notification.** It ended each open front
+  separately and then started the new one, which arrived as a stop per front
+  followed by a start.
+
 ## [1.3.0] - 2026-07-31
 
 ### Added
