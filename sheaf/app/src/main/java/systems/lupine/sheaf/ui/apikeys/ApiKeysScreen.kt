@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import systems.lupine.sheaf.ui.theme.LocalWarningColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -205,6 +206,14 @@ private fun CreateApiKeySheet(
     val computedScopes = remember(levels, adminLevel, isAdmin) {
         scopesFromLevels(levels, isAdmin, adminLevel)
     }
+    // The export endpoint hands back the whole account, so export:read is a
+    // read of everything however narrow the rest of the picks are. That is
+    // easy to miss when choosing scopes one resource at a time, so say it
+    // inline, and confirm before creating.
+    val exportSelected = (levels["export"] ?: ApiScopeLevel.NONE) != ApiScopeLevel.NONE
+    // Only surprising when the key does not already read everything anyway.
+    val grantsEveryRead = remember(levels) { grantsEveryRead(levels) }
+    var confirmExport by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -279,8 +288,29 @@ private fun CreateApiKeySheet(
                 fontFamily = FontFamily.Monospace,
             )
 
+            if (exportSelected) {
+                val warning = LocalWarningColors.current
+                Surface(
+                    color = warning.container,
+                    contentColor = warning.onContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "Data export read lets this key download a full account " +
+                            "export: everything in your account, not just the scopes " +
+                            "selected above.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            }
+
             Button(
-                onClick = { onCreate(name, computedScopes, null) },
+                onClick = {
+                    if (exportSelected && !grantsEveryRead) confirmExport = true
+                    else onCreate(name, computedScopes, null)
+                },
                 enabled = !isCreating && name.isNotBlank() && computedScopes.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth().height(48.dp),
             ) {
@@ -288,6 +318,33 @@ private fun CreateApiKeySheet(
                 else Text("Create Key")
             }
         }
+    }
+
+    if (confirmExport) {
+        AlertDialog(
+            onDismissRequest = { confirmExport = false },
+            title = { Text("This key can read everything") },
+            text = {
+                Text(
+                    "Data export read lets this key download a full account export: " +
+                        "every member, journal, board message, poll, and setting in your " +
+                        "account, not just the scopes you selected. Only hand it to " +
+                        "something you would trust with all of it.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isCreating,
+                    onClick = {
+                        confirmExport = false
+                        onCreate(name, computedScopes, null)
+                    },
+                ) { Text("Create key anyway") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmExport = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

@@ -63,6 +63,22 @@ val ALL_SCOPE_RESOURCES: List<ApiScopeResource> = SCOPE_GROUPS.flatMap { (_, rs)
 
 enum class ApiScopeLevel { NONE, READ, WRITE, DELETE }
 
+/**
+ * True when the chosen levels already grant read on every readable resource,
+ * so adding data export reveals nothing the key could not already reach.
+ *
+ * Used to decide whether picking data export deserves a warning: it grants a
+ * read of the entire account regardless of how narrow the other picks are,
+ * which is easy to miss when choosing scopes one resource at a time.
+ *
+ * Write-only resources (data import) are excluded. They grant no read at all,
+ * so counting them would mean this never returned true and the warning would
+ * fire even on a key that genuinely reads everything.
+ */
+fun grantsEveryRead(levels: Map<String, ApiScopeLevel>): Boolean =
+    ALL_SCOPE_RESOURCES.filterNot { it.writeOnly }
+        .all { (levels[it.key] ?: ApiScopeLevel.NONE) != ApiScopeLevel.NONE }
+
 // Project the per-resource level map down to the scope strings the backend
 // expects. Write implies read (server-side), so we only emit the higher
 // level. Delete level emits both write and delete.
