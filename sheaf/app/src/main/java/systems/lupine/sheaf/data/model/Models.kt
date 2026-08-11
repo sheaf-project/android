@@ -251,6 +251,11 @@ data class SystemRead(
     // (each device renders in its own local clock). Synced across the account's
     // devices; a per-device override can shadow it locally. See [resolveDisplayZone].
     val timezone: String? = null,
+    // Display preference: show each member's created date on their profile.
+    // Opt-in per system (default false, matching the backend) - some systems
+    // want it, others find it noise. Purely a display gate; MemberRead.createdAt
+    // is always present regardless.
+    @Json(name = "show_member_created_date") val showMemberCreatedDate: Boolean = false,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
 )
@@ -274,6 +279,7 @@ data class SystemUpdate(
     val color: String? = null,
     val privacy: String? = null,
     val note: String? = null,
+    @Json(name = "show_member_created_date") val showMemberCreatedDate: Boolean? = null,
 )
 
 // ── System Safety ─────────────────────────────────────────────────────────────

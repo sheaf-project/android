@@ -1085,6 +1085,27 @@ fun MemberProfileScreen(
                             leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
                             colors = itemColors,
                         )
+
+                        // Created date, only when the system opted in (see
+                        // Settings > Profile). Web puts this as muted text under
+                        // the name; on Android the profile keeps facts like this
+                        // in the details card, next to birthday and privacy.
+                        if (state.showCreatedDate) {
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                            ListItem(
+                                headlineContent = { Text("Created") },
+                                trailingContent = {
+                                    Text(
+                                        formatCreatedDate(member.createdAt, LocalDisplayTimeZone.current),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                },
+                                leadingContent = {
+                                    Icon(Icons.Default.CalendarToday, contentDescription = null)
+                                },
+                                colors = itemColors,
+                            )
+                        }
                     }
 
                     // Custom-field values. Only render when the viewer
@@ -1458,6 +1479,15 @@ private val revisionDateFormatter: DateTimeFormatter =
 
 private fun formatRevisionDate(iso: String, zone: ZoneId): String = runCatching {
     OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDateTime().format(revisionDateFormatter)
+}.getOrDefault(iso)
+
+// Date only, no clock: "when was this member added" is a date-scale fact, and
+// the hour it happened is noise on a profile.
+private val createdDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d, yyyy")
+
+private fun formatCreatedDate(iso: String, zone: ZoneId): String = runCatching {
+    OffsetDateTime.parse(iso).atZoneSameInstant(zone).toLocalDate().format(createdDateFormatter)
 }.getOrDefault(iso)
 
 private fun formatBirthday(value: String): String? {
