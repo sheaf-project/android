@@ -16,11 +16,11 @@ val gitCommitShort: String = runCatching {
 
 android {
     namespace = "systems.lupine.sheaf.wear"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Form-factor index appended to phone's base*10 versionCode: phone=0,
         // wear=1. CI passes -PversionCode already multiplied by 10, so +1 here
         // lands wear at base*10+1. Standalone dev builds (no -PversionCode)
