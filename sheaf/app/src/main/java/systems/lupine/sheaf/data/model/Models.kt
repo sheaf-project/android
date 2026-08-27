@@ -601,6 +601,12 @@ data class GroupMemberUpdate(
 
 // ── Tags ──────────────────────────────────────────────────────────────────────
 
+/** Body for `PUT /v1/members/{id}/tags`: the member's complete tag set. */
+@JsonClass(generateAdapter = true)
+data class MemberTagUpdate(
+    @Json(name = "tag_ids") val tagIds: List<String>,
+)
+
 @JsonClass(generateAdapter = true)
 data class TagRead(
     val id: String,

@@ -818,9 +818,12 @@ fun MemberDetailScreen(
                 }
             }
 
-            // Relationships (existing members only; a new member has no id yet).
+            // Tags and relationships, for existing members only: both attach to a
+            // member id, and a member being created does not have one yet.
             if (!viewModel.isNewMember) {
                 Spacer(Modifier.height(16.dp))
+                MemberTagsEditor(memberId = memberId)
+                Spacer(Modifier.height(12.dp))
                 RelationshipsEditor(scope = REL_SCOPE_MEMBER, nodeId = memberId)
             }
 
@@ -1151,6 +1154,8 @@ fun MemberProfileScreen(
                     }
 
                     // Relationships (read-only; renders nothing when there are none).
+                    MemberTagsEditor(memberId = member.id, readOnly = true)
+
                     RelationshipsEditor(
                         scope = REL_SCOPE_MEMBER,
                         nodeId = member.id,
