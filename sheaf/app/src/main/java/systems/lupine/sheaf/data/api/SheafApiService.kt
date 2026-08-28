@@ -343,6 +343,19 @@ interface SheafApiService {
     @GET("/v1/tags")
     suspend fun listTags(): List<TagRead>
 
+    @GET("/v1/members/{id}/tags")
+    suspend fun getMemberTags(@Path("id") id: String): List<TagRead>
+
+    /**
+     * Sets the member's complete tag set, not a delta: send every tag the
+     * member should end up with. Requires the tags:write scope.
+     */
+    @PUT("/v1/members/{id}/tags")
+    suspend fun setMemberTags(
+        @Path("id") id: String,
+        @Body body: MemberTagUpdate,
+    ): List<TagRead>
+
     @POST("/v1/tags")
     suspend fun createTag(@Body body: TagCreate): TagRead
 

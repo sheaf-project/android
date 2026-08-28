@@ -67,11 +67,11 @@ val latestReleaseTag: String = runCatching {
 
 android {
     namespace = "systems.lupine.sheaf"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = providers.gradleProperty("versionCode").orNull?.toInt() ?: 1
         // CI passes -PversionName; local dev builds derive from the most
         // recent git release tag with a "-dev" suffix so About never lies
