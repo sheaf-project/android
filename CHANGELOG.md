@@ -4,6 +4,39 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [1.3.2] - 2026-08-30
+
+### Added
+
+- **Apply tags to a member.** Tags could be created and managed under
+  Settings > System > Tags, but there was no way to actually put one on
+  anybody. A member's editor now has a chip for each of your tags, tap to
+  apply or remove, and their profile lists the ones that are set. Tags are
+  still created and renamed in Settings.
+
+- **Member created dates.** When your system turns on "Show member created
+  dates" (Settings > Profile), a member's profile now shows when they were
+  added, alongside their birthday and privacy. Off unless you turn it on, and
+  it needs a server running 1.3.5 or later.
+
+- **A warning when an API key can read everything.** The data export scope
+  lets a key download your entire account, whatever else you did or didn't
+  tick, which was easy to miss when choosing scopes one at a time. Selecting
+  it now says so, and creating such a key asks you to confirm first, unless
+  the key already reads everything anyway.
+
+### Fixed
+
+- **Widgets no longer crash the app.** A refresh could take down the whole
+  process, which for anyone with a Sheaf widget on their home screen could
+  happen on any update. Reported from the field.
+
+### Changed
+
+- **Now targets Android 16.** Required by Google Play from 31 August. The
+  minimum supported version is unchanged at Android 8.0, so this drops no
+  devices.
+
 ## [1.3.1] - 2026-08-05
 
 ### Added
