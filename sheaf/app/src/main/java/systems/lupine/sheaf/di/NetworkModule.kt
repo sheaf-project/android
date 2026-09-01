@@ -5,6 +5,7 @@ import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
 import systems.lupine.sheaf.data.api.CredentialGuardInterceptor
+import systems.lupine.sheaf.data.api.CustomFieldValueSetJsonAdapter
 import systems.lupine.sheaf.data.api.FrontUpdateJsonAdapter
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.api.SheafApiService
@@ -43,6 +44,7 @@ object NetworkModule {
     fun provideMoshi(): Moshi = Moshi.Builder()
         .add(Date::class.java, Rfc3339DateJsonAdapter().nullSafe())
         .add(FrontUpdate::class.java, FrontUpdateJsonAdapter())
+        .add(CustomFieldValueSetJsonAdapter.FACTORY)
         .addLast(KotlinJsonAdapterFactory())
         .build()
 
