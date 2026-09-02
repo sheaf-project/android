@@ -299,6 +299,7 @@ fun diffBioLines(oldBody: String, newBody: String): List<BioDiffLine> {
 data class MemberFormState(
     val name: String = "",
     val displayName: String = "",
+    val emoji: String = "",
     val pronouns: String = "",
     val description: String = "",
     val note: String = "",
@@ -402,6 +403,7 @@ class MemberDetailViewModel @Inject constructor(
                     val loaded = MemberFormState(
                         name        = m.name,
                         displayName = m.displayName ?: "",
+                        emoji = m.emoji ?: "",
                         pronouns    = m.pronouns ?: "",
                         description = m.description ?: "",
                         note        = m.note ?: "",
@@ -459,6 +461,7 @@ class MemberDetailViewModel @Inject constructor(
                     api.createMember(MemberCreate(
                         name        = f.name.trim(),
                         displayName = f.displayName.takeIf { it.isNotBlank() },
+                        emoji       = f.emoji.trim().takeIf { it.isNotEmpty() },
                         pronouns    = f.pronouns.takeIf { it.isNotBlank() },
                         description = f.description.takeIf { it.isNotBlank() },
                         avatarUrl   = f.avatarUrl,
@@ -472,6 +475,13 @@ class MemberDetailViewModel @Inject constructor(
                     val update = MemberUpdate(
                         name        = f.name.trim(),
                         displayName = f.displayName.takeIf { it.isNotBlank() },
+                        // Empty string rather than null, so removing an emoji
+                        // actually removes it. The member PATCH is
+                        // omit-means-unchanged and Moshi drops nulls, so a null
+                        // here would silently leave the old emoji in place. Same
+                        // trick the scratchpad note uses. Reads back as "no
+                        // emoji" everywhere, since every client blank-checks it.
+                        emoji       = f.emoji.trim(),
                         pronouns    = f.pronouns.takeIf { it.isNotBlank() },
                         description = f.description.takeIf { it.isNotBlank() },
                         avatarUrl   = f.avatarUrl,

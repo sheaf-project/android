@@ -416,7 +416,7 @@ private fun FrontingMemberCard(member: MemberRead, front: FrontRead?, onLongClic
             MemberAvatar(member = member, size = 56.dp)
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    member.displayNameOrName,
+                    member.displayNameWithEmoji,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -523,7 +523,7 @@ private fun SwitchFrontSheet(
                     items(filtered, key = { it.id }) { member ->
                         val isSelected = member.id in selected
                         ListItem(
-                            headlineContent = { Text(member.displayNameOrName) },
+                            headlineContent = { Text(member.displayNameWithEmoji) },
                             supportingContent = member.pronouns?.let { { Text(it) } },
                             leadingContent = { MemberAvatar(member, size = 40.dp) },
                             trailingContent = {
@@ -832,7 +832,7 @@ private fun QuickSwitchChip(
                 MemberAvatar(member = member, size = 32.dp)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = member.displayNameOrName,
+                    text = member.displayNameWithEmoji,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,

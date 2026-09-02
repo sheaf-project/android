@@ -450,7 +450,7 @@ private fun TimelineSection(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Canvas(modifier = Modifier.size(8.dp)) { drawCircle(dotColor) }
-                                Text(member.displayNameOrName, style = MaterialTheme.typography.labelSmall)
+                                Text(member.displayNameWithEmoji, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -832,7 +832,7 @@ private fun FrontEntrySheet(
                             Spacer(Modifier.width(8.dp))
                             MemberAvatar(member = member, size = 32.dp)
                             Spacer(Modifier.width(8.dp))
-                            Text(member.displayNameOrName, style = MaterialTheme.typography.bodyMedium)
+                            Text(member.displayNameWithEmoji, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }

@@ -441,6 +441,19 @@ data class MemberRead(
     @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
 ) {
     val displayNameOrName: String get() = displayName?.takeIf { it.isNotBlank() } ?: name
+
+    /**
+     * The name as it should be shown, with the member's emoji in front when
+     * they have one. Matches web and the watch, where a member's emoji sits
+     * beside their name.
+     *
+     * Display only. Sorting, searching and content descriptions must keep using
+     * [displayNameOrName]: an emoji prefix would file the whole roster under
+     * one character and stop a name query matching.
+     */
+    val displayNameWithEmoji: String get() =
+        emoji?.takeIf { it.isNotBlank() }?.let { "$it $displayNameOrName" } ?: displayNameOrName
+
     val isArchived: Boolean get() = archivedAt != null
     val initials: String get() = displayNameOrName
         .split("\\s+".toRegex())
@@ -462,6 +475,9 @@ data class MemberCreate(
     val birthday: String? = null,
     val privacy: String = "private",
     val note: String? = null,
+    // Short glyph shown beside the member's name and in place of an
+    // avatar. Server caps it at 8 code points.
+    val emoji: String? = null,
 )
 
 /** Optional step-up credentials for archiving a member. Only consulted when
@@ -485,6 +501,9 @@ data class MemberUpdate(
     val birthday: String? = null,
     val privacy: String? = null,
     val note: String? = null,
+    // Short glyph shown beside the member's name and in place of an
+    // avatar. Server caps it at 8 code points.
+    val emoji: String? = null,
 )
 
 // ── Fronts ────────────────────────────────────────────────────────────────────

@@ -56,6 +56,9 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+// Matches the server's max_length on the member emoji field.
+private const val MEMBER_EMOJI_MAX = 8
+
 // ── Members list ──────────────────────────────────────────────────────────────
 
 @Composable
@@ -747,6 +750,26 @@ fun MemberDetailScreen(
             )
 
             OutlinedTextField(
+                value = form.emoji,
+                // The server caps this at 8 code points, so cap the input at the
+                // same thing rather than letting a long paste come back a 422.
+                // Counted in code points, not chars: a single emoji can be
+                // several UTF-16 units, and a family sequence is seven.
+                onValueChange = { input ->
+                    val trimmed = if (input.codePointCount(0, input.length) > MEMBER_EMOJI_MAX) {
+                        input.substring(0, input.offsetByCodePoints(0, MEMBER_EMOJI_MAX))
+                    } else {
+                        input
+                    }
+                    viewModel.updateForm { copy(emoji = trimmed) }
+                },
+                label = { Text("Emoji") },
+                supportingText = { Text("Shown beside their name, and instead of an avatar when they have no picture") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
                 value = form.pronouns,
                 onValueChange = { viewModel.updateForm { copy(pronouns = it) } },
                 label = { Text("Pronouns") },
@@ -922,7 +945,7 @@ fun MemberProfileScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             SheafLargeFlexibleTopAppBar(
-                title = { Text(member?.displayNameOrName ?: "Profile") },
+                title = { Text(member?.displayNameWithEmoji ?: "Profile") },
                 subtitle = member?.pronouns?.let { { Text(it) } },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {

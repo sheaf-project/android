@@ -85,6 +85,45 @@ class ModelContractsTest {
         assertEquals("AB", member("alex bell").initials)
     }
 
+    @Test fun `the display name carries the emoji in front`() {
+        assertEquals("\uD83E\uDD8A Alex", member("Alex").copy(emoji = "\uD83E\uDD8A").displayNameWithEmoji)
+    }
+
+    @Test fun `no emoji leaves the name untouched`() {
+        assertEquals("Alex", member("Alex").displayNameWithEmoji)
+        assertEquals("Alex", member("Alex").copy(emoji = "").displayNameWithEmoji)
+        assertEquals("Alex", member("Alex").copy(emoji = "   ").displayNameWithEmoji)
+    }
+
+    @Test fun `the emoji form respects the display name`() {
+        val m = member(name = "ashley", displayName = "Sam Rivers").copy(emoji = "\u2728")
+        assertEquals("\u2728 Sam Rivers", m.displayNameWithEmoji)
+    }
+
+    @Test fun `the plain name stays free of the emoji`() {
+        // Sorting, searching and content descriptions use displayNameOrName.
+        // An emoji leaking in would file the roster under one character and
+        // stop a name query matching.
+        val m = member("Alex").copy(emoji = "\uD83E\uDD8A")
+        assertEquals("Alex", m.displayNameOrName)
+        assertEquals("A", m.initials)
+    }
+
+    @Test fun `an emoji reaches the wire on create and update`() {
+        val create = moshi.adapter(MemberCreate::class.java)
+            .toJson(MemberCreate(name = "Alex", emoji = "\u2728"))
+        assertEquals(true, "\"emoji\"" in create)
+    }
+
+    @Test fun `clearing an emoji sends an empty string, not an omission`() {
+        // The member PATCH is omit-means-unchanged, and Moshi drops nulls, so
+        // a null emoji would silently leave the old one in place. The empty
+        // string is what actually clears it.
+        val json = moshi.adapter(MemberUpdate::class.java)
+            .toJson(MemberUpdate(name = "Alex", emoji = ""))
+        assertEquals(true, "\"emoji\":\"\"" in json)
+    }
+
     @Test fun `archived is derived from the timestamp`() {
         val active = member("Alex")
         assertEquals(false, active.isArchived)

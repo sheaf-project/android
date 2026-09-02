@@ -355,7 +355,7 @@ private fun MemberCard(member: MemberRead, onClick: () -> Unit) {
             MemberAvatar(member, size = 40.dp)
             Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
                 Text(
-                    member.displayNameOrName,
+                    member.displayNameWithEmoji,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
