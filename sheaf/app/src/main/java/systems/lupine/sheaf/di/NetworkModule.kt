@@ -6,6 +6,9 @@ import systems.lupine.sheaf.data.api.AuthInterceptor
 import systems.lupine.sheaf.data.api.BaseUrlInterceptor
 import systems.lupine.sheaf.data.api.CredentialGuardInterceptor
 import systems.lupine.sheaf.data.api.CustomFieldValueSetJsonAdapter
+import systems.lupine.sheaf.data.api.SystemUpdateJsonAdapter
+import systems.lupine.sheaf.data.api.GroupUpdateJsonAdapter
+import systems.lupine.sheaf.data.api.MemberUpdateJsonAdapter
 import systems.lupine.sheaf.data.api.FrontUpdateJsonAdapter
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.api.SheafApiService
@@ -44,7 +47,13 @@ object NetworkModule {
     fun provideMoshi(): Moshi = Moshi.Builder()
         .add(Date::class.java, Rfc3339DateJsonAdapter().nullSafe())
         .add(FrontUpdate::class.java, FrontUpdateJsonAdapter())
+        // Bodies whose optional fields clear on an explicit null. Moshi drops
+        // those nulls, so without these the field is simply absent from the
+        // request and the old value survives.
         .add(CustomFieldValueSetJsonAdapter.FACTORY)
+        .add(MemberUpdateJsonAdapter.FACTORY)
+        .add(GroupUpdateJsonAdapter.FACTORY)
+        .add(SystemUpdateJsonAdapter.FACTORY)
         .addLast(KotlinJsonAdapterFactory())
         .build()
 
