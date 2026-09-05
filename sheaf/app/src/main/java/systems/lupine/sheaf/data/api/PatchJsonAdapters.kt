@@ -76,10 +76,7 @@ class MemberUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<MemberUpdate>() {
             clears("color", value.color)
             clears("birthday", value.birthday)
             clears("note", value.note)
-            // NOTE: sheaf-project/android#69 adds `emoji` to MemberUpdate. When
-            // that lands, add clears("emoji", ...) here and drop the
-            // empty-string workaround it uses to clear, which this makes
-            // unnecessary.
+            clears("emoji", value.emoji)
         }
         writer.endObject()
     }

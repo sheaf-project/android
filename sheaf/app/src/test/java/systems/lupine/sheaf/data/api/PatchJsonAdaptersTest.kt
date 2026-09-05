@@ -35,8 +35,16 @@ class PatchJsonAdaptersTest {
 
     @Test fun `emptying a member's optional fields clears them`() {
         val json = member(MemberUpdate(name = "Alex"))
-        listOf("display_name", "description", "pronouns", "color", "birthday", "note")
+        listOf("display_name", "description", "pronouns", "color", "birthday", "note", "emoji")
             .forEach { assertTrue("\"$it\":null" in json, "$it should clear, got: $json") }
+    }
+
+    @Test fun `removing a member's emoji removes it`() {
+        // This one needed an empty string before the adapter existed, because a
+        // dropped null read as "leave it alone" and the old emoji stayed put.
+        assertTrue("\"emoji\":null" in member(MemberUpdate(name = "Alex", emoji = null)))
+        val wolf = "\uD83D\uDC3A"
+        assertTrue("\"emoji\":\"$wolf\"" in member(MemberUpdate(emoji = wolf)))
     }
 
     @Test fun `a member's NOT NULL fields are omitted rather than nulled`() {

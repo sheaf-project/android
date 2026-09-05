@@ -152,7 +152,7 @@ private fun GroupMembersInline(
                     MemberAvatar(m, size = 32.dp)
                     Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(
-                            m.displayNameOrName,
+                            m.displayNameWithEmoji,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -352,7 +352,7 @@ fun GroupDetailScreen(
                     items(filtered, key = { it.id }) { member ->
                         val isSelected = member.id in state.memberSelection
                         ListItem(
-                            headlineContent = { Text(member.displayNameOrName) },
+                            headlineContent = { Text(member.displayNameWithEmoji) },
                             leadingContent = { MemberAvatar(member, size = 40.dp) },
                             trailingContent = { Checkbox(checked = isSelected, onCheckedChange = { viewModel.toggleMember(member.id) }) },
                             modifier = Modifier.padding(horizontal = 4.dp),
