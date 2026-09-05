@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import systems.lupine.sheaf.ui.components.rememberUnsavedChangesGuard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,9 +59,20 @@ fun ReminderEditorScreen(
     viewModel: ReminderEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val baseline by viewModel.baseline.collectAsState()
 
     LaunchedEffect(reminderId) { viewModel.load(reminderId) }
     LaunchedEffect(state.saved) { if (state.saved) onSaved() }
+
+    // Reminders carry a title and a body someone wrote, and the save is at the
+    // end of a long form, so back gets the same guard as the other editors.
+    val attemptExit = rememberUnsavedChangesGuard(
+        dirty = !state.isLoading && state.formOnly() != baseline.formOnly(),
+        prompt = "This reminder has changes you haven't saved. Save them before leaving?",
+        canSave = state.name.isNotBlank() && !state.isSubmitting,
+        onSave = { viewModel.submit() },
+        onLeave = onNavigateUp,
+    )
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -68,7 +80,7 @@ fun ReminderEditorScreen(
             SheafTopAppBar(
                 title = { Text(if (reminderId == null) "New reminder" else "Edit reminder") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateUp) {
+                    IconButton(onClick = attemptExit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
