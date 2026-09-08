@@ -1162,9 +1162,16 @@ fun MemberProfileScreen(
                                     field = field,
                                     value = state.customFieldValues[field.id],
                                 )
+                                // Value under the name, not beside it. The
+                                // rows above put short, known-length values in
+                                // the trailing slot, but a custom field holds
+                                // whatever somebody typed: a value long enough
+                                // to wrap took the width it needed and squeezed
+                                // the name into a column one character wide.
+                                // Reported from the field.
                                 ListItem(
                                     headlineContent = { Text(field.name) },
-                                    trailingContent = {
+                                    supportingContent = {
                                         Text(
                                             display,
                                             style = MaterialTheme.typography.bodyMedium,

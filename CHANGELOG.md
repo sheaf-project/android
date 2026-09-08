@@ -4,6 +4,15 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **A long custom field value no longer squashes its name.** On a member's
+  profile, a value long enough to wrap took the width it needed and left the
+  field name in a column one character wide. The value now sits under the name
+  with the full width to wrap into. Reported from the field.
+
 ## [1.3.2] - 2026-08-30
 
 ### Added
