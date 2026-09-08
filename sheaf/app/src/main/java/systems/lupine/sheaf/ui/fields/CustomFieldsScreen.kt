@@ -8,11 +8,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -81,7 +84,9 @@ fun CustomFieldsScreen(
                 CircularProgressIndicator()
             }
 
-            state.error != null -> Column(
+            // Only when there is nothing behind it: an error from an action
+            // (a refused reorder) must not replace the list being worked in.
+            state.error != null && state.fields.isEmpty() -> Column(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
@@ -99,20 +104,34 @@ fun CustomFieldsScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
             )
 
-            else -> LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp,
-                    top = padding.calculateTopPadding() + 8.dp,
-                    bottom = padding.calculateBottomPadding() + 88.dp, // clear FAB
-                ),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                items(state.fields, key = { it.id }) { field ->
-                    FieldListItem(
-                        field = field,
-                        onClick = { editingField = field },
-                        onDeleteClick = { deletingField = field },
-                    )
+            // The scaffold padding moves to the column so the banner sits
+            // inside it too; the list keeps only its own spacing.
+            else -> Column(Modifier.padding(padding)) {
+                state.error?.let {
+                    ErrorBanner(it, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                }
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        start = 16.dp, end = 16.dp,
+                        top = 8.dp,
+                        bottom = 88.dp, // clear FAB
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    itemsIndexed(state.fields, key = { _, field -> field.id }) { index, field ->
+                        FieldListItem(
+                            field = field,
+                            onClick = { editingField = field },
+                            onDeleteClick = { deletingField = field },
+                            // Null means the field has nowhere to go that way,
+                            // or a reorder is already in flight; the arrow then
+                            // greys out.
+                            onMoveUp = { viewModel.moveField(index, -1) }
+                                .takeIf { index > 0 && !state.isReordering },
+                            onMoveDown = { viewModel.moveField(index, 1) }
+                                .takeIf { index < state.fields.lastIndex && !state.isReordering },
+                        )
+                    }
                 }
             }
         }
@@ -178,6 +197,8 @@ private fun FieldListItem(
     field: CustomFieldRead,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
 ) {
     ListItem(
         headlineContent = {
@@ -210,6 +231,23 @@ private fun FieldListItem(
                         )
                     },
                 )
+                // This order is what a member's profile and any shared page
+                // show their fields in, so it is worth being able to set.
+                // See GroupCard: no explicit tint, so the button's own
+                // disabled colour survives and an end-of-list arrow reads as
+                // unavailable rather than identical to a live one.
+                IconButton(onClick = { onMoveUp?.invoke() }, enabled = onMoveUp != null) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Move ${field.name} up",
+                    )
+                }
+                IconButton(onClick = { onMoveDown?.invoke() }, enabled = onMoveDown != null) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Move ${field.name} down",
+                    )
+                }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         Icons.Default.Delete,

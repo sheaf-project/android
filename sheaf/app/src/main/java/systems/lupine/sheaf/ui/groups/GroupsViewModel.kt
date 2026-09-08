@@ -7,6 +7,8 @@ import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.*
 import systems.lupine.sheaf.data.network.NetworkMonitor
+import systems.lupine.sheaf.ui.groups.reorderedGroupIds
+import retrofit2.HttpException
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -29,6 +31,8 @@ data class GroupsUiState(
     val groupMembers: Map<String, List<MemberRead>> = emptyMap(),
     val loadingMembers: Set<String> = emptySet(),
     val memberLoadErrors: Map<String, String> = emptyMap(),
+    /** A reorder is in flight; the arrows go quiet until it lands. */
+    val isReordering: Boolean = false,
 )
 
 @HiltViewModel
@@ -69,6 +73,44 @@ class GroupsViewModel @Inject constructor(
                     _state.update { it.copy(isLoading = false) }
                 }
             }
+        }
+    }
+
+    /**
+     * Move one group among its siblings.
+     *
+     * The list arrives in the new order in the response, so it is taken as the
+     * new state rather than refetched. Optimism would be the wrong trade here:
+     * the arrows are a rapid-fire control, and a list that reorders itself
+     * locally and then springs back on a failed call is worse than one that
+     * waits a moment. On failure the list is left exactly as it was, with the
+     * reason on the banner.
+     */
+    fun moveGroup(groupId: String, delta: Int) {
+        if (_state.value.isReordering) return
+        val ids = reorderedGroupIds(_state.value.groups, groupId, delta) ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(isReordering = true, error = null) }
+            runCatching { api.reorderGroups(GroupReorder(ids)) }
+                .onSuccess { groups ->
+                    cache.saveGroups(groups)
+                    _state.update { it.copy(groups = groups, isReordering = false) }
+                }
+                .onFailure { e ->
+                    // A server that predates the ordering endpoints has no
+                    // such route: 404 if nothing matches, and 405 when the path
+                    // falls through to /groups/{id}, which is what a live 1.4.0
+                    // actually answers. Either way it is not a fault on the
+                    // user's side, and "couldn't reorder" would send them
+                    // looking for one. Same pair replaceFrontMembers falls back
+                    // on for the same reason.
+                    val message = if (e is HttpException && e.code() in setOf(404, 405)) {
+                        "This server doesn't support reordering groups yet."
+                    } else {
+                        e.toUserMessage("Couldn't reorder groups")
+                    }
+                    _state.update { it.copy(isReordering = false, error = message) }
+                }
         }
     }
 

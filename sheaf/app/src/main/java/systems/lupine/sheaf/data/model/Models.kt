@@ -590,11 +590,33 @@ data class GroupRead(
     val description: String?,
     val color: String?,
     @Json(name = "parent_id") val parentId: String?,
+    // Where the owner put this group among its siblings. Ties break on name,
+    // so a system that has never reordered anything (every group at 0, which
+    // is what the server backfills) still reads alphabetically. Defaults to 0
+    // for servers older than the ordering endpoints.
+    val order: Int = 0,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     // Set when a System Safety grace period has this queued for deletion.
     // Still returned and still usable until the window closes; the UI marks it.
     @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
+)
+
+/**
+ * Body for the reorder endpoints: the desired order, first to last.
+ *
+ * The server assigns each named id its position in the list, and leaves
+ * anything not named where it was. Sending the whole list rather than the
+ * moved pair is what makes the result exactly the order on screen.
+ */
+@JsonClass(generateAdapter = true)
+data class GroupReorder(
+    @Json(name = "group_ids") val groupIds: List<String>,
+)
+
+@JsonClass(generateAdapter = true)
+data class CustomFieldReorder(
+    @Json(name = "field_ids") val fieldIds: List<String>,
 )
 
 @JsonClass(generateAdapter = true)

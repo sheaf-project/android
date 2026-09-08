@@ -32,6 +32,7 @@ import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
 import systems.lupine.sheaf.ui.groups.GroupCard
 import systems.lupine.sheaf.ui.groups.GroupsViewModel
+import systems.lupine.sheaf.ui.groups.groupOrder
 import systems.lupine.sheaf.ui.groups.orderGroupsHierarchically
 import systems.lupine.sheaf.ui.members.MembersViewModel
 import androidx.compose.ui.draw.alpha
@@ -188,6 +189,8 @@ fun PeopleScreen(
                     loadingMembers = groupsState.loadingMembers,
                     memberLoadErrors = groupsState.memberLoadErrors,
                     onToggleExpand = { groupsViewModel.toggleExpand(it) },
+                    onMoveGroup = { id, delta -> groupsViewModel.moveGroup(id, delta) },
+                    isReordering = groupsState.isReordering,
                 )
             }
         }
@@ -273,6 +276,8 @@ private fun GroupsTabBody(
     loadingMembers: Set<String>,
     memberLoadErrors: Map<String, String>,
     onToggleExpand: (String) -> Unit,
+    onMoveGroup: (String, Int) -> Unit,
+    isReordering: Boolean,
 ) {
     when {
         isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -292,6 +297,12 @@ private fun GroupsTabBody(
             modifier = Modifier.fillMaxSize(),
         )
         else -> Column(modifier = Modifier.fillMaxSize()) {
+            // A failed action (a reorder the server refused) has a list to sit
+            // above, unlike a failed load. Without this the tap did nothing and
+            // said nothing.
+            error?.let {
+                ErrorBanner(it, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
             AnimatedVisibility(
                 visible = showSearch,
                 enter = expandVertically() + fadeIn(),
@@ -313,6 +324,18 @@ private fun GroupsTabBody(
                     modifier = Modifier.padding(20.dp),
                 )
             } else {
+                // Where each group sits among its siblings, so a row knows
+                // whether it has anywhere to go. Reordering is offered only on
+                // the unfiltered list: positions computed from a search result
+                // would describe a list nobody is looking at, and the move
+                // would land somewhere the user did not see.
+                val reorderable = query.isBlank()
+                val siblingPos = remember(groups) {
+                    groups.groupBy { it.parentId }.flatMap { (_, siblings) ->
+                        val sorted = siblings.sortedWith(groupOrder)
+                        sorted.mapIndexed { index, g -> g.id to (index to sorted.size) }
+                    }.toMap()
+                }
                 LazyColumn(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -322,6 +345,7 @@ private fun GroupsTabBody(
                     // ordering treats those as roots so nothing is dropped.
                     val ordered = orderGroupsHierarchically(groups)
                     items(ordered, key = { it.first.id }) { (group, depth) ->
+                        val (index, count) = siblingPos[group.id] ?: (0 to 1)
                         GroupCard(
                             group = group,
                             depth = depth,
@@ -331,6 +355,11 @@ private fun GroupsTabBody(
                             error = memberLoadErrors[group.id],
                             onToggleExpand = { onToggleExpand(group.id) },
                             onEdit = { onGroupClick(group.id) },
+                            canReorder = reorderable,
+                            onMoveUp = { onMoveGroup(group.id, -1) }
+                                .takeIf { index > 0 && !isReordering },
+                            onMoveDown = { onMoveGroup(group.id, 1) }
+                                .takeIf { index < count - 1 && !isReordering },
                         )
                     }
                 }

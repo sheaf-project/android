@@ -4,6 +4,17 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+
+- **Put your groups and custom fields in the order you want.** Up and down
+  arrows on the Groups list move a group among its siblings, and the same
+  arrows in Settings > Custom fields set the order fields appear in on a
+  member's profile. Groups you have never reordered stay alphabetical, so
+  nothing moves until you move it. Needs a server that supports reordering; on
+  one that doesn't, the app says so rather than failing quietly.
+
 ## [1.3.2] - 2026-08-30
 
 ### Added

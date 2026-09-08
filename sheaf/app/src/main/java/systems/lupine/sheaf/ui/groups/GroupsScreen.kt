@@ -45,6 +45,13 @@ internal fun GroupCard(
     error: String?,
     onToggleExpand: () -> Unit,
     onEdit: () -> Unit,
+    // Null when the group cannot move that way, which is what greys the arrow
+    // out: first among its siblings, last among them, or a reorder already in
+    // flight. Both null on a server without the ordering endpoints, so the
+    // controls simply are not drawn there.
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
+    canReorder: Boolean = false,
 ) {
     val accent = parseColor(group.color ?: "#534AB7") ?: MaterialTheme.colorScheme.primary
     val pending = group.pendingDeleteAt != null
@@ -92,6 +99,27 @@ internal fun GroupCard(
                     group.pendingDeleteAt,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+            }
+            if (canReorder) {
+                // Arrows rather than drag: a long-press drag on these rows
+                // would fight the tap-to-expand they already have, and on web
+                // the same gesture means reparenting. Moves are among siblings.
+                // No explicit tint on these two: an IconButton dims its own
+                // content when disabled, and a tint passed here would override
+                // that, leaving an arrow at the end of the list looking exactly
+                // like one that still has somewhere to go.
+                IconButton(onClick = { onMoveUp?.invoke() }, enabled = onMoveUp != null) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Move ${group.name} up",
+                    )
+                }
+                IconButton(onClick = { onMoveDown?.invoke() }, enabled = onMoveDown != null) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Move ${group.name} down",
+                    )
+                }
             }
             IconButton(onClick = onEdit) {
                 Icon(
@@ -452,6 +480,17 @@ private fun collectDescendants(
 }
 
 /**
+ * Sibling order: where the owner put a group, then name.
+ *
+ * The name tiebreak is what keeps a system that has never reordered anything
+ * alphabetical, since the server backfills every existing group to order 0.
+ * Same comparator as web, so the two lists cannot disagree about what "in
+ * order" means.
+ */
+internal val groupOrder: Comparator<systems.lupine.sheaf.data.model.GroupRead> =
+    compareBy({ it.order }, { it.name.lowercase() })
+
+/**
  * Flatten the group list into parent-before-children order with a depth for
  * each, so the list can indent subgroups under their parent. Roots are groups
  * with no parent (or a parent that isn't in the set); orphans fall back to
@@ -465,10 +504,43 @@ internal fun orderGroupsHierarchically(
     val out = mutableListOf<Pair<systems.lupine.sheaf.data.model.GroupRead, Int>>()
     fun visit(group: systems.lupine.sheaf.data.model.GroupRead, depth: Int) {
         out += group to depth
-        childrenOf[group.id]?.sortedBy { it.name.lowercase() }?.forEach { visit(it, depth + 1) }
+        childrenOf[group.id]?.sortedWith(groupOrder)?.forEach { visit(it, depth + 1) }
     }
     groups.filter { it.parentId == null || it.parentId !in byId }
-        .sortedBy { it.name.lowercase() }
+        .sortedWith(groupOrder)
         .forEach { visit(it, 0) }
     return out
+}
+
+/**
+ * The whole ordered id list after moving one group a place up or down among
+ * its siblings, or null when it cannot move that way (already first, already
+ * last, or not in the list).
+ *
+ * Moves are among SIBLINGS only: changing a group's parent is a different
+ * operation, and one this list does not offer at all on a phone. The result is
+ * the full flattened tree rather than the swapped pair, because the server
+ * assigns order = position in whatever list it is sent - so sending everything
+ * is what makes the stored order match the screen exactly, including for
+ * groups the move did not touch.
+ */
+internal fun reorderedGroupIds(
+    groups: List<systems.lupine.sheaf.data.model.GroupRead>,
+    groupId: String,
+    delta: Int,
+): List<String>? {
+    val group = groups.firstOrNull { it.id == groupId } ?: return null
+    val siblings = groups.filter { it.parentId == group.parentId }.sortedWith(groupOrder)
+    val from = siblings.indexOfFirst { it.id == groupId }
+    val to = from + delta
+    if (from < 0 || to < 0 || to >= siblings.size) return null
+
+    val swapped = siblings.toMutableList()
+    swapped[from] = siblings[to]
+    swapped[to] = siblings[from]
+    // Patch the moved run's new positions in, then re-flatten: the tree walk
+    // reads `order`, so it has to see the new values to produce the new order.
+    val positions = swapped.withIndex().associate { (index, g) -> g.id to index }
+    val patched = groups.map { g -> positions[g.id]?.let { g.copy(order = it) } ?: g }
+    return orderGroupsHierarchically(patched).map { (g, _) -> g.id }
 }
