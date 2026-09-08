@@ -475,13 +475,12 @@ class MemberDetailViewModel @Inject constructor(
                     val update = MemberUpdate(
                         name        = f.name.trim(),
                         displayName = f.displayName.takeIf { it.isNotBlank() },
-                        // Empty string rather than null, so removing an emoji
-                        // actually removes it. The member PATCH is
-                        // omit-means-unchanged and Moshi drops nulls, so a null
-                        // here would silently leave the old emoji in place. Same
-                        // trick the scratchpad note uses. Reads back as "no
-                        // emoji" everywhere, since every client blank-checks it.
-                        emoji       = f.emoji.trim(),
+                        // Null clears it. That used to need an empty string,
+                        // because Moshi drops nulls and the member PATCH reads
+                        // an absent field as "leave it alone", so clearing an
+                        // emoji silently did nothing; the hand-written adapter
+                        // now writes this one out even when it is null.
+                        emoji       = f.emoji.trim().takeIf { it.isNotEmpty() },
                         pronouns    = f.pronouns.takeIf { it.isNotBlank() },
                         description = f.description.takeIf { it.isNotBlank() },
                         avatarUrl   = f.avatarUrl,
