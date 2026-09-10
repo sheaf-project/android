@@ -49,6 +49,10 @@ class SystemEditViewModel @Inject constructor(
     private val _form = MutableStateFlow(SystemEditForm())
     val form: StateFlow<SystemEditForm> = _form.asStateFlow()
 
+    /** The form as loaded, so the screen can tell whether leaving loses work. */
+    private val _baselineForm = MutableStateFlow(SystemEditForm())
+    val baselineForm: StateFlow<SystemEditForm> = _baselineForm.asStateFlow()
+
     init {
         markdownImages.loadUser(viewModelScope)
         load()
@@ -69,6 +73,7 @@ class SystemEditViewModel @Inject constructor(
                         privacy = system.privacy,
                         showMemberCreatedDate = system.showMemberCreatedDate,
                     )
+                    _baselineForm.value = _form.value
                     _state.update { it.copy(isLoading = false) }
                 }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage()) } }

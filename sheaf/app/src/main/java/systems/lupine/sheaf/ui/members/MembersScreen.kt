@@ -2,7 +2,6 @@
 
 package systems.lupine.sheaf.ui.members
 
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -487,44 +486,15 @@ fun MemberDetailScreen(
     // the live form + staged field values against the load-time baseline.
     val dirty = form != baseline ||
         state.customFieldValues != state.customFieldValuesBaseline
-    var showUnsavedDialog by remember { mutableStateOf(false) }
-    val attemptExit: () -> Unit = {
-        if (dirty) showUnsavedDialog = true else onNavigateUp()
-    }
-    BackHandler(enabled = dirty) { showUnsavedDialog = true }
-
-    if (showUnsavedDialog) {
-        AlertDialog(
-            onDismissRequest = { showUnsavedDialog = false },
-            title = { Text("Unsaved changes") },
-            text = { Text("You have unsaved changes to this member. Save them before leaving?") },
-            confirmButton = {
-                TextButton(
-                    // Save flips state.saved, which the LaunchedEffect above
-                    // turns into the navigate-up, so this both saves and exits.
-                    onClick = {
-                        showUnsavedDialog = false
-                        viewModel.save()
-                    },
-                    enabled = form.name.isNotBlank() && !state.isSaving,
-                ) { Text("Save and exit") }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = {
-                        showUnsavedDialog = false
-                        onNavigateUp()
-                    }) {
-                        Text("Discard", color = MaterialTheme.colorScheme.error)
-                    }
-                    Spacer(Modifier.width(4.dp))
-                    TextButton(onClick = { showUnsavedDialog = false }) {
-                        Text("Cancel")
-                    }
-                }
-            },
-        )
-    }
+    // Saving flips state.saved, which the LaunchedEffect above turns into the
+    // navigate-up, so "save and exit" needs no exit of its own.
+    val attemptExit = rememberUnsavedChangesGuard(
+        dirty = dirty,
+        prompt = "You have unsaved changes to this member. Save them before leaving?",
+        canSave = form.name.isNotBlank() && !state.isSaving,
+        onSave = { viewModel.save() },
+        onLeave = onNavigateUp,
+    )
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),

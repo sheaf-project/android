@@ -64,6 +64,14 @@ class ReminderEditorViewModel @Inject constructor(
     private var reminderId: String? = null
 
     /** Call once with the optional id of an existing reminder to edit. */
+    /**
+     * The editor's fields as loaded, so the screen can tell whether leaving
+     * would lose anything. The volatile parts of the state are normalised out
+     * by [formOnly], so a spinner or an error banner is not "a change".
+     */
+    private val _baseline = MutableStateFlow(ReminderEditorState())
+    val baseline: StateFlow<ReminderEditorState> = _baseline.asStateFlow()
+
     fun load(existing: String?) {
         reminderId = existing
         viewModelScope.launch {
@@ -86,6 +94,7 @@ class ReminderEditorViewModel @Inject constructor(
                             triggerMemberId = seeded.triggerMemberId ?: members.firstOrNull()?.id,
                         )
                     }
+                    _baseline.value = _state.value
                 }
                 .onFailure { e ->
                     _state.update {
@@ -185,3 +194,19 @@ private fun ReminderEditorState.toPayload(): ReminderWrite {
         else -> common
     }
 }
+
+/**
+ * One editor state stripped of everything that is not the user's input, so two
+ * of them can be compared for "has anything been typed". Written as a copy of
+ * the whole state rather than a list of fields on purpose: a field added to the
+ * form is then covered by the unsaved-changes guard automatically, where an
+ * enumeration would quietly leave it out.
+ */
+internal fun ReminderEditorState.formOnly(): ReminderEditorState = copy(
+    isLoading = false,
+    isSubmitting = false,
+    error = null,
+    saved = false,
+    channels = emptyList(),
+    members = emptyList(),
+)
