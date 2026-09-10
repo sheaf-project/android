@@ -40,6 +40,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   says that this is set when the entry is created (no client can change it
   yet - the server has no field for it).
 
+## [Unreleased]
+
+### Fixed
+
+- **Picking a date no longer lands on the day before.** Adding or editing a
+  front history entry west of UTC recorded the previous day, whatever time it
+  was: the date picker hands back UTC midnight, and the app was reading it in
+  the phone's own timezone. The same fix applies to date custom fields, and to
+  the picker opening on the wrong day east of UTC. Reported from the field.
+
 ## [1.3.2] - 2026-08-30
 
 ### Added
