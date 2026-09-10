@@ -199,6 +199,10 @@ class GroupDetailViewModel @Inject constructor(
     private val _form = MutableStateFlow(GroupFormState())
     val form: StateFlow<GroupFormState> = _form.asStateFlow()
 
+    /** The form as loaded, so the screen can tell whether leaving loses work. */
+    private val _baselineForm = MutableStateFlow(GroupFormState())
+    val baselineForm: StateFlow<GroupFormState> = _baselineForm.asStateFlow()
+
     init {
         markdownImages.loadUser(viewModelScope)
         if (!isNewGroup && groupId != null) load()
@@ -235,6 +239,7 @@ class GroupDetailViewModel @Inject constructor(
                     color       = group.color ?: "#534AB7",
                     parentId    = group.parentId,
                 )
+                _baselineForm.value = _form.value
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
             }

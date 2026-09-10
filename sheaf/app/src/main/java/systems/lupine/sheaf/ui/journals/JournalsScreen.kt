@@ -264,6 +264,7 @@ fun JournalDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
+    val baseline by viewModel.baselineForm.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMemberPicker by remember { mutableStateOf(false) }
     var showAuthorPicker by remember { mutableStateOf(false) }
@@ -273,6 +274,25 @@ fun JournalDetailScreen(
     LaunchedEffect(state.saved, state.deleted) {
         if (state.saved || state.deleted) onNavigateUp()
     }
+
+    // An entry being written is the easiest thing in the app to lose: the Save
+    // control is at the end of a long scroll, and back throws the lot away. Only
+    // armed while editing, so reading an entry still leaves instantly.
+    val dirty = state.isEditing && form != baseline
+    // Where "leave" goes depends on where you are: editing an entry that
+    // already exists drops back to reading it, everything else leaves the
+    // screen. Both the toolbar arrow and the system back run through this, so
+    // the two cannot answer differently.
+    val leaveEditor: () -> Unit = {
+        if (state.isEditing && !viewModel.isNewEntry) viewModel.cancelEditing() else onNavigateUp()
+    }
+    val attemptExit = rememberUnsavedChangesGuard(
+        dirty = dirty,
+        prompt = "This entry has changes you haven't saved. Save them before leaving?",
+        canSave = form.body.isNotBlank() && !state.isSaving,
+        onSave = { viewModel.save() },
+        onLeave = leaveEditor,
+    )
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -288,10 +308,7 @@ fun JournalDetailScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        if (state.isEditing && !viewModel.isNewEntry) viewModel.cancelEditing()
-                        else onNavigateUp()
-                    }) {
+                    IconButton(onClick = attemptExit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -764,8 +781,8 @@ private fun JournalEditor(
         )
     }
 
+    val attached = form.memberId?.let { id -> members.firstOrNull { it.id == id } }
     if (isNew) {
-        val attached = form.memberId?.let { id -> members.firstOrNull { it.id == id } }
         OutlinedButton(
             onClick = onPickMember,
             modifier = Modifier.fillMaxWidth(),
@@ -774,6 +791,19 @@ private fun JournalEditor(
             Spacer(Modifier.width(8.dp))
             Text(attached?.let { "Attach: ${it.displayNameOrName}" } ?: "Attach to member (optional)")
         }
+    } else {
+        // Read-only once the entry exists, because the API has no way to move
+        // one: `JournalEntryUpdate` carries a title, a body, a visibility and
+        // the authors, and nothing else. Web is the same. The control used to
+        // be dropped from the editor entirely, which read as the attachment
+        // having been lost rather than being fixed, so it now says what the
+        // entry is attached to and why that cannot be changed here.
+        Text(
+            attached?.let { "Attached to ${it.displayNameOrName}. Set when the entry was created." }
+                ?: "System-wide entry. Whether an entry is attached to a member is set when it is created.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

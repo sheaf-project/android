@@ -213,6 +213,7 @@ fun GroupDetailScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
+    val baseline by viewModel.baselineForm.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val descriptionImagePicker = rememberMarkdownImagePicker(
@@ -224,13 +225,23 @@ fun GroupDetailScreen(
         if (state.saved || state.deleted) onNavigateUp()
     }
 
+    // A group description is markdown someone wrote, at the end of a scroll,
+    // with the same back-discards-everything problem as the other editors.
+    val attemptExit = rememberUnsavedChangesGuard(
+        dirty = form != baseline,
+        prompt = "This group has changes you haven't saved. Save them before leaving?",
+        canSave = form.name.isNotBlank() && !state.isSaving,
+        onSave = { viewModel.save() },
+        onLeave = onNavigateUp,
+    )
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text(if (viewModel.isNewGroup) "New Group" else form.name.ifBlank { "Group" }) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateUp) {
+                    IconButton(onClick = attemptExit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },

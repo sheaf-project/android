@@ -198,6 +198,14 @@ class JournalDetailViewModel @Inject constructor(
     private val _form = MutableStateFlow(JournalFormState(memberId = initialMemberId))
     val form: StateFlow<JournalFormState> = _form.asStateFlow()
 
+    /**
+     * The form as it was when editing started, so the screen can tell whether
+     * leaving would actually lose anything. Reset alongside [_form] every time
+     * that is reloaded from the server or reverted, so the two cannot drift.
+     */
+    private val _baselineForm = MutableStateFlow(JournalFormState(memberId = initialMemberId))
+    val baselineForm: StateFlow<JournalFormState> = _baselineForm.asStateFlow()
+
     init {
         loadMembers()
         markdownImages.loadUser(viewModelScope)
@@ -216,6 +224,7 @@ class JournalDetailViewModel @Inject constructor(
                         memberId = entry.memberId,
                         authorMemberIds = entry.authorMemberIds,
                     )
+                    _baselineForm.value = _form.value
                 }
                 .onFailure { e ->
                     _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
@@ -247,6 +256,7 @@ class JournalDetailViewModel @Inject constructor(
                 memberId = entry.memberId,
                 authorMemberIds = entry.authorMemberIds,
             )
+            _baselineForm.value = _form.value
         }
         _state.update { it.copy(isEditing = false, error = null) }
     }

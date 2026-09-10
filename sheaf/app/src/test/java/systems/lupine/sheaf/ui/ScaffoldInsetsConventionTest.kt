@@ -74,4 +74,29 @@ class ScaffoldInsetsConventionTest {
                 "content for every screen):\n" + offenders.joinToString("\n") { "  $it" },
         )
     }
+
+    @Test fun `the root still holds content clear of the bottom edge and the keyboard`() {
+        // The other half of the same contract, and the half that actually bit
+        // users: with the root insetting only the top, every editor put its Save
+        // button under the system navigation and let the keyboard cover the end
+        // of what was being typed. Nothing else in the app applies these, so if
+        // this ever comes out of the root it is gone everywhere.
+        //
+        // A source scan, and a crude one, for the reason the class docstring
+        // gives: what it is really asserting is Compose layout behaviour, which
+        // needs a screenshot or instrumentation harness the project doesn't
+        // have. Deleting this because it is crude would leave the regression
+        // completely uncovered.
+        val root = uiSources.single { it.name == "SheafApp.kt" }.readText()
+        listOf(
+            "WindowInsets.ime" to "the keyboard inset",
+            "WindowInsetsSides.Bottom" to "the bottom edge",
+        ).forEach { (needle, what) ->
+            assertTrue(
+                needle in root,
+                "SheafApp.kt no longer mentions $needle, so $what is probably not " +
+                    "being applied. Every editor in the app depends on the root for it.",
+            )
+        }
+    }
 }

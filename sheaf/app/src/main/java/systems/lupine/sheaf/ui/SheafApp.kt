@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
@@ -320,25 +321,34 @@ fun SheafApp(
         val fullBleed = currentRoute in FULL_BLEED_ROUTES
         val contentModifier = if (fullBleed) Modifier.fillMaxSize()
             else Modifier.fillMaxHeight().widthIn(max = MAX_CONTENT_WIDTH)
+        // Every screen's own Scaffold passes contentWindowInsets =
+        // WindowInsets(0), because the app root has always been the one holding
+        // content clear of the system bars. It used to do that with a
+        // Scaffold's innerPadding; NavigationSuiteScaffold only insets for its
+        // own bar or rail, so this has to be applied here or content draws
+        // under the system UI.
+        val chrome = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+        // The bottom used to be left out, on the reasoning that the navigation
+        // suite handled it where it showed and each screen handled it where it
+        // pinned something above the system nav. Only the first half was ever
+        // true: every screen that just ends in a button - which is every
+        // editor - put that button under the system navigation, where reaching
+        // for Save hits Back instead. Reported from the field.
+        //
+        // The navigation BAR is the one case the suite really does cover; a
+        // rail sits at the side and leaves the bottom edge to us.
+        val barTakesBottom = navSuiteType == NavigationSuiteType.NavigationBar
+        // The keyboard rides the same edge. Union, never sum: an open keyboard's
+        // inset already contains the navigation bar's, so adding them would
+        // leave a bar-height gap under the keyboard.
+        val bottom = if (barTakesBottom) WindowInsets.ime else chrome.union(WindowInsets.ime)
         Box(
-            // Every screen's own Scaffold passes contentWindowInsets =
-            // WindowInsets(0), because the app root has always been the one
-            // holding content clear of the system bars. It used to do that with
-            // a Scaffold's innerPadding; NavigationSuiteScaffold only insets for
-            // its own bar or rail, so the top inset has to be applied here or
-            // content draws under the status bar.
-            //
-            // Top and horizontal only: the bottom is already handled, by the
-            // navigation suite where it shows and by the screens that pin
-            // something above the system nav. Horizontal covers a landscape
-            // display cutout, which matters now the app can rotate.
             Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(
-                    WindowInsets.systemBars
-                        .union(WindowInsets.displayCutout)
-                        .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                ),
+                    chrome.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                )
+                .windowInsetsPadding(bottom.only(WindowInsetsSides.Bottom)),
             contentAlignment = Alignment.TopCenter,
         ) {
         NavHost(

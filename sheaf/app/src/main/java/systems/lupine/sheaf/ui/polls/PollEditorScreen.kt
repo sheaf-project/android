@@ -47,6 +47,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import systems.lupine.sheaf.ui.components.rememberUnsavedChangesGuard
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -61,13 +62,29 @@ fun PollEditorScreen(
     val state by viewModel.state.collectAsState()
     LaunchedEffect(state.saved) { if (state.saved) onSaved() }
 
+    // A poll is only ever created here, so "unsaved" is simply "anything typed".
+    // The defaults the form opens with (kind, closing date, visibility) are not
+    // work someone would mind losing; the wording and the options are.
+    val dirty = state.question.isNotBlank() ||
+        state.description.isNotBlank() ||
+        state.options.any { it.isNotBlank() }
+    val attemptExit = rememberUnsavedChangesGuard(
+        dirty = dirty,
+        prompt = "This poll hasn't been created yet. Create it before leaving?",
+        canSave = state.question.isNotBlank() &&
+            state.options.count { it.isNotBlank() } >= 2 &&
+            !state.isSubmitting,
+        onSave = { viewModel.submit() },
+        onLeave = onNavigateUp,
+    )
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("New poll") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateUp) {
+                    IconButton(onClick = attemptExit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
