@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import systems.lupine.sheaf.data.model.CustomFieldRead
+import systems.lupine.sheaf.ui.components.datePickerDate
+import systems.lupine.sheaf.ui.components.datePickerMillis
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -199,21 +201,14 @@ private fun DateEditor(label: String, value: String?, onChange: (Any?) -> Unit) 
             ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             ?: LocalDate.now()
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = parsedInitial
-                .atStartOfDay(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli(),
+            initialSelectedDateMillis = datePickerMillis(parsedInitial),
         )
         DatePickerDialog(
             onDismissRequest = { picking = false },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
-                        val iso = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDate()
-                            .toString()
-                        onChange(iso)
+                        onChange(datePickerDate(millis).toString())
                     }
                     picking = false
                 }) { Text("OK") }

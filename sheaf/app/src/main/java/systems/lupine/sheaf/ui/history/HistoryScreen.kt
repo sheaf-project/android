@@ -734,14 +734,14 @@ private fun FrontEntrySheet(
 
     if (showStartDatePicker) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = datePickerMillis(startDate)
         )
         DatePickerDialog(
             onDismissRequest = { showStartDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
-                        startDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+                        startDate = datePickerDate(millis)
                     }
                     showStartDatePicker = false
                 }) { Text("OK") }
@@ -752,14 +752,14 @@ private fun FrontEntrySheet(
 
     if (showEndDatePicker) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = endDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            initialSelectedDateMillis = datePickerMillis(endDate)
         )
         DatePickerDialog(
             onDismissRequest = { showEndDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     pickerState.selectedDateMillis?.let { millis ->
-                        endDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+                        endDate = datePickerDate(millis)
                     }
                     showEndDatePicker = false
                 }) { Text("OK") }
