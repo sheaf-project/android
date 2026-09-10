@@ -647,6 +647,7 @@ fun SystemEditScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val form  by viewModel.form.collectAsState()
+    val baseline by viewModel.baselineForm.collectAsState()
     var showAvatarMenu by remember { mutableStateOf(false) }
     // See MemberDetailScreen for the picker-then-crop pattern. Same
     // shape here for the system avatar.
@@ -675,13 +676,23 @@ fun SystemEditScreen(
         if (state.saved) onNavigateUp()
     }
 
+    // Same guard as the member editor: a description and a note are long-form
+    // writing at the end of a scroll, and back used to discard both silently.
+    val attemptExit = rememberUnsavedChangesGuard(
+        dirty = form != baseline,
+        prompt = "You have unsaved changes to your system profile. Save them before leaving?",
+        canSave = form.name.isNotBlank() && !state.isSaving,
+        onSave = { viewModel.save() },
+        onLeave = onNavigateUp,
+    )
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             SheafTopAppBar(
                 title = { Text("Edit System") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateUp) {
+                    IconButton(onClick = attemptExit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },

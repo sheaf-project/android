@@ -4,6 +4,30 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **The keyboard no longer covers what you're writing.** In the journal editor,
+  and every other form in the app, the content now sits above the keyboard
+  instead of behind it, so the end of a long entry is reachable without typing
+  blank paragraphs to push it into view. Reported from the field.
+
+- **Save buttons no longer sit under the system navigation.** Anything at the
+  bottom of a screen is now held clear of the gesture bar or navigation
+  buttons, so reaching for Save doesn't land on Back.
+
+- **Leaving an editor with unsaved changes asks first.** The system back
+  gesture used to close the journal, group, system profile, poll and reminder
+  editors and discard everything typed. All of them now offer to save, discard,
+  or stay put. The member editor already did; this is the same prompt.
+
+- **A journal entry says what it is attached to.** Opening an existing entry
+  for editing hid the "attach to member" control entirely, which read as the
+  attachment having been lost. It now shows what the entry is attached to, and
+  says that this is set when the entry is created (no client can change it
+  yet - the server has no field for it).
+
 ## [1.3.2] - 2026-08-30
 
 ### Added
