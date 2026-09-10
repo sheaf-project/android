@@ -115,6 +115,17 @@ interface SheafApiService {
     @PUT("/v1/systems/me/delete-confirmation")
     suspend fun updateDeleteConfirmation(@Body body: DeleteConfirmationUpdate): SystemRead
 
+    // ── Ordering ──────────────────────────────────────────────────────────────
+    //
+    // Both return the full list in its new order, so a caller can take the
+    // response as the new state rather than refetching.
+
+    @PUT("/v1/groups/reorder")
+    suspend fun reorderGroups(@Body body: GroupReorder): List<GroupRead>
+
+    @PUT("/v1/fields/reorder")
+    suspend fun reorderFields(@Body body: CustomFieldReorder): List<CustomFieldRead>
+
     // ── System Safety ─────────────────────────────────────────────────────────
 
     @GET("/v1/system/safety")

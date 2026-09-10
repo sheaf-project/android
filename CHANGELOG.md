@@ -6,6 +6,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
+### Added
+
+- **Put your groups and custom fields in the order you want.** Up and down
+  arrows on the Groups list move a group among its siblings, and the same
+  arrows in Settings > Custom fields set the order fields appear in on a
+  member's profile. Groups you have never reordered stay alphabetical, so
+  nothing moves until you move it. Needs a server that supports reordering; on
+  one that doesn't, the app says so rather than failing quietly.
 ### Fixed
 
 - **A long custom field value no longer squashes its name.** On a member's

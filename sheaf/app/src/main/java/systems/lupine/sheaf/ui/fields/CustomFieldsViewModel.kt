@@ -6,7 +6,9 @@ import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.CustomFieldCreate
 import systems.lupine.sheaf.data.model.CustomFieldOptions
 import systems.lupine.sheaf.data.model.CustomFieldRead
+import systems.lupine.sheaf.data.model.CustomFieldReorder
 import systems.lupine.sheaf.data.model.CustomFieldUpdate
+import retrofit2.HttpException
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -18,7 +20,30 @@ data class CustomFieldsUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isSaving: Boolean = false,
+    /** A reorder is in flight; the arrows go quiet until it lands. */
+    val isReordering: Boolean = false,
 )
+
+/**
+ * The whole ordered id list after moving one field a place up or down, or null
+ * when it cannot move that way.
+ *
+ * The full list rather than the moved pair, because the server assigns
+ * order = position in whatever list it is sent: sending everything is what
+ * makes the stored order match the screen exactly.
+ */
+internal fun reorderedFieldIds(
+    fields: List<CustomFieldRead>,
+    index: Int,
+    delta: Int,
+): List<String>? {
+    val to = index + delta
+    if (index !in fields.indices || to !in fields.indices) return null
+    val moved = fields.map { it.id }.toMutableList()
+    moved[index] = fields[to].id
+    moved[to] = fields[index].id
+    return moved
+}
 
 @HiltViewModel
 class CustomFieldsViewModel @Inject constructor(
@@ -36,6 +61,36 @@ class CustomFieldsViewModel @Inject constructor(
             runCatching { api.listFields() }
                 .onSuccess { fields -> _state.update { it.copy(fields = fields, isLoading = false) } }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage()) } }
+        }
+    }
+
+    /**
+     * Move a field a place up or down the list.
+     *
+     * The response is the list in its new order, so it becomes the new state
+     * rather than triggering a refetch. Not optimistic: the arrows are a
+     * rapid-fire control and a list that springs back on a failed call is
+     * worse than one that waits.
+     */
+    fun moveField(index: Int, delta: Int) {
+        if (_state.value.isReordering) return
+        val ids = reorderedFieldIds(_state.value.fields, index, delta) ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(isReordering = true, error = null) }
+            runCatching { api.reorderFields(CustomFieldReorder(ids)) }
+                .onSuccess { fields ->
+                    _state.update { it.copy(fields = fields, isReordering = false) }
+                }
+                .onFailure { e ->
+                    // See the groups view model: 404 or 405 is an older server,
+                    // not a failure the user can do anything about by retrying.
+                    val message = if (e is HttpException && e.code() in setOf(404, 405)) {
+                        "This server doesn't support reordering fields yet."
+                    } else {
+                        e.toUserMessage("Couldn't reorder fields")
+                    }
+                    _state.update { it.copy(isReordering = false, error = message) }
+                }
         }
     }
 
