@@ -16,6 +16,10 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   one that doesn't, the app says so rather than failing quietly.
 ### Fixed
 
+- **A long custom field value no longer squashes its name.** On a member's
+  profile, a value long enough to wrap took the width it needed and left the
+  field name in a column one character wide. The value now sits under the name
+  with the full width to wrap into. Reported from the field.
 - **The keyboard no longer covers what you're writing.** In the journal editor,
   and every other form in the app, the content now sits above the keyboard
   instead of behind it, so the end of a long entry is reachable without typing
