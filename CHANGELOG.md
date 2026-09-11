@@ -4,7 +4,7 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
-## [Unreleased]
+## [1.3.3] - 2026-09-10
 
 ### Added
 
@@ -14,12 +14,19 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   member's profile. Groups you have never reordered stay alphabetical, so
   nothing moves until you move it. Needs a server that supports reordering; on
   one that doesn't, the app says so rather than failing quietly.
+
+- **Member emoji.** A member can have a short emoji that shows beside their
+  name, matching the web app and the watch. Set it in the member editor.
+
 ### Fixed
 
-- **A long custom field value no longer squashes its name.** On a member's
-  profile, a value long enough to wrap took the width it needed and left the
-  field name in a column one character wide. The value now sits under the name
-  with the full width to wrap into. Reported from the field.
+- **Picking a date no longer lands on the day before.** Adding or editing a
+  front history entry west of UTC recorded the previous day, whatever time it
+  was: the date picker hands back UTC midnight, and the app was reading it in
+  the phone's own timezone. The same fix applies to date custom fields, and to
+  the picker opening on the wrong day east of UTC. Entries already saved a day
+  early stay that way and need editing by hand. Reported from the field.
+
 - **The keyboard no longer covers what you're writing.** In the journal editor,
   and every other form in the app, the content now sits above the keyboard
   instead of behind it, so the end of a long entry is reachable without typing
@@ -40,15 +47,19 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   says that this is set when the entry is created (no client can change it
   yet - the server has no field for it).
 
-## [Unreleased]
+- **A long custom field value no longer squashes its name.** On a member's
+  profile, a value long enough to wrap took the width it needed and left the
+  field name in a column one character wide. The value now sits under the name
+  with the full width to wrap into. Reported from the field.
 
-### Fixed
+- **Emptying a custom field on a member clears it.** Deleting the text and
+  saving left the old value in place, because an empty field was being left out
+  of the request entirely rather than sent as a deliberate clear.
 
-- **Picking a date no longer lands on the day before.** Adding or editing a
-  front history entry west of UTC recorded the previous day, whatever time it
-  was: the date picker hands back UTC midnight, and the app was reading it in
-  the phone's own timezone. The same fix applies to date custom fields, and to
-  the picker opening on the wrong day east of UTC. Reported from the field.
+- **Emptying any other optional field clears it too.** The same fault ran
+  through member, group and system edits: removing a pronoun, a colour, a
+  birthday, a description, a note or an avatar looked like it saved and then
+  came back on the next load.
 
 ## [1.3.2] - 2026-08-30
 
