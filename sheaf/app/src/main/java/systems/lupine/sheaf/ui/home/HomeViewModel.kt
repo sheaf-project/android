@@ -188,11 +188,20 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
 
-            // Fan out the seven calls in parallel. Order matters only for the
+            // Fan out the calls in parallel. Order matters only for the
             // wire dispatch sequence — getCurrentFronts is started first so
             // the most user-visible piece of data is the earliest packet on
             // the connection. listMembers next because the front display
             // needs it to resolve names. Everything else trails.
+            //
+            // What the screen is FOR - who is fronting - is painted as soon as
+            // its three calls land, and everything else folds in behind it.
+            // Awaiting the whole fan-out before touching state made the home
+            // screen as slow as its slowest call: /members/top-fronters can
+            // take seconds on a system with a lot of members and history, and
+            // it was holding up the fronting cards, the post-switch refresh,
+            // and the pull-to-refresh spinner. Nothing below the critical trio
+            // is worth a second of staring at stale fronters.
             coroutineScope {
                 val frontsD        = async { runCatching { api.getCurrentFronts() } }
                 val membersD       = async { runCatching { api.listMembers() } }
@@ -210,20 +219,6 @@ class HomeViewModel @Inject constructor(
                 val fronts        = frontsD.await()
                 val members       = membersD.await()
                 val system        = systemD.await()
-                val announcements = announcementsD.await()
-                val safety        = safetyD.await()
-                val retention     = retentionD.await()
-                val user          = userD.await()
-                val topFronters   = topFrontersD.await()
-                val clientSettings = clientSettingsD.await()
-                // Server-side "don't show again" set. Merge (union) with the
-                // local set so an optimistic dismissal isn't lost if this
-                // refresh raced the PATCH that persisted it.
-                val serverDismissed = clientSettings.getOrNull()?.settings
-                    ?.get("dismissed_announcements")
-                    ?.let { (it as? List<*>)?.mapNotNull { v -> v as? String } }
-                    ?.toSet()
-                    ?: emptySet()
 
                 val criticalFailures = listOf(fronts, members, system).count { it.isFailure }
                 val anyCriticalFailed = criticalFailures > 0
@@ -254,9 +249,6 @@ class HomeViewModel @Inject constructor(
                 val newFronts        = fronts.getOrNull()        ?: _state.value.currentFronts
                 val newMembers       = members.getOrNull()       ?: _state.value.allMembers
                 val newSystem        = system.getOrNull()        ?: _state.value.system
-                val newAnnouncements = announcements.getOrNull() ?: _state.value.announcements
-                val newUser          = user.getOrNull()          ?: _state.value.user
-                val newTopFronters   = topFronters.getOrNull()   ?: _state.value.topFronters
                 val frontingIds = newFronts.flatMap { it.memberIds }.toSet()
                 val frontingMembers = newMembers.filter { it.id in frontingIds }
                 // Nudge a paired watch to re-sync when the fronting set
@@ -285,48 +277,106 @@ class HomeViewModel @Inject constructor(
                     }
                     WatchFrontSync.notifyFrontChanged(appContext, fronterPayload)
                 }
-                val safetyResp = safety.getOrNull()
-                val trimNotice = if (retention.isSuccess) {
-                    retention.getOrNull()?.trimNotice?.takeIf { it.status == "pending" }
-                } else {
-                    _state.value.pendingTrimNotice
-                }
-
                 _state.update {
                     it.copy(
-                        user = newUser,
                         system = newSystem,
                         currentFronts = newFronts,
                         frontingMembers = frontingMembers,
                         allMembers = newMembers,
-                        topFronters = newTopFronters,
-                        announcements = newAnnouncements,
-                        permanentlyDismissedAnnouncementIds = it.permanentlyDismissedAnnouncementIds + serverDismissed,
-                        pendingSafetyActions = safetyResp?.pendingActions ?: it.pendingSafetyActions,
-                        pendingSafetyChanges = safetyResp?.pendingChanges ?: it.pendingSafetyChanges,
-                        pendingTrimNotice = trimNotice,
                         refreshFailed = anyCriticalFailed,
                         error = null,
                     )
                 }
+                // The spinner answers "is the thing I am looking at current",
+                // and now it is. The rest of the fan-out is still in flight and
+                // fills itself in; holding the spinner for it would be
+                // reporting on work the user cannot see.
+                settleSpinner(refreshStart)
+
                 if (prefs.frontNotification.first()) {
                     try {
                         notificationHelper.post(frontingMembers.map { it.displayNameOrName })
                     } catch (_: SecurityException) {}
                 }
+
+                // Everything below is secondary: each lands on its own, so one
+                // slow call delays only itself. A failure leaves the previous
+                // value in place rather than blanking anything.
+                launch {
+                    // Ranking for the quick-switch carousel. The carousel
+                    // already falls back to plain member order while this is
+                    // missing (see quickSwitchMembers), which is exactly why it
+                    // has no business holding up the screen.
+                    topFrontersD.await().getOrNull()?.let { ranked ->
+                        _state.update { it.copy(topFronters = ranked) }
+                    }
+                }
+                launch {
+                    userD.await().getOrNull()?.let { u ->
+                        _state.update { it.copy(user = u) }
+                    }
+                }
+                launch {
+                    val announcements = announcementsD.await().getOrNull()
+                    // Server-side "don't show again" set. Merge (union) with
+                    // the local set so an optimistic dismissal isn't lost if
+                    // this refresh raced the PATCH that persisted it.
+                    val serverDismissed = clientSettingsD.await().getOrNull()?.settings
+                        ?.get("dismissed_announcements")
+                        ?.let { (it as? List<*>)?.mapNotNull { v -> v as? String } }
+                        ?.toSet()
+                        ?: emptySet()
+                    _state.update {
+                        it.copy(
+                            announcements = announcements ?: it.announcements,
+                            permanentlyDismissedAnnouncementIds =
+                                it.permanentlyDismissedAnnouncementIds + serverDismissed,
+                        )
+                    }
+                }
+                launch {
+                    safetyD.await().getOrNull()?.let { safetyResp ->
+                        _state.update {
+                            it.copy(
+                                pendingSafetyActions = safetyResp.pendingActions,
+                                pendingSafetyChanges = safetyResp.pendingChanges,
+                            )
+                        }
+                    }
+                }
+                launch {
+                    val retention = retentionD.await()
+                    if (retention.isSuccess) {
+                        val notice = retention.getOrNull()?.trimNotice
+                            ?.takeIf { it.status == "pending" }
+                        _state.update { it.copy(pendingTrimNotice = notice) }
+                    }
+                }
             }
             } finally {
-                // Hold the spinner for at least MIN_REFRESH_VISIBLE_MS so a
-                // sub-100ms cached / no-op response still registers as a
-                // visible refresh gesture. Without this the spinner can
-                // flash so briefly that pull-to-refresh looks broken.
-                val elapsed = System.currentTimeMillis() - refreshStart
-                if (elapsed < MIN_REFRESH_VISIBLE_MS) {
-                    kotlinx.coroutines.delay(MIN_REFRESH_VISIBLE_MS - elapsed)
-                }
-                _state.update { it.copy(isLoading = false) }
+                // Backstop for the paths that never reach the paint: offline,
+                // a critical failure, a thrown call. The success path has
+                // already settled it, and settling twice is a no-op.
+                settleSpinner(refreshStart)
             }
         }
+    }
+
+    /**
+     * Stop the refresh spinner, holding it for at least
+     * [MIN_REFRESH_VISIBLE_MS] first.
+     *
+     * A sub-100ms cached or no-op response would otherwise flash the spinner so
+     * briefly that pull-to-refresh looks broken. Called once the visible
+     * content is current, not once every call has returned.
+     */
+    private suspend fun settleSpinner(refreshStart: Long) {
+        if (!_state.value.isLoading) return
+        val elapsed = System.currentTimeMillis() - refreshStart
+        if (elapsed < MIN_REFRESH_VISIBLE_MS) {
+            kotlinx.coroutines.delay(MIN_REFRESH_VISIBLE_MS - elapsed)
+        }
+        _state.update { it.copy(isLoading = false) }
     }
 
     private suspend fun loadFromCache() {
