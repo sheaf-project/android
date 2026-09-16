@@ -140,6 +140,7 @@ object Routes {
     const val SETTINGS_RETENTION     = "settings/retention"
     const val NOTIFICATIONS_REDEEM   = "notifications/redeem/{code}"
     const val NOTIFICATIONS_RECEIVING = "settings/notifications/receiving"
+    const val NOTIFICATIONS_FRONTING  = "settings/notifications/fronting"
     const val NOTIFICATIONS_DEVICES   = "settings/notifications/devices"
     const val NOTIFICATIONS_OWNED     = "settings/notifications/owned"
     const val NOTIFICATIONS_CREATE    = "settings/notifications/owned/new"
@@ -523,6 +524,14 @@ fun SheafApp(
                     onNavigateToReceiving = { navController.navigate(Routes.NOTIFICATIONS_RECEIVING) },
                     onNavigateToYourDevices = { navController.navigate(Routes.NOTIFICATIONS_DEVICES) },
                     onNavigateToChannelsYouOwn = { navController.navigate(Routes.NOTIFICATIONS_OWNED) },
+                    onNavigateToFrontingNotification = {
+                        navController.navigate(Routes.NOTIFICATIONS_FRONTING)
+                    },
+                )
+            }
+            composable(Routes.NOTIFICATIONS_FRONTING) {
+                systems.lupine.sheaf.ui.settings.FrontingNotificationSettingsScreen(
+                    onNavigateUp = { navController.navigateUp() },
                 )
             }
             composable(Routes.NOTIFICATIONS_RECEIVING) {

@@ -113,13 +113,18 @@ class WearStore(
             runCatching { apiClient.getRecentFronts() }
                 .onSuccess { recentFronts.value = it; recentFrontsError.value = null }
                 .onFailure { recentFrontsError.value = it.message ?: "Failed to load history" }
-            // Quick-switch ranking, best-effort: a failure just leaves the
-            // switch picker in plain member order.
-            runCatching { apiClient.getTopFronters() }
-                .onSuccess { topFronters.value = it }
             cacheTileData()
             cacheTileAvatars()
             requestTileUpdate()
+            // Quick-switch ranking, best-effort, and deliberately after the
+            // tile refresh rather than before it. It only decides the order of
+            // the switch picker - the picker falls back to plain member order
+            // without it - while the tiles and complications show who is
+            // fronting. This call can take seconds on a system with a lot of
+            // members and history, and every one of those seconds used to be
+            // spent with a stale tile on the wrist.
+            runCatching { apiClient.getTopFronters() }
+                .onSuccess { topFronters.value = it }
             systems.lupine.sheaf.wear.complications.writeLoadStatus(
                 context,
                 systems.lupine.sheaf.wear.complications.WearLoadStatus.OK,

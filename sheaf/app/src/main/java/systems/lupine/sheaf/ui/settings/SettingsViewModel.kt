@@ -16,6 +16,8 @@ import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.data.repository.WatchSessionRepository
 import systems.lupine.sheaf.datalayer.PhoneDataLayerService
 import systems.lupine.sheaf.notification.FrontNotificationHelper
+import systems.lupine.sheaf.notification.FrontNotificationRespawn
+import systems.lupine.sheaf.notification.FrontNotificationStyle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -84,6 +86,7 @@ class SettingsViewModel @Inject constructor(
     private val notificationHelper: FrontNotificationHelper,
     private val watchSession: WatchSessionRepository,
     private val accountDataWiper: systems.lupine.sheaf.data.repository.AccountDataWiper,
+    private val cache: systems.lupine.sheaf.data.db.LocalCache,
     private val authInterceptor: systems.lupine.sheaf.data.api.AuthInterceptor,
     @dagger.hilt.android.qualifiers.ApplicationContext
     private val appContext: android.content.Context,
@@ -243,10 +246,68 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    val frontNotificationLogo: StateFlow<Boolean> = prefs.frontNotificationLogo
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val frontNotificationNames: StateFlow<Boolean> = prefs.frontNotificationNames
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+    val frontNotificationRespawn: StateFlow<Boolean> = prefs.frontNotificationRespawn
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     fun toggleFrontNotification(enabled: Boolean) {
         viewModelScope.launch {
             prefs.saveFrontNotification(enabled)
             if (!enabled) notificationHelper.cancel()
+        }
+    }
+
+    // Each of these re-posts so the change is visible in the shade at once
+    // rather than at the next refresh - the whole point of these settings is
+    // what the notification looks like, so the user needs to see it.
+    fun setFrontNotificationLogo(useLogo: Boolean) {
+        viewModelScope.launch {
+            prefs.saveFrontNotificationLogo(useLogo)
+            repostFrontNotification()
+        }
+    }
+
+    fun setFrontNotificationNames(showNames: Boolean) {
+        viewModelScope.launch {
+            prefs.saveFrontNotificationNames(showNames)
+            repostFrontNotification()
+        }
+    }
+
+    fun setFrontNotificationRespawn(respawn: Boolean) {
+        viewModelScope.launch {
+            prefs.saveFrontNotificationRespawn(respawn)
+            // Cancel any pending re-post the moment it is turned off, rather
+            // than leaving one scheduled to fire minutes later.
+            if (!respawn) FrontNotificationRespawn.cancel(appContext)
+            repostFrontNotification()
+        }
+    }
+
+    /**
+     * Re-draw the notification with the current settings, using the members
+     * the cache says are fronting. Silent no-op when the notification is off
+     * or the permission was never granted.
+     */
+    private suspend fun repostFrontNotification() {
+        if (!prefs.frontNotification.first()) return
+        val fronts = cache.getFronts() ?: return
+        val members = cache.getMembers() ?: return
+        val frontingIds = fronts.flatMap { it.memberIds }.toSet()
+        try {
+            notificationHelper.post(
+                members.filter { it.id in frontingIds }.map { it.displayNameOrName },
+                FrontNotificationStyle(
+                    useLogo = prefs.frontNotificationLogo.first(),
+                    showNames = prefs.frontNotificationNames.first(),
+                    respawn = prefs.frontNotificationRespawn.first(),
+                ),
+            )
+        } catch (_: SecurityException) {
+            // Permission revoked from system settings; nothing to show.
         }
     }
 

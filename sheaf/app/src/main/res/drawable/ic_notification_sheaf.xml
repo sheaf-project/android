@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Sheaf mark as a notification small icon: five stalks bound by a band.
+
+  Derived from AppIcon-Tinted.svg in the assets repo, reduced to what survives
+  a 24dp status-bar icon. Android tints the small icon from its alpha channel
+  and throws colour away, so the source's gradients, the blurred glow copies
+  behind each stalk, the shine overlays and the rounded-square container all
+  had to go - at this size they render as mud or as a solid blob.
+
+  Five stalks rather than three: a three-stalk reduction is legible but reads
+  as a letter H and stops being the mark. Coordinates are the source paths
+  scaled from its 560-unit icon square into 24dp, with the stroke weights
+  thickened relative to the original so they hold together in the status bar.
+
+  The alternative icon is ic_notification.xml, a generic group-of-people
+  glyph, which is the default: it says nothing about which app posted it.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Stalks, outermost pair first. They bow outward exactly as the source
+         paths do; the band is drawn over them. -->
+    <path
+        android:pathData="M 6.43 5.79 C 5.57 10.71 5.57 13.50 6.64 18.21"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 8.79 5.49 C 8.06 10.71 8.06 13.50 8.91 18.34"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 12.00 5.36 C 12.00 10.71 12.00 13.50 12.00 18.51"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 15.21 5.49 C 15.94 10.71 15.94 13.50 15.09 18.34"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 17.57 5.79 C 18.43 10.71 18.43 13.50 17.36 18.21"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <!-- The binding band, fully rounded ends like the source rect. -->
+    <path
+        android:pathData="M 5.84 10.46 L 18.16 10.46 A 1.545 1.545 0 0 1 18.16 13.55 L 5.84 13.55 A 1.545 1.545 0 0 1 5.84 10.46 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>
