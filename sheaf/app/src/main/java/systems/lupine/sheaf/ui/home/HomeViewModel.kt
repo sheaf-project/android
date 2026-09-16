@@ -24,6 +24,7 @@ import systems.lupine.sheaf.data.repository.PreferencesRepository
 import systems.lupine.sheaf.data.sync.SyncWorker
 import systems.lupine.sheaf.datalayer.WatchFrontSync
 import systems.lupine.sheaf.notification.FrontNotificationHelper
+import systems.lupine.sheaf.notification.FrontNotificationStyle
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -295,7 +296,14 @@ class HomeViewModel @Inject constructor(
 
                 if (prefs.frontNotification.first()) {
                     try {
-                        notificationHelper.post(frontingMembers.map { it.displayNameOrName })
+                        notificationHelper.post(
+                            frontingMembers.map { it.displayNameOrName },
+                            FrontNotificationStyle(
+                                useLogo = prefs.frontNotificationLogo.first(),
+                                showNames = prefs.frontNotificationNames.first(),
+                                respawn = prefs.frontNotificationRespawn.first(),
+                            ),
+                        )
                     } catch (_: SecurityException) {}
                 }
 

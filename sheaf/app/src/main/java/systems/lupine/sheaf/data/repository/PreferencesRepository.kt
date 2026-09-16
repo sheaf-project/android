@@ -43,6 +43,12 @@ class PreferencesRepository @Inject constructor(
         // Settings → Appearance.
         val KEY_THEME_SYNCED = booleanPreferencesKey("theme_synced")
         val KEY_FRONT_NOTIFICATION = booleanPreferencesKey("front_notification")
+        // Fronting-notification appearance. All three default to the
+        // behaviour that shipped before they existed, so nobody's notification
+        // changes under them on upgrade.
+        val KEY_FRONT_NOTIF_LOGO = booleanPreferencesKey("front_notification_logo")
+        val KEY_FRONT_NOTIF_NAMES = booleanPreferencesKey("front_notification_names")
+        val KEY_FRONT_NOTIF_RESPAWN = booleanPreferencesKey("front_notification_respawn")
         val KEY_CF_CLIENT_ID = stringPreferencesKey("cf_client_id")
         val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
         val KEY_FILE_CDN_BASE = stringPreferencesKey("file_cdn_base")
@@ -105,6 +111,30 @@ class PreferencesRepository @Inject constructor(
     val themeSynced: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_THEME_SYNCED] ?: true }
     val frontNotification: Flow<Boolean> = context.dataStore.data.map { it[KEY_FRONT_NOTIFICATION] ?: false }
+
+    /**
+     * Use the Sheaf mark instead of the generic group-of-people glyph.
+     *
+     * Defaults to the people icon, which is the discreet choice: a notification
+     * that does not announce which app posted it to anyone glancing at the
+     * status bar. Opting into the logo is a decision to be recognisable.
+     */
+    val frontNotificationLogo: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FRONT_NOTIF_LOGO] ?: false }
+
+    /**
+     * Show who is fronting on the collapsed notification.
+     *
+     * Off puts the names behind an expand: the shade shows only that Sheaf has
+     * something to say, and the names appear when the user opens it. Defaults
+     * on, which is what the notification has always done.
+     */
+    val frontNotificationNames: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FRONT_NOTIF_NAMES] ?: true }
+
+    /** Re-post the notification a few minutes after it is swiped away. */
+    val frontNotificationRespawn: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_FRONT_NOTIF_RESPAWN] ?: false }
     val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
     val cfClientSecret: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_SECRET] }
     val appLockEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_APP_LOCK] ?: false }
@@ -209,6 +239,18 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveFrontNotification(enabled: Boolean) {
         context.dataStore.edit { it[KEY_FRONT_NOTIFICATION] = enabled }
+    }
+
+    suspend fun saveFrontNotificationLogo(useLogo: Boolean) {
+        context.dataStore.edit { it[KEY_FRONT_NOTIF_LOGO] = useLogo }
+    }
+
+    suspend fun saveFrontNotificationNames(showNames: Boolean) {
+        context.dataStore.edit { it[KEY_FRONT_NOTIF_NAMES] = showNames }
+    }
+
+    suspend fun saveFrontNotificationRespawn(respawn: Boolean) {
+        context.dataStore.edit { it[KEY_FRONT_NOTIF_RESPAWN] = respawn }
     }
 
     suspend fun saveAppLock(enabled: Boolean) {

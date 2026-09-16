@@ -10,6 +10,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -544,6 +547,7 @@ fun NotificationSettingsScreen(
     onNavigateToReceiving: () -> Unit,
     onNavigateToYourDevices: () -> Unit,
     onNavigateToChannelsYouOwn: () -> Unit,
+    onNavigateToFrontingNotification: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val frontNotificationEnabled by viewModel.frontNotificationEnabled.collectAsState()
@@ -551,12 +555,6 @@ fun NotificationSettingsScreen(
     val context = LocalContext.current
     var appLockError by remember { mutableStateOf<String?>(null) }
     var showDisableAppLockDialog by remember { mutableStateOf(false) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) viewModel.toggleFrontNotification(true)
-    }
 
     CategoryScaffold(title = "Notifications & Lock", onNavigateUp = onNavigateUp) {
         SettingItem(
@@ -580,30 +578,19 @@ fun NotificationSettingsScreen(
             onClick = onNavigateToYourDevices,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        ListItem(
-            headlineContent = { Text("Fronting Notification") },
-            supportingContent = { Text("Persistent silent notification showing who's fronting") },
-            leadingContent = {
-                Icon(Icons.Outlined.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        // A plain row into its own screen, where the on/off switch lives with
+        // the settings that only matter once it is on. It used to be a row
+        // that was both a switch and a link, which hid everything behind a tap
+        // on a control that looked like it had already done its job.
+        SettingItem(
+            icon = Icons.Outlined.Notifications,
+            title = "Fronting Notification",
+            subtitle = if (frontNotificationEnabled) {
+                "On - ongoing silent notification showing who's fronting"
+            } else {
+                "Off"
             },
-            trailingContent = {
-                Switch(
-                    checked = frontNotificationEnabled,
-                    onCheckedChange = { enabled ->
-                        if (enabled) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                val granted = ContextCompat.checkSelfPermission(
-                                    context, Manifest.permission.POST_NOTIFICATIONS
-                                ) == PackageManager.PERMISSION_GRANTED
-                                if (granted) viewModel.toggleFrontNotification(true)
-                                else permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                viewModel.toggleFrontNotification(true)
-                            }
-                        } else viewModel.toggleFrontNotification(false)
-                    },
-                )
-            },
+            onClick = onNavigateToFrontingNotification,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         ListItem(
@@ -1424,6 +1411,166 @@ fun DangerZoneScreen(
                     enabled = !state.isDeletingAccount,
                 ) { Text("Cancel") }
             },
+        )
+    }
+}
+
+/**
+ * Appearance options for the fronting notification.
+ *
+ * Its own screen rather than four rows in the notifications list, because
+ * three of the four only make sense once you have decided to show it at all,
+ * and because two of them are about what other people can see - which deserves
+ * more room than a switch and a subtitle.
+ */
+@Composable
+fun FrontingNotificationSettingsScreen(
+    onNavigateUp: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val enabled by viewModel.frontNotificationEnabled.collectAsState()
+    val useLogo by viewModel.frontNotificationLogo.collectAsState()
+    val showNames by viewModel.frontNotificationNames.collectAsState()
+    val respawn by viewModel.frontNotificationRespawn.collectAsState()
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.toggleFrontNotification(true)
+    }
+
+    CategoryScaffold(title = "Fronting notification", onNavigateUp = onNavigateUp) {
+        ListItem(
+            headlineContent = { Text("Show the notification") },
+            supportingContent = {
+                Text("An ongoing, silent notification showing who's fronting")
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Notifications,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            trailingContent = {
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = { on ->
+                        if (on) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val granted = ContextCompat.checkSelfPermission(
+                                    context, Manifest.permission.POST_NOTIFICATIONS,
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (granted) viewModel.toggleFrontNotification(true)
+                                else permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.toggleFrontNotification(true)
+                            }
+                        } else {
+                            viewModel.toggleFrontNotification(false)
+                        }
+                    },
+                )
+            },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        ListItem(
+            headlineContent = { Text("Icon") },
+            supportingContent = {
+                Text(
+                    "The glyph in the status bar. The Sheaf mark names the app to " +
+                        "anyone who glances at it; the people icon doesn't. Some " +
+                        "phones hide silent notifications from the status bar " +
+                        "entirely, so this may make no difference on yours.",
+                )
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Notifications,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = !useLogo,
+                onClick = { viewModel.setFrontNotificationLogo(false) },
+                label = { Text("People") },
+                enabled = enabled,
+            )
+            FilterChip(
+                selected = useLogo,
+                onClick = { viewModel.setFrontNotificationLogo(true) },
+                label = { Text("Sheaf logo") },
+                enabled = enabled,
+            )
+        }
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        ListItem(
+            headlineContent = { Text("Show names without expanding") },
+            supportingContent = {
+                Text(
+                    if (showNames) {
+                        "Who's fronting is on the notification itself."
+                    } else {
+                        "The notification says only \"Tap to expand\"; names appear when you open it."
+                    },
+                )
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Visibility,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            trailingContent = {
+                Switch(
+                    checked = showNames,
+                    onCheckedChange = { viewModel.setFrontNotificationNames(it) },
+                    enabled = enabled,
+                )
+            },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        ListItem(
+            headlineContent = { Text("Bring it back if dismissed") },
+            supportingContent = {
+                Text(
+                    "Android always lets a notification be swiped away. With this on, " +
+                        "it comes back about five minutes later.",
+                )
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            trailingContent = {
+                Switch(
+                    checked = respawn,
+                    onCheckedChange = { viewModel.setFrontNotificationRespawn(it) },
+                    enabled = enabled,
+                )
+            },
+        )
+        // Said plainly, because somebody choosing the people icon for
+        // discretion should not find out the hard way that the shade names the
+        // app anyway. Android draws the app's own icon there and gives us no
+        // say in it.
+        Text(
+            "The notification itself always shows Sheaf's app icon. These settings " +
+                "change the status bar glyph and the wording, not that.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
     }
 }

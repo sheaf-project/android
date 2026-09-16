@@ -4,6 +4,35 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **Home stops waiting on a slow call it doesn't draw.** Who's fronting now
+  appears as soon as its own data arrives, instead of waiting for every
+  background request the screen makes. Most visible after a switch, and on
+  systems with a lot of members and history where the quick-switch ranking can
+  take a few seconds to come back. The watch's tiles no longer wait on it
+  either.
+
+### Added
+
+- **The fronting notification has settings of its own.** Notifications now has
+  a "Fronting notification" screen holding the on/off switch and three new
+  options: which icon it uses, whether the names show without expanding it, and
+  whether it comes back if you swipe it away. Everything defaults to what it
+  did before, so nothing changes unless you change it.
+
+  - **Names behind an expand.** With "show names without expanding" off, the
+    notification says only "Tap to expand" until you open it, on the lock
+    screen as well as in the shade.
+  - **Bring it back if dismissed.** Android always lets a notification be
+    swiped away, whatever an app asks for. With this on, it returns about five
+    minutes later rather than staying gone until the next refresh.
+  - **Icon choice.** A generic people glyph, as before, or the Sheaf mark.
+    Note this is the status bar only, and some phones hide silent
+    notifications from the status bar entirely.
+
 ## [1.3.3] - 2026-09-10
 
 ### Added
