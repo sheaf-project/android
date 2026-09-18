@@ -43,7 +43,7 @@ class FrontingAvatarsOnlyTileService : TileService() {
     ): ListenableFuture<ResourceBuilders.Resources> {
         val builder = ResourceBuilders.Resources.Builder()
             .setVersion(requestParams.version)
-        for (m in orderedFronters(this)) {
+        for (m in orderedFronters(this, requestParams.tileId)) {
             tileAvatarResource(this, m.id)?.let { res ->
                 builder.addIdToImageMapping(tileAvatarResourceId(m.id), res)
             }
@@ -53,7 +53,7 @@ class FrontingAvatarsOnlyTileService : TileService() {
 
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<Tile> {
         val authenticated = WearAuthManager(applicationContext).isAuthenticated
-        val members = orderedFronters(this)
+        val members = orderedFronters(this, requestParams.tileId)
 
         val status = systems.lupine.sheaf.wear.complications.readLoadStatus(this)
         val layout = when {

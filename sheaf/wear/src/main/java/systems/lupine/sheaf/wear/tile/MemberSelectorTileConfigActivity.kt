@@ -29,18 +29,71 @@ import systems.lupine.sheaf.wear.complications.readMembersSnapshot
 import systems.lupine.sheaf.wear.theme.SheafWearTheme
 
 /**
- * Multi-select picker launched by [MemberFrontingTileService] when the
- * user taps the unconfigured tile. Saves the chosen member ids keyed by
- * tile id and triggers a tile refresh on save so the next render shows
- * the live data.
+ * Multi-select picker for the tiles that carry a roster.
+ *
+ * Reached two ways, which is what lets a tile exist more than once:
+ *
+ * - The tile itself, when tapped while unconfigured, with our own extras.
+ * - **The system**, from the tile's settings affordance, because the service
+ *   declares `com.google.android.clockwork.tiles.PROVIDER_CONFIG_ACTION`
+ *   pointing at one of the actions below. Wear will only offer to add a
+ *   second copy of a tile whose provider declares both that and
+ *   `MULTI_INSTANCES_SUPPORTED`; without the config action the flag alone
+ *   does nothing, which is why our tiles were stuck at one apiece.
+ *
+ * Either way the roster is saved against the tile id, which the system
+ * allocates per instance - so two copies of a tile configure independently
+ * with no further work.
  */
 class MemberSelectorTileConfigActivity : ComponentActivity() {
 
+    companion object {
+        /**
+         * Where the system puts the id of the tile being configured. Its own
+         * key, not ours, and the reason a system-launched config knows which
+         * copy of a tile it is editing.
+         */
+        const val EXTRA_CLOCKWORK_TILE_ID =
+            "com.google.android.clockwork.EXTRA_PROVIDER_CONFIG_TILE_ID"
+
+        // Fully qualified on purpose: an implicit action is matched across the
+        // whole device, and a bare string like "ConfigQuickSwitchTile" is one
+        // collision away from another app's config screen.
+        const val ACTION_CONFIG_MEMBER_TRACKER =
+            "systems.lupine.sheaf.wear.tile.CONFIG_MEMBER_TRACKER"
+        const val ACTION_CONFIG_QUICK_SWITCH =
+            "systems.lupine.sheaf.wear.tile.CONFIG_QUICK_SWITCH"
+        const val ACTION_CONFIG_FRONTERS_LIST =
+            "systems.lupine.sheaf.wear.tile.CONFIG_FRONTERS_LIST"
+        const val ACTION_CONFIG_FRONTERS_FACES =
+            "systems.lupine.sheaf.wear.tile.CONFIG_FRONTERS_FACES"
+        const val ACTION_CONFIG_FACES_ONLY =
+            "systems.lupine.sheaf.wear.tile.CONFIG_FACES_ONLY"
+        const val ACTION_CONFIG_HISTORY =
+            "systems.lupine.sheaf.wear.tile.CONFIG_HISTORY"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val tileId = intent.getIntExtra(EXTRA_TILE_ID, -1)
+        // The system's key first: when it launches us, ours is absent.
+        val tileId = when {
+            intent.hasExtra(EXTRA_CLOCKWORK_TILE_ID) ->
+                intent.getIntExtra(EXTRA_CLOCKWORK_TILE_ID, -1)
+            else -> intent.getIntExtra(EXTRA_TILE_ID, -1)
+        }
+        // A tile that launched us says which service to refresh; a
+        // system-launched config says it by action instead.
         val tileClassName = intent.getStringExtra(EXTRA_TILE_SERVICE_CLASS)
-        if (tileId == -1) {
+            ?: when (intent.action) {
+                ACTION_CONFIG_MEMBER_TRACKER -> MemberFrontingTileService::class.java.name
+                ACTION_CONFIG_QUICK_SWITCH -> QuickSwitchTileService::class.java.name
+                ACTION_CONFIG_FRONTERS_LIST -> FrontingTileService::class.java.name
+                ACTION_CONFIG_FRONTERS_FACES -> FrontingWithAvatarsTileService::class.java.name
+                ACTION_CONFIG_FACES_ONLY -> FrontingAvatarsOnlyTileService::class.java.name
+                ACTION_CONFIG_HISTORY -> FrontHistoryTileService::class.java.name
+                else -> null
+            }
+        if (tileId == -1 || tileId == 0) {
             setResult(Activity.RESULT_CANCELED)
             finish()
             return

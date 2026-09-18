@@ -33,6 +33,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
     Note this is the status bar only, and some phones hide silent
     notifications from the status bar entirely.
 
+## [Unreleased]
+
+### Added
+
+- **Wear: add a tile more than once.** Every Sheaf tile can now be added to the
+  watch several times, each copy configured separately: a quick-switch tile per
+  group of people, a fronters tile for one set and another for a different set.
+  Each copy can be narrowed to its own roster of members, and one left
+  unconfigured shows everybody exactly as before. Reached from the tile's own
+  settings on the watch.
+
 ## [1.3.3] - 2026-09-10
 
 ### Added

@@ -39,7 +39,15 @@
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
             </intent-filter>
-        </service>
+                    <!-- See MemberSelectorTileConfigActivity: both keys are needed
+                 for the picker to offer a second copy of this tile. -->
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.PROVIDER_CONFIG_ACTION"
+                android:value="systems.lupine.sheaf.wear.tile.CONFIG_FRONTERS_LIST" />
+</service>
 
         <service
             android:name=".tile.FrontingWithAvatarsTileService"
@@ -49,7 +57,15 @@
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
             </intent-filter>
-        </service>
+                    <!-- See MemberSelectorTileConfigActivity: both keys are needed
+                 for the picker to offer a second copy of this tile. -->
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.PROVIDER_CONFIG_ACTION"
+                android:value="systems.lupine.sheaf.wear.tile.CONFIG_FRONTERS_FACES" />
+</service>
 
         <service
             android:name=".tile.FrontingAvatarsOnlyTileService"
@@ -59,7 +75,15 @@
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
             </intent-filter>
-        </service>
+                    <!-- See MemberSelectorTileConfigActivity: both keys are needed
+                 for the picker to offer a second copy of this tile. -->
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.PROVIDER_CONFIG_ACTION"
+                android:value="systems.lupine.sheaf.wear.tile.CONFIG_FACES_ONLY" />
+</service>
 
         <!-- Member-watch tile: per-instance multi-select. Tap on an
              unconfigured tile launches the picker; tap on a configured
@@ -72,13 +96,59 @@
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
             </intent-filter>
-        </service>
+                    <!-- Multi-instance. Both keys are required: the flag alone does
+                 nothing, and the config action is how the system offers a
+                 settings entry for each copy. Undocumented clockwork keys, so
+                 behaviour varies by OEM and Wear version - see
+                 MemberSelectorTileConfigActivity. -->
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.PROVIDER_CONFIG_ACTION"
+                android:value="systems.lupine.sheaf.wear.tile.CONFIG_MEMBER_TRACKER" />
+</service>
 
         <activity
             android:name=".tile.MemberSelectorTileConfigActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
             android:label="@string/tile_member_picker_label"
-            android:theme="@android:style/Theme.DeviceDefault" />
+            android:theme="@android:style/Theme.DeviceDefault">
+            <!-- One activity, one filter per tile type. The PROVIDER_CONFIG
+                 category is what makes the system treat this as a tile's
+                 settings screen and hand it the tile id. -->
+            <intent-filter>
+                <action android:name="systems.lupine.sheaf.wear.tile.CONFIG_MEMBER_TRACKER" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.google.android.clockwork.tiles.category.PROVIDER_CONFIG" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="systems.lupine.sheaf.wear.tile.CONFIG_QUICK_SWITCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.google.android.clockwork.tiles.category.PROVIDER_CONFIG" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="systems.lupine.sheaf.wear.tile.CONFIG_FRONTERS_LIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.google.android.clockwork.tiles.category.PROVIDER_CONFIG" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="systems.lupine.sheaf.wear.tile.CONFIG_FRONTERS_FACES" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.google.android.clockwork.tiles.category.PROVIDER_CONFIG" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="systems.lupine.sheaf.wear.tile.CONFIG_FACES_ONLY" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.google.android.clockwork.tiles.category.PROVIDER_CONFIG" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="systems.lupine.sheaf.wear.tile.CONFIG_HISTORY" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="com.google.android.clockwork.tiles.category.PROVIDER_CONFIG" />
+            </intent-filter>
+        </activity>
 
         <!-- Quick-switch tile: per-instance multi-select pad of avatar
              buttons. Tap commits a "replace fronts with this member"
@@ -91,7 +161,18 @@
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
             </intent-filter>
-        </service>
+                    <!-- Multi-instance. Both keys are required: the flag alone does
+                 nothing, and the config action is how the system offers a
+                 settings entry for each copy. Undocumented clockwork keys, so
+                 behaviour varies by OEM and Wear version - see
+                 MemberSelectorTileConfigActivity. -->
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.PROVIDER_CONFIG_ACTION"
+                android:value="systems.lupine.sheaf.wear.tile.CONFIG_QUICK_SWITCH" />
+</service>
 
         <!-- Trampoline must be exported so the watchface tile-renderer
              system process can launch it on tile-click LaunchActions. The
@@ -114,7 +195,15 @@
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
             </intent-filter>
-        </service>
+                    <!-- See MemberSelectorTileConfigActivity: both keys are needed
+                 for the picker to offer a second copy of this tile. -->
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.MULTI_INSTANCES_SUPPORTED"
+                android:value="true" />
+            <meta-data
+                android:name="com.google.android.clockwork.tiles.PROVIDER_CONFIG_ACTION"
+                android:value="systems.lupine.sheaf.wear.tile.CONFIG_HISTORY" />
+</service>
 
         <activity
             android:name=".tile.QuickSwitchTrampolineActivity"
