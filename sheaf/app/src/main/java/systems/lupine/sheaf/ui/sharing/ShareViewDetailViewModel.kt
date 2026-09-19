@@ -15,6 +15,8 @@ import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.CustomFieldRead
 import systems.lupine.sheaf.data.model.GroupRead
 import systems.lupine.sheaf.data.model.MemberRead
+import systems.lupine.sheaf.data.model.PREVIEW_GENERIC
+import systems.lupine.sheaf.data.model.PREVIEW_SYSTEM_DETAILS
 import systems.lupine.sheaf.data.model.SharePreview
 import systems.lupine.sheaf.data.model.ShareViewFieldAdd
 import systems.lupine.sheaf.data.model.ShareViewGroupAdd
@@ -35,9 +37,13 @@ enum class ExposureFlag(val label: String, val supporting: String) {
     INCLUDE_GROUPS("Show groups", "Public groups, listing only members already shown"),
 }
 
+/** The two link preview cards, set independently. */
+enum class PreviewCard { PROFILE, MEMBER }
+
 /** An action held back because the server wants credentials for it. */
 sealed interface ViewRaise {
     data class Flag(val flag: ExposureFlag, val value: Boolean) : ViewRaise
+    data class Preview(val card: PreviewCard, val on: Boolean) : ViewRaise
     data class AddMember(val memberId: String) : ViewRaise
     data class AddField(val fieldId: String) : ViewRaise
     data class AddGroup(val groupId: String) : ViewRaise
@@ -140,7 +146,22 @@ class ShareViewDetailViewModel @Inject constructor(
             _state.update { it.copy(stepUp = ViewRaise.Flag(flag, value), stepUpError = null) }
             return
         }
-        submitFlag(flag, value, null, null)
+        submitUpdate(ViewRaise.Flag(flag, value), null, null)
+    }
+
+    /**
+     * A rich card is a raise like any flag: it reaches everyone in a chat
+     * without them opening anything, and the chat service keeps a copy. So it
+     * steps up and stages the same way, and turning it off never waits.
+     */
+    fun setPreviewCard(card: PreviewCard, on: Boolean) {
+        val view = _state.value.view ?: return
+        val r = ViewRaise.Preview(card, on)
+        if (on && view.isShared && _state.value.stepUpMeaningful) {
+            _state.update { it.copy(stepUp = r, stepUpError = null) }
+            return
+        }
+        submitUpdate(r, null, null)
     }
 
     /**
@@ -175,21 +196,31 @@ class ShareViewDetailViewModel @Inject constructor(
     fun confirmStepUp(password: String?, totpCode: String?) {
         val pending = _state.value.stepUp ?: return
         when (pending) {
-            is ViewRaise.Flag -> submitFlag(pending.flag, pending.value, password, totpCode)
+            is ViewRaise.Flag, is ViewRaise.Preview -> submitUpdate(pending, password, totpCode)
             else -> submit(pending, password, totpCode)
         }
     }
 
     fun dismissStepUp() { _state.update { it.copy(stepUp = null, stepUpError = null) } }
 
-    private fun submitFlag(flag: ExposureFlag, value: Boolean, password: String?, totpCode: String?) {
-        val body = when (flag) {
-            ExposureFlag.INCLUDE_MEMBERS -> ShareViewUpdate(includeMembers = value)
-            ExposureFlag.INCLUDE_BIO -> ShareViewUpdate(includeBio = value)
-            ExposureFlag.INCLUDE_FRONTING -> ShareViewUpdate(includeFronting = value)
-            ExposureFlag.FRONTING_SHOW_COUNT -> ShareViewUpdate(frontingShowCount = value)
-            ExposureFlag.INCLUDE_RELATIONSHIPS -> ShareViewUpdate(includeRelationships = value)
-            ExposureFlag.INCLUDE_GROUPS -> ShareViewUpdate(includeGroups = value)
+    private fun submitUpdate(r: ViewRaise, password: String?, totpCode: String?) {
+        val body = when (r) {
+            is ViewRaise.Flag -> when (r.flag) {
+                ExposureFlag.INCLUDE_MEMBERS -> ShareViewUpdate(includeMembers = r.value)
+                ExposureFlag.INCLUDE_BIO -> ShareViewUpdate(includeBio = r.value)
+                ExposureFlag.INCLUDE_FRONTING -> ShareViewUpdate(includeFronting = r.value)
+                ExposureFlag.FRONTING_SHOW_COUNT -> ShareViewUpdate(frontingShowCount = r.value)
+                ExposureFlag.INCLUDE_RELATIONSHIPS -> ShareViewUpdate(includeRelationships = r.value)
+                ExposureFlag.INCLUDE_GROUPS -> ShareViewUpdate(includeGroups = r.value)
+            }
+            is ViewRaise.Preview -> {
+                val mode = if (r.on) PREVIEW_SYSTEM_DETAILS else PREVIEW_GENERIC
+                when (r.card) {
+                    PreviewCard.PROFILE -> ShareViewUpdate(linkPreviewMode = mode)
+                    PreviewCard.MEMBER -> ShareViewUpdate(memberLinkPreviewMode = mode)
+                }
+            }
+            else -> error("Only flag and preview changes go through submitUpdate")
         }.copy(password = password?.ifBlank { null }, totpCode = totpCode?.ifBlank { null })
 
         viewModelScope.launch {
@@ -199,7 +230,7 @@ class ShareViewDetailViewModel @Inject constructor(
                     _state.update { it.copy(busy = false, stepUp = null, view = updated) }
                 }
                 .onFailure { e ->
-                    handleRaiseFailure(e, ViewRaise.Flag(flag, value), "Failed to update this view")
+                    handleRaiseFailure(e, r, "Failed to update this view")
                 }
         }
     }
@@ -220,7 +251,7 @@ class ShareViewDetailViewModel @Inject constructor(
                         _state.update { it.copy(groupAddResult = result) }
                         api.getShareView(viewId)
                     }
-                    is ViewRaise.Flag -> error("Flag changes go through submitFlag")
+                    is ViewRaise.Flag, is ViewRaise.Preview -> error("Flag and preview changes go through submitUpdate")
                 }
             }
                 .onSuccess { updated ->

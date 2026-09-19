@@ -23,6 +23,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,9 +39,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import systems.lupine.sheaf.data.model.PREVIEW_GENERIC
+import systems.lupine.sheaf.data.model.PREVIEW_SYSTEM_DETAILS
 import systems.lupine.sheaf.data.model.ShareViewRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SectionHeader
+import systems.lupine.sheaf.ui.theme.LocalWarningColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,6 +148,44 @@ fun ShareViewDetailScreen(
                             enabled = !state.busy && (view.memberPermalinks || state.publicProfilesEnabled),
                         )
                     },
+                )
+
+                SectionHeader("Link previews")
+                PreviewCardRow(
+                    title = "Show the system in link previews",
+                    supporting = "When this view's public profile link is pasted into a chat, the card " +
+                        "shows your system name, avatar and a short piece of your description " +
+                        "instead of a generic card. It reaches everyone in the chat, and the chat " +
+                        "service keeps its own copy. Share links always get the generic card.",
+                    on = view.linkPreviewMode == PREVIEW_SYSTEM_DETAILS,
+                    canTurnOn = state.publicProfilesEnabled,
+                    busy = state.busy,
+                    note = previewNote(
+                        PreviewCard.PROFILE,
+                        view.linkPreviewMode,
+                        view.pendingLinkPreviewMode,
+                        view.linkPreviewEffective,
+                        view.memberPermalinks,
+                    ),
+                    onChange = { viewModel.setPreviewCard(PreviewCard.PROFILE, it) },
+                )
+                HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+                PreviewCardRow(
+                    title = "Show members in link previews",
+                    supporting = "The same for a link to one member's page: that member's name and " +
+                        "avatar, and nothing else. A separate choice from the profile card. " +
+                        "Needs the roster and member permalinks on.",
+                    on = view.memberLinkPreviewMode == PREVIEW_SYSTEM_DETAILS,
+                    canTurnOn = state.publicProfilesEnabled && view.includeMembers && view.memberPermalinks,
+                    busy = state.busy,
+                    note = previewNote(
+                        PreviewCard.MEMBER,
+                        view.memberLinkPreviewMode,
+                        view.pendingMemberLinkPreviewMode,
+                        view.memberLinkPreviewEffective,
+                        view.memberPermalinks,
+                    ),
+                    onChange = { viewModel.setPreviewCard(PreviewCard.MEMBER, it) },
                 )
 
                 SectionHeader("Members in this view")
@@ -322,6 +364,70 @@ fun ShareViewDetailScreen(
 }
 
 private enum class PickerKind { MEMBER, FIELD, GROUP }
+
+// Turning a card off is going dark, so it stays available even when whatever
+// it would need to turn back on (publishing, permalinks) is missing.
+@Composable
+private fun PreviewCardRow(
+    title: String,
+    supporting: String,
+    on: Boolean,
+    canTurnOn: Boolean,
+    busy: Boolean,
+    note: String?,
+    onChange: (Boolean) -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(supporting) },
+        trailingContent = {
+            Switch(checked = on, onCheckedChange = onChange, enabled = !busy && (on || canTurnOn))
+        },
+    )
+    note?.let {
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            shape = MaterialTheme.shapes.small,
+            color = LocalWarningColors.current.container,
+        ) {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = LocalWarningColors.current.onContainer,
+                modifier = Modifier.padding(8.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Why a preview card that is switched on still unfurls as the generic card, or
+ * null when there is nothing to explain.
+ *
+ * A staged raise counts as on. While it waits out the grace window the live
+ * mode is still generic, which is exactly when this note is needed; guarding on
+ * the live mode alone would hide it in the one case it was written for.
+ */
+internal fun previewNote(
+    card: PreviewCard,
+    live: String,
+    pending: String?,
+    effective: String,
+    memberPermalinks: Boolean,
+): String? {
+    val on = live == PREVIEW_SYSTEM_DETAILS || pending != null
+    if (!on || effective != PREVIEW_GENERIC) return null
+    return when {
+        pending != null ->
+            "Still waiting out the grace period, so links preview as the generic card until it activates."
+        card == PreviewCard.MEMBER && !memberPermalinks ->
+            "Member permalinks are off, so there are no member links to preview."
+        else ->
+            "Links still preview as the generic card. Rich previews only apply to a published " +
+                "public profile; a share link always previews generically, because its address " +
+                "is the secret."
+    }
+}
 
 private fun ExposureFlag.liveValue(v: ShareViewRead): Boolean = when (this) {
     ExposureFlag.INCLUDE_MEMBERS -> v.includeMembers
