@@ -793,15 +793,7 @@ fun DataSettingsScreen(
     onNavigateUp: () -> Unit,
     onNavigateToFiles: () -> Unit,
     onNavigateToExportData: () -> Unit,
-    onNavigateToSpImport: () -> Unit,
-    onNavigateToSheafImport: () -> Unit,
-    onNavigateToPkFileImport: () -> Unit,
-    onNavigateToPkApiImport: () -> Unit,
-    onNavigateToTupperboxImport: () -> Unit,
-    onNavigateToPluralSpaceImport: () -> Unit,
-    onNavigateToPrismImport: () -> Unit,
-    onNavigateToOpenPluralImport: () -> Unit,
-    onNavigateToAmpersandImport: () -> Unit,
+    onNavigateToImport: () -> Unit,
     onNavigateToImportHistory: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -854,65 +846,9 @@ fun DataSettingsScreen(
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
             icon = Icons.Outlined.Upload,
-            title = "Import from Simply Plural",
-            subtitle = "Import members, groups, and history",
-            onClick = onNavigateToSpImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Sheaf Export",
-            subtitle = "Restore from a Sheaf JSON backup",
-            onClick = onNavigateToSheafImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from PluralKit (file)",
-            subtitle = "Use a PK export JSON from `pk;export`",
-            onClick = onNavigateToPkFileImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.CloudDownload,
-            title = "Import from PluralKit (API)",
-            subtitle = "Connect with your PK token to import live",
-            onClick = onNavigateToPkApiImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Tupperbox",
-            subtitle = "Use a Tupperbox export JSON from `tul!export`",
-            onClick = onNavigateToTupperboxImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from PluralSpace",
-            subtitle = "Use a PluralSpace .zip data export",
-            onClick = onNavigateToPluralSpaceImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Prism",
-            subtitle = "Use an encrypted .prism export and its passphrase",
-            onClick = onNavigateToPrismImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from OpenPlural",
-            subtitle = "Use an OpenPlural .json or .openplural.zip export",
-            onClick = onNavigateToOpenPluralImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Ampersand",
-            subtitle = "Use an Ampersand .json data export",
-            onClick = onNavigateToAmpersandImport,
+            title = "Import data",
+            subtitle = "Simply Plural, PluralKit, Tupperbox, Prism, and more",
+            onClick = onNavigateToImport,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
