@@ -69,8 +69,10 @@ import systems.lupine.sheaf.ui.notifications.ReceivingScreen
 import systems.lupine.sheaf.ui.notifications.RedeemNotificationScreen
 import systems.lupine.sheaf.ui.notifications.YourDevicesScreen
 import systems.lupine.sheaf.ui.people.PeopleScreen
-import systems.lupine.sheaf.ui.importsp.ImportScreen
-import systems.lupine.sheaf.ui.sheafimport.SheafImportScreen
+import systems.lupine.sheaf.ui.importflow.ImportScreen
+import systems.lupine.sheaf.ui.importflow.SIMPLY_PLURAL_SOURCE
+import systems.lupine.sheaf.ui.importflow.importSources
+import systems.lupine.sheaf.ui.importflow.ImportSourcePickerScreen
 import systems.lupine.sheaf.ui.fields.CustomFieldsScreen
 import systems.lupine.sheaf.ui.apikeys.ApiKeysScreen
 import systems.lupine.sheaf.ui.sessions.SessionsScreen
@@ -98,15 +100,8 @@ object Routes {
     const val ANALYTICS     = "analytics"
     const val SETTINGS      = "settings"
     const val SYSTEM_EDIT   = "settings/system"
-    const val SP_IMPORT      = "settings/import/simplyplural"
-    const val SHEAF_IMPORT   = "settings/import/sheaf"
-    const val PK_IMPORT      = "settings/import/pluralkit"
-    const val PK_API_IMPORT  = "settings/import/pluralkit-api"
-    const val TB_IMPORT      = "settings/import/tupperbox"
-    const val PS_IMPORT      = "settings/import/pluralspace"
-    const val PRISM_IMPORT   = "settings/import/prism"
-    const val OPENPLURAL_IMPORT = "settings/import/openplural"
-    const val AMPERSAND_IMPORT = "settings/import/ampersand"
+    const val IMPORT_PICKER  = "settings/import"
+    const val IMPORT_RUN     = "settings/import/run/{source}"
     const val IMPORT_HISTORY = "settings/import/history"
     const val IMPORT_DETAIL  = "settings/import/history/{jobId}"
     const val CUSTOM_FIELDS  = "settings/fields"
@@ -155,6 +150,9 @@ object Routes {
     const val MESSAGES             = "messages"
     const val MESSAGES_BOARD       = "messages/board/{kind}/{memberId}"
 }
+
+/** Concrete [Routes.IMPORT_RUN] path for one [importSources] entry. */
+fun importRoute(sourceId: String): String = "settings/import/run/$sourceId"
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
@@ -374,7 +372,7 @@ fun SheafApp(
             composable(Routes.ONBOARDING) {
                 OnboardingScreen(
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
-                    onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
+                    onNavigateToSpImport = { navController.navigate(importRoute(SIMPLY_PLURAL_SOURCE)) },
                     onContinue = {
                         authViewModel.completeOnboarding()
                         navController.navigate(Routes.HOME) {
@@ -664,15 +662,7 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToFiles = { navController.navigate(Routes.FILES) },
                     onNavigateToExportData = { navController.navigate(Routes.EXPORT_DATA) },
-                    onNavigateToSpImport = { navController.navigate(Routes.SP_IMPORT) },
-                    onNavigateToSheafImport = { navController.navigate(Routes.SHEAF_IMPORT) },
-                    onNavigateToPkFileImport = { navController.navigate(Routes.PK_IMPORT) },
-                    onNavigateToPkApiImport = { navController.navigate(Routes.PK_API_IMPORT) },
-                    onNavigateToTupperboxImport = { navController.navigate(Routes.TB_IMPORT) },
-                    onNavigateToPluralSpaceImport = { navController.navigate(Routes.PS_IMPORT) },
-                    onNavigateToPrismImport = { navController.navigate(Routes.PRISM_IMPORT) },
-                    onNavigateToOpenPluralImport = { navController.navigate(Routes.OPENPLURAL_IMPORT) },
-                    onNavigateToAmpersandImport = { navController.navigate(Routes.AMPERSAND_IMPORT) },
+                    onNavigateToImport = { navController.navigate(Routes.IMPORT_PICKER) },
                     onNavigateToImportHistory = { navController.navigate(Routes.IMPORT_HISTORY) },
                 )
             }
@@ -689,46 +679,14 @@ fun SheafApp(
             composable(Routes.SYSTEM_EDIT) {
                 SystemEditScreen(onNavigateUp = { navController.navigateUp() })
             }
-            composable(Routes.SP_IMPORT) {
+            composable(Routes.IMPORT_PICKER) {
+                ImportSourcePickerScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                    onPickSource = { navController.navigate(importRoute(it)) },
+                )
+            }
+            composable(Routes.IMPORT_RUN) {
                 ImportScreen(onNavigateUp = { navController.navigateUp() })
-            }
-            composable(Routes.SHEAF_IMPORT) {
-                SheafImportScreen(onNavigateUp = { navController.navigateUp() })
-            }
-            composable(Routes.PK_IMPORT) {
-                systems.lupine.sheaf.ui.pkimport.PluralKitFileImportScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                )
-            }
-            composable(Routes.PK_API_IMPORT) {
-                systems.lupine.sheaf.ui.pkapiimport.PluralKitApiImportScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                )
-            }
-            composable(Routes.TB_IMPORT) {
-                systems.lupine.sheaf.ui.tbimport.TupperboxImportScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                )
-            }
-            composable(Routes.PS_IMPORT) {
-                systems.lupine.sheaf.ui.pluralspaceimport.PluralSpaceImportScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                )
-            }
-            composable(Routes.PRISM_IMPORT) {
-                systems.lupine.sheaf.ui.prismimport.PrismImportScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                )
-            }
-            composable(Routes.OPENPLURAL_IMPORT) {
-                systems.lupine.sheaf.ui.openpluralimport.OpenPluralImportScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                )
-            }
-            composable(Routes.AMPERSAND_IMPORT) {
-                systems.lupine.sheaf.ui.ampersandimport.AmpersandImportScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                )
             }
             composable(Routes.EXPORT_DATA) {
                 systems.lupine.sheaf.ui.export.ExportDataScreen(
