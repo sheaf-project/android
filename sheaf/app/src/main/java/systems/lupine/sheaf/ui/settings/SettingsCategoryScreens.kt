@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Dashboard
@@ -728,7 +729,12 @@ fun SystemCategoryScreen(
     onNavigateToCustomFields: () -> Unit,
     onNavigateToTags: () -> Unit,
     onNavigateToArchivedMembers: () -> Unit,
+    onNavigateToSystemSafety: () -> Unit,
+    onNavigateToSharing: () -> Unit,
+    onNavigateToRetention: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.state.collectAsState()
     CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
         SettingItem(
             icon = Icons.Outlined.LocalOffer,
@@ -750,25 +756,25 @@ fun SystemCategoryScreen(
             subtitle = "View and restore archived members",
             onClick = onNavigateToArchivedMembers,
         )
-    }
-}
-
-// ── Safety ─────────────────────────────────────────────────────────────────
-
-@Composable
-fun SafetyCategoryScreen(
-    onNavigateUp: () -> Unit,
-    onNavigateToSystemSafety: () -> Unit,
-    onNavigateToRetention: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel(),
-) {
-    val state by viewModel.state.collectAsState()
-    CategoryScaffold(title = "Safety", onNavigateUp = onNavigateUp) {
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
             icon = Icons.Outlined.Shield,
             title = "System Safety",
             subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
             onClick = onNavigateToSystemSafety,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        // Shown whatever the instance switch says: an owner must always be able
+        // to reach revoke, including after an operator turns publishing off.
+        SettingItem(
+            icon = Icons.Outlined.Public,
+            title = "Sharing",
+            subtitle = if (state.user?.publicProfilesEnabled == true) {
+                "Share views, links and who can currently see what"
+            } else {
+                "Public profiles are off on this instance"
+            },
+            onClick = onNavigateToSharing,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(

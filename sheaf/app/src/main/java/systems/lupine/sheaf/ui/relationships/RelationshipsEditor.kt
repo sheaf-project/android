@@ -45,6 +45,7 @@ fun RelationshipsEditor(
     viewModel: RelationshipsEditorViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(scope, nodeId) { viewModel.load(scope, nodeId) }
+    LaunchedEffect(Unit) { viewModel.loadRaiseGate() }
     val state by viewModel.state.collectAsState()
 
     if (readOnly && !state.isLoading && state.relationships.isEmpty()) return
@@ -80,6 +81,7 @@ fun RelationshipsEditor(
                     otherName = state.nameById[rel.otherId] ?: "Unknown",
                     readOnly = readOnly,
                     onRemove = { viewModel.remove(rel.id) },
+                    onVisibility = { v -> viewModel.setVisibility(rel.id, v) },
                 )
             }
         }
@@ -104,6 +106,17 @@ fun RelationshipsEditor(
             }
         }
     }
+
+    if (state.stepUpEdgeId != null) {
+        systems.lupine.sheaf.ui.sharing.StepUpSheet(
+            authTier = state.raiseGate.authTier,
+            totpEnabled = state.raiseGate.totpEnabled,
+            isBusy = state.isSaving,
+            errorMessage = state.stepUpError,
+            onConfirm = { password, totp -> viewModel.confirmStepUp(password, totp) },
+            onDismiss = { viewModel.dismissStepUp() },
+        )
+    }
 }
 
 private fun directionGlyph(direction: String): ImageVector = when (direction) {
@@ -118,7 +131,9 @@ private fun RelationshipRow(
     otherName: String,
     readOnly: Boolean,
     onRemove: () -> Unit,
+    onVisibility: (String) -> Unit,
 ) {
+    var menuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Icon(
             directionGlyph(rel.direction),
@@ -126,12 +141,30 @@ private fun RelationshipRow(
             modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
-            "${rel.label}: $otherName",
-            style = MaterialTheme.typography.bodyMedium,
+        androidx.compose.foundation.layout.Column(
             modifier = Modifier.padding(start = 8.dp).weight(1f),
-        )
+        ) {
+            Text("${rel.label}: $otherName", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                rel.pendingVisibility?.let { "Visibility staged to \"$it\"" }
+                    ?: "Visible to: ${rel.visibility}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (!readOnly) {
+            androidx.compose.material3.TextButton(onClick = { menuOpen = true }) { Text("Visibility") }
+            androidx.compose.material3.DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+            ) {
+                listOf("private", "friends", "public").forEach { level ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(level.replaceFirstChar { it.uppercase() }) },
+                        onClick = { menuOpen = false; onVisibility(level) },
+                    )
+                }
+            }
             IconButton(onClick = onRemove) {
                 Icon(Icons.Filled.Close, contentDescription = "Remove ${rel.label} relationship with $otherName")
             }

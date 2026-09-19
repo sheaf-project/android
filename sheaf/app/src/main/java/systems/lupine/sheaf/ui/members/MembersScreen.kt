@@ -811,6 +811,40 @@ fun MemberDetailScreen(
                 }
             }
 
+            // Two ceilings that outrank any share view. They live here because
+            // this is where the member is edited, not on the sharing screen.
+            ListItem(
+                headlineContent = { Text("Never shareable") },
+                supportingContent = {
+                    Text("Keeps this member off every public page and link, whatever a view says.")
+                },
+                trailingContent = {
+                    Switch(
+                        checked = form.neverShareable,
+                        onCheckedChange = { viewModel.updateForm { copy(neverShareable = it) } },
+                    )
+                },
+            )
+            ListItem(
+                headlineContent = { Text("Keep fronting private") },
+                supportingContent = {
+                    Text(
+                        if (state.member?.frontingPrivateActivatesAt != null) {
+                            "Their front state stays hidden. Turning this off is staged and " +
+                                "has not taken effect yet."
+                        } else {
+                            "Their front state never reaches a public page, even a shared one."
+                        },
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = form.frontingPrivate,
+                        onCheckedChange = { viewModel.updateForm { copy(frontingPrivate = it) } },
+                    )
+                },
+            )
+
             // Tags and relationships, for existing members only: both attach to a
             // member id, and a member being created does not have one yet.
             if (!viewModel.isNewMember) {
@@ -882,6 +916,19 @@ fun MemberDetailScreen(
             error = state.archiveError,
             onConfirm = { password, totp -> viewModel.archiveMember(password, totp) },
             onDismiss = { viewModel.cancelArchiveAuth() },
+        )
+    }
+
+    LaunchedEffect(Unit) { viewModel.loadRaiseGate() }
+
+    if (state.saveNeedsStepUp) {
+        systems.lupine.sheaf.ui.sharing.StepUpSheet(
+            authTier = state.raiseGate.authTier,
+            totpEnabled = state.raiseGate.totpEnabled,
+            isBusy = state.isSaving,
+            errorMessage = state.stepUpError,
+            onConfirm = { password, totp -> viewModel.save(password, totp) },
+            onDismiss = { viewModel.dismissStepUp() },
         )
     }
 }

@@ -5,9 +5,15 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
+import java.security.cert.CertificateExpiredException
+import java.security.cert.CertificateNotYetValidException
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 
 fun Throwable.toUserMessage(fallback: String = "Something went wrong — please try again"): String =
-    when (this) {
+    certificateProblem() ?: when (this) {
         is HttpException -> {
             val body = runCatching { response()?.errorBody()?.string() ?: "" }.getOrDefault("")
             if (isCloudflareResponse(body)) {
@@ -22,6 +28,27 @@ fun Throwable.toUserMessage(fallback: String = "Something went wrong — please 
         is IOException -> "Network error — check your connection and try again"
         else -> fallback
     }
+
+// These are IOExceptions too, so without this they read as "check your
+// connection", which sends people debugging their network. Release builds only;
+// debug builds accept any certificate.
+private fun Throwable.certificateProblem(): String? {
+    if (this is SSLPeerUnverifiedException) {
+        return "The server's certificate doesn't match this address. Use the address the " +
+            "certificate was issued for"
+    }
+    if (this !is SSLHandshakeException) return null
+    val causes = generateSequence(cause) { it.cause }
+    return when {
+        causes.any { it is CertificateExpiredException || it is CertificateNotYetValidException } ->
+            "The server's certificate has expired or isn't valid yet. Check this device's date " +
+                "and time, or renew the certificate"
+        causes.any { it is CertPathValidatorException || it is CertificateException } ->
+            "The server's certificate isn't trusted. Sheaf doesn't use certificates installed " +
+                "on this device, so the server needs one from a public certificate authority"
+        else -> null
+    }
+}
 
 private fun isCloudflareResponse(body: String): Boolean {
     val lower = body.lowercase()
