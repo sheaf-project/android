@@ -92,8 +92,50 @@ class ShareModelsParsingTest {
         assertNotNull(v)
         assertNull(v.flagsActivateAt)
         assertTrue(!v.hasPendingFlags)
+        // An instance from before link previews sends none of these fields.
+        assertEquals(PREVIEW_GENERIC, v.linkPreviewMode)
+        assertEquals(PREVIEW_GENERIC, v.memberLinkPreviewEffective)
+        assertNull(v.pendingLinkPreviewMode)
         // A member row defaults to served when the server omits the field.
         assertTrue(v.members.isEmpty())
+    }
+
+    @Test
+    fun `a staged link preview raise keeps the live mode generic`() {
+        val json = """
+            {
+              "id": "view-4",
+              "name": "Public",
+              "include_members": true,
+              "include_bio": false,
+              "include_fronting": false,
+              "fronting_show_count": true,
+              "include_relationships": false,
+              "include_groups": false,
+              "member_permalinks": true,
+              "link_preview_mode": "generic",
+              "member_link_preview_mode": "system_details",
+              "link_preview_effective": "generic",
+              "member_link_preview_effective": "system_details",
+              "pending_link_preview_mode": "system_details",
+              "flags_activate_at": "2026-09-26T00:00:00Z",
+              "created_at": "2026-09-19T00:00:00Z",
+              "is_shared": true,
+              "members": [],
+              "fields": [],
+              "groups": []
+            }
+        """.trimIndent()
+
+        val v = moshi.adapter(ShareViewRead::class.java).fromJson(json)
+        assertNotNull(v)
+        assertEquals(PREVIEW_GENERIC, v.linkPreviewMode)
+        assertEquals(PREVIEW_SYSTEM_DETAILS, v.pendingLinkPreviewMode)
+        assertEquals(PREVIEW_GENERIC, v.linkPreviewEffective)
+        assertEquals(PREVIEW_SYSTEM_DETAILS, v.memberLinkPreviewMode)
+        assertEquals(PREVIEW_SYSTEM_DETAILS, v.memberLinkPreviewEffective)
+        assertNull(v.pendingMemberLinkPreviewMode)
+        assertTrue(v.hasPendingFlags)
     }
 
     @Test

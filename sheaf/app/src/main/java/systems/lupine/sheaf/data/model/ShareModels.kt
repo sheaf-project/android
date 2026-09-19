@@ -56,6 +56,17 @@ data class ShareViewRead(
     // Instant in both directions and never staged: it exposes nothing new, only
     // a stable address for members the roster already shows.
     @Json(name = "member_permalinks") val memberPermalinks: Boolean,
+    // What a chat client shows when someone pastes this view's URL: one of
+    // PREVIEW_GENERIC or PREVIEW_SYSTEM_DETAILS. Two independent settings,
+    // because naming the system and naming one member are different
+    // disclosures. Raising either is an exposure and stages like the flags.
+    @Json(name = "link_preview_mode") val linkPreviewMode: String = PREVIEW_GENERIC,
+    @Json(name = "member_link_preview_mode") val memberLinkPreviewMode: String = PREVIEW_GENERIC,
+    // What the URLs actually unfurl as right now, computed server-side. Reads
+    // generic while a raise is staged, when only share links reach the view,
+    // when the system is not public, and (member cards) with permalinks off.
+    @Json(name = "link_preview_effective") val linkPreviewEffective: String = PREVIEW_GENERIC,
+    @Json(name = "member_link_preview_effective") val memberLinkPreviewEffective: String = PREVIEW_GENERIC,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "is_shared") val isShared: Boolean,
     // A flag flip that exposes more on an already-shared view is staged. The
@@ -67,6 +78,8 @@ data class ShareViewRead(
     @Json(name = "pending_include_relationships") val pendingIncludeRelationships: Boolean? = null,
     @Json(name = "pending_include_members") val pendingIncludeMembers: Boolean? = null,
     @Json(name = "pending_include_groups") val pendingIncludeGroups: Boolean? = null,
+    @Json(name = "pending_link_preview_mode") val pendingLinkPreviewMode: String? = null,
+    @Json(name = "pending_member_link_preview_mode") val pendingMemberLinkPreviewMode: String? = null,
     @Json(name = "flags_activate_at") val flagsActivateAt: String? = null,
     val members: List<ShareViewMemberRead> = emptyList(),
     val fields: List<ShareViewFieldRead> = emptyList(),
@@ -74,6 +87,9 @@ data class ShareViewRead(
 ) {
     val hasPendingFlags: Boolean get() = flagsActivateAt != null
 }
+
+const val PREVIEW_GENERIC = "generic"
+const val PREVIEW_SYSTEM_DETAILS = "system_details"
 
 @JsonClass(generateAdapter = true)
 data class ShareViewCreate(
@@ -98,6 +114,8 @@ data class ShareViewUpdate(
     @Json(name = "fronting_show_count") val frontingShowCount: Boolean? = null,
     @Json(name = "include_relationships") val includeRelationships: Boolean? = null,
     @Json(name = "include_groups") val includeGroups: Boolean? = null,
+    @Json(name = "link_preview_mode") val linkPreviewMode: String? = null,
+    @Json(name = "member_link_preview_mode") val memberLinkPreviewMode: String? = null,
     @Json(name = "member_permalinks") val memberPermalinks: Boolean? = null,
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
