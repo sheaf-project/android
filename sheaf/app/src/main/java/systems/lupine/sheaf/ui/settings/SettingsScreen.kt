@@ -852,6 +852,14 @@ fun SystemEditScreen(
                     ) { Text(level.replaceFirstChar { it.uppercase() }) }
                 }
             }
+            state.pendingPrivacy?.let { staged ->
+                Text(
+                    "Staged: this becomes \"$staged\" when the grace window passes. " +
+                        "Setting it back to private takes effect at once.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             SectionHeader("Display")
             // Part of this form rather than an instant-apply toggle, so it
@@ -892,6 +900,17 @@ fun SystemEditScreen(
                 else Text("Save Changes")
             }
         }
+    }
+
+    if (state.saveNeedsStepUp) {
+        systems.lupine.sheaf.ui.sharing.StepUpSheet(
+            authTier = state.raiseGate.authTier,
+            totpEnabled = state.raiseGate.totpEnabled,
+            isBusy = state.isSaving,
+            errorMessage = state.stepUpError,
+            onConfirm = { password, totp -> viewModel.save(password, totp) },
+            onDismiss = { viewModel.dismissStepUp() },
+        )
     }
 }
 

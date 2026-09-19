@@ -15,6 +15,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import systems.lupine.sheaf.ui.sharing.ShareError
+import systems.lupine.sheaf.ui.sharing.loadRaiseGate
+import systems.lupine.sheaf.ui.sharing.message
+import systems.lupine.sheaf.ui.sharing.toShareError
 import systems.lupine.sheaf.util.toUserMessage
 import com.squareup.moshi.Moshi
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -308,6 +312,9 @@ data class MemberFormState(
     val privacy: String = "private",
     val avatarUrl: String? = null,
     val bannerUrl: String? = null,
+    // Ceilings, edited here because this is where the member is edited.
+    val neverShareable: Boolean = false,
+    val frontingPrivate: Boolean = false,
 )
 
 data class MemberDetailUiState(
@@ -328,6 +335,12 @@ data class MemberDetailUiState(
     // archive safety category is on); drives the prompt on the edit screen.
     val archiveNeedsAuth: Boolean = false,
     val archiveError: String? = null,
+    // Set when saving this member would expose something and the server wants
+    // credentials for it first.
+    val raiseGate: systems.lupine.sheaf.ui.sharing.RaiseGate =
+        systems.lupine.sheaf.ui.sharing.RaiseGate(),
+    val saveNeedsStepUp: Boolean = false,
+    val stepUpError: String? = null,
     /** Definitions for every custom field on the system. Loaded alongside
      *  the member so the form can render type-appropriate editors. Order
      *  follows the user's pick in Settings → Custom Fields. */
@@ -412,6 +425,8 @@ class MemberDetailViewModel @Inject constructor(
                         privacy     = m.privacy,
                         avatarUrl   = m.avatarUrl,
                         bannerUrl   = m.bannerUrl,
+                        neverShareable = m.neverShareable,
+                        frontingPrivate = m.frontingPrivate,
                     )
                     _form.value = loaded
                     _baselineForm.value = loaded
@@ -448,11 +463,33 @@ class MemberDetailViewModel @Inject constructor(
         _form.update(update)
     }
 
+    /**
+     * A member edit exposes when it lifts one of that member's own ceilings:
+     * privacy up to public, or either guard dropped. Lowering one is going
+     * dark, which is never gated.
+     */
+    private fun isExposingEdit(f: MemberFormState): Boolean {
+        val base = _baselineForm.value
+        return systems.lupine.sheaf.ui.sharing.isRaiseToPublic(base.privacy, f.privacy) ||
+            (base.neverShareable && !f.neverShareable) ||
+            (base.frontingPrivate && !f.frontingPrivate)
+    }
+
     fun save() {
+        if (isExposingEdit(_form.value) && _state.value.raiseGate.stepUpNeeded) {
+            _state.update { it.copy(saveNeedsStepUp = true, stepUpError = null) }
+            return
+        }
+        save(null, null)
+    }
+
+    fun dismissStepUp() { _state.update { it.copy(saveNeedsStepUp = false, stepUpError = null) } }
+
+    fun save(password: String?, totpCode: String?) {
         val f = _form.value
         if (f.name.isBlank()) return
         viewModelScope.launch {
-            _state.update { it.copy(isSaving = true, error = null) }
+            _state.update { it.copy(isSaving = true, error = null, stepUpError = null) }
             runCatching {
                 // Create only if this is a new member we haven't already created
                 // on a prior (partially failed) save; otherwise update it.
@@ -491,6 +528,13 @@ class MemberDetailViewModel @Inject constructor(
                         // Empty string clears the column server-side; this lets
                         // a user wipe a note that was previously set.
                         note        = f.note,
+                        // Always sent, never null: the PATCH schema rejects an
+                        // explicit null on these two, and this body serializes
+                        // nulls.
+                        neverShareable = f.neverShareable,
+                        frontingPrivate = f.frontingPrivate,
+                        password = password?.ifBlank { null },
+                        totpCode = totpCode?.ifBlank { null },
                     )
                     val body = moshi.adapter(MemberUpdate::class.java).serializeNulls()
                         .toJson(update)
@@ -516,8 +560,33 @@ class MemberDetailViewModel @Inject constructor(
                     api.setMemberFieldValues(targetMemberId, diff)
                 }
             }
-                .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
+                .onSuccess { _state.update { it.copy(isSaving = false, saved = true, saveNeedsStepUp = false) } }
+                .onFailure { e ->
+                    // The local mirror can drift from the server's predicate;
+                    // the bounce is what keeps that from being a dead end.
+                    when (val err = e.toShareError("Failed to save member")) {
+                        is ShareError.StepUpRequired -> _state.update {
+                            it.copy(isSaving = false, saveNeedsStepUp = true, stepUpError = null)
+                        }
+                        is ShareError.BadCredentials -> _state.update {
+                            it.copy(isSaving = false, saveNeedsStepUp = true, stepUpError = err.message)
+                        }
+                        else -> _state.update {
+                            it.copy(
+                                isSaving = false,
+                                saveNeedsStepUp = false,
+                                error = err.message("Failed to save member"),
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
+    fun loadRaiseGate() {
+        viewModelScope.launch {
+            val gate = api.loadRaiseGate()
+            _state.update { it.copy(raiseGate = gate) }
         }
     }
 

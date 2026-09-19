@@ -82,7 +82,22 @@ data class RelationshipEdgeRead(
     @Json(name = "relationship_type_id") val relationshipTypeId: String,
     val mutual: Boolean,
     val visibility: String,
+    // A raise waiting out the grace window. `visibility` above is still the
+    // truth. Group edges never stage, so both are always null there.
+    @Json(name = "pending_visibility") val pendingVisibility: String? = null,
+    @Json(name = "visibility_activates_at") val visibilityActivatesAt: String? = null,
     @Json(name = "created_at") val createdAt: String,
+)
+
+// Credentials ride along for the case where a privacy raise is deferred. They
+// are never needed for `flip` or `mutual`: neither shows the edge to anyone new.
+@JsonClass(generateAdapter = true)
+data class RelationshipEdgeUpdate(
+    val visibility: String? = null,
+    val flip: Boolean? = null,
+    val mutual: Boolean? = null,
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 // An edge as it reads from one node's viewpoint. `label` and `direction` are
@@ -97,6 +112,8 @@ data class RelationshipFromViewpoint(
     val direction: String,
     val mutual: Boolean,
     val visibility: String,
+    @Json(name = "pending_visibility") val pendingVisibility: String? = null,
+    @Json(name = "visibility_activates_at") val visibilityActivatesAt: String? = null,
 )
 
 // ── Client-side presets ───────────────────────────────────────────────────────

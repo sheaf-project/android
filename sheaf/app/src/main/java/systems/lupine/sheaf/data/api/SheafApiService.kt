@@ -137,6 +137,66 @@ interface SheafApiService {
     @DELETE("/v1/system/safety/pending-actions/{id}")
     suspend fun cancelPendingAction(@Path("id") id: String)
 
+    // ── Sharing (owner controls) ──────────────────────────────────────────────
+
+    @GET("/v1/share-views")
+    suspend fun listShareViews(): List<ShareViewRead>
+
+    @POST("/v1/share-views")
+    suspend fun createShareView(@Body body: ShareViewCreate): ShareViewRead
+
+    @GET("/v1/share-views/{id}")
+    suspend fun getShareView(@Path("id") id: String): ShareViewRead
+
+    @PATCH("/v1/share-views/{id}")
+    suspend fun updateShareView(@Path("id") id: String, @Body body: ShareViewUpdate): ShareViewRead
+
+    @DELETE("/v1/share-views/{id}")
+    suspend fun deleteShareView(@Path("id") id: String)
+
+    @GET("/v1/share-views/{id}/preview")
+    suspend fun previewShareView(@Path("id") id: String): SharePreview
+
+    @POST("/v1/share-views/{id}/members")
+    suspend fun addShareViewMember(@Path("id") id: String, @Body body: ShareViewMemberAdd): ShareViewRead
+
+    @DELETE("/v1/share-views/{id}/members/{memberId}")
+    suspend fun removeShareViewMember(@Path("id") id: String, @Path("memberId") memberId: String)
+
+    @POST("/v1/share-views/{id}/groups")
+    suspend fun addShareViewGroup(@Path("id") id: String, @Body body: ShareViewGroupAdd): ShareViewGroupAddResult
+
+    @DELETE("/v1/share-views/{id}/groups/{groupId}")
+    suspend fun removeShareViewGroup(
+        @Path("id") id: String,
+        @Path("groupId") groupId: String,
+        @Query("remove_members") removeMembers: Boolean,
+    )
+
+    @POST("/v1/share-views/{id}/fields")
+    suspend fun addShareViewField(@Path("id") id: String, @Body body: ShareViewFieldAdd): ShareViewRead
+
+    @DELETE("/v1/share-views/{id}/fields/{fieldId}")
+    suspend fun removeShareViewField(@Path("id") id: String, @Path("fieldId") fieldId: String)
+
+    @GET("/v1/share-grants")
+    suspend fun listShareGrants(): List<ShareGrantRead>
+
+    @POST("/v1/share-grants")
+    suspend fun createShareGrant(@Body body: ShareGrantCreate): ShareGrantCreated
+
+    @POST("/v1/share-grants/{id}/rotate")
+    suspend fun rotateShareGrant(@Path("id") id: String): ShareGrantCreated
+
+    @DELETE("/v1/share-grants/{id}")
+    suspend fun revokeShareGrant(@Path("id") id: String)
+
+    @GET("/v1/sharing/audit")
+    suspend fun getSharingAudit(): ShareAudit
+
+    @POST("/v1/auth/me/attest-adult")
+    suspend fun attestAdult(): AdultAttestationRead
+
     @DELETE("/v1/system/safety/pending-changes/{id}")
     suspend fun cancelPendingSafetyChange(@Path("id") id: String)
 
@@ -939,6 +999,12 @@ interface SheafApiService {
     @POST("/v1/member-relationships")
     suspend fun createMemberRelationship(@Body body: RelationshipEdgeCreate): RelationshipEdgeRead
 
+    @PATCH("/v1/member-relationships/{edgeId}")
+    suspend fun updateMemberRelationship(
+        @Path("edgeId") edgeId: String,
+        @Body body: RelationshipEdgeUpdate,
+    ): RelationshipEdgeRead
+
     @DELETE("/v1/member-relationships/{edgeId}")
     suspend fun deleteMemberRelationship(@Path("edgeId") edgeId: String)
 
@@ -947,6 +1013,14 @@ interface SheafApiService {
 
     @POST("/v1/group-relationships")
     suspend fun createGroupRelationship(@Body body: RelationshipEdgeCreate): RelationshipEdgeRead
+
+    // Always instant, never gated: no share view flag reaches group edges and
+    // the projection never queries that table.
+    @PATCH("/v1/group-relationships/{edgeId}")
+    suspend fun updateGroupRelationship(
+        @Path("edgeId") edgeId: String,
+        @Body body: RelationshipEdgeUpdate,
+    ): RelationshipEdgeRead
 
     @DELETE("/v1/group-relationships/{edgeId}")
     suspend fun deleteGroupRelationship(@Path("edgeId") edgeId: String)

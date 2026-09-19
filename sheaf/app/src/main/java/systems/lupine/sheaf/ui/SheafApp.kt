@@ -117,6 +117,8 @@ object Routes {
     const val ADMIN_JOBS     = "settings/admin/jobs"
     const val ADMIN_USER_DETAIL = "settings/admin/user/{userId}"
     const val SYSTEM_SAFETY  = "settings/safety"
+    const val SHARING        = "settings/sharing"
+    const val SHARE_VIEW     = "settings/sharing/view/{viewId}"
     const val FILES          = "settings/files"
     const val EXPORT_DATA    = "settings/export"
     const val DEBUG          = "settings/debug"
@@ -678,6 +680,7 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
                     onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
+                    onNavigateToSharing = { navController.navigate(Routes.SHARING) },
                 )
             }
             composable(Routes.SETTINGS_RETENTION) {
@@ -793,6 +796,24 @@ fun SheafApp(
             }
             composable(Routes.SYSTEM_SAFETY) {
                 SystemSafetyScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.SHARING) {
+                systems.lupine.sheaf.ui.sharing.SharingScreen(
+                    onBack = { navController.navigateUp() },
+                    onOpenView = { viewId ->
+                        navController.navigate(Routes.SHARE_VIEW.replace("{viewId}", viewId))
+                    },
+                )
+            }
+            composable(
+                route = Routes.SHARE_VIEW,
+                arguments = listOf(
+                    androidx.navigation.navArgument("viewId") { type = androidx.navigation.NavType.StringType },
+                ),
+            ) {
+                systems.lupine.sheaf.ui.sharing.ShareViewDetailScreen(
+                    onBack = { navController.navigateUp() },
+                )
             }
             composable(Routes.FILES) {
                 systems.lupine.sheaf.ui.files.FilesScreen(onNavigateUp = { navController.navigateUp() })

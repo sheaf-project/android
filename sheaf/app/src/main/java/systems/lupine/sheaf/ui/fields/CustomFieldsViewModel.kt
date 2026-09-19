@@ -3,6 +3,10 @@ package systems.lupine.sheaf.ui.fields
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.ui.sharing.ShareError
+import systems.lupine.sheaf.ui.sharing.loadRaiseGate
+import systems.lupine.sheaf.ui.sharing.message
+import systems.lupine.sheaf.ui.sharing.toShareError
 import systems.lupine.sheaf.data.model.CustomFieldCreate
 import systems.lupine.sheaf.data.model.CustomFieldOptions
 import systems.lupine.sheaf.data.model.CustomFieldRead
@@ -22,6 +26,19 @@ data class CustomFieldsUiState(
     val isSaving: Boolean = false,
     /** A reorder is in flight; the arrows go quiet until it lands. */
     val isReordering: Boolean = false,
+    val raiseGate: systems.lupine.sheaf.ui.sharing.RaiseGate =
+        systems.lupine.sheaf.ui.sharing.RaiseGate(),
+    // The edit waiting on credentials, replayed verbatim once they arrive.
+    val stepUpEdit: PendingFieldEdit? = null,
+    val stepUpError: String? = null,
+)
+
+data class PendingFieldEdit(
+    val id: String,
+    val name: String,
+    val privacy: String,
+    val choices: List<String>?,
+    val fieldType: String?,
 )
 
 /**
@@ -53,7 +70,10 @@ class CustomFieldsViewModel @Inject constructor(
     private val _state = MutableStateFlow(CustomFieldsUiState(isLoading = true))
     val state: StateFlow<CustomFieldsUiState> = _state.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        viewModelScope.launch { _state.update { it.copy(raiseGate = api.loadRaiseGate()) } }
+    }
 
     fun load() {
         viewModelScope.launch {
@@ -125,18 +145,40 @@ class CustomFieldsViewModel @Inject constructor(
         choices: List<String>? = null,
         fieldType: String? = null,
     ) {
+        val current = _state.value.fields.find { it.id == id }?.privacy
+        val edit = PendingFieldEdit(id, name, privacy, choices, fieldType)
+        if (systems.lupine.sheaf.ui.sharing.isRaiseToPublic(current, privacy) &&
+            _state.value.raiseGate.stepUpNeeded
+        ) {
+            _state.update { it.copy(stepUpEdit = edit, stepUpError = null) }
+            return
+        }
+        submitField(edit, null, null)
+    }
+
+    fun confirmStepUp(password: String?, totpCode: String?) {
+        val edit = _state.value.stepUpEdit ?: return
+        submitField(edit, password, totpCode)
+    }
+
+    fun dismissStepUp() { _state.update { it.copy(stepUpEdit = null, stepUpError = null) } }
+
+    private fun submitField(edit: PendingFieldEdit, password: String?, totpCode: String?) {
+        val id = edit.id
         viewModelScope.launch {
-            _state.update { it.copy(isSaving = true, error = null) }
+            _state.update { it.copy(isSaving = true, error = null, stepUpError = null) }
             runCatching {
                 api.updateField(
                     id,
                     CustomFieldUpdate(
-                        name = name,
-                        privacy = privacy,
+                        name = edit.name,
+                        privacy = edit.privacy,
                         // Carry options only for SELECT/MULTISELECT.
                         // Non-choice field types: backend rejects a
                         // non-null options dict with 422.
-                        options = choices.toOptionsOrNull(fieldType),
+                        options = edit.choices.toOptionsOrNull(edit.fieldType),
+                        password = password?.ifBlank { null },
+                        totpCode = totpCode?.ifBlank { null },
                     ),
                 )
             }
@@ -145,10 +187,28 @@ class CustomFieldsViewModel @Inject constructor(
                         s.copy(
                             fields = s.fields.map { if (it.id == id) updated else it },
                             isSaving = false,
+                            stepUpEdit = null,
+                            stepUpError = null,
                         )
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
+                .onFailure { e ->
+                    when (val err = e.toShareError("Couldn't save this field")) {
+                        is ShareError.StepUpRequired -> _state.update {
+                            it.copy(isSaving = false, stepUpEdit = edit, stepUpError = null)
+                        }
+                        is ShareError.BadCredentials -> _state.update {
+                            it.copy(isSaving = false, stepUpEdit = edit, stepUpError = err.message)
+                        }
+                        else -> _state.update {
+                            it.copy(
+                                isSaving = false,
+                                stepUpEdit = null,
+                                error = err.message("Couldn't save this field"),
+                            )
+                        }
+                    }
+                }
         }
     }
 
