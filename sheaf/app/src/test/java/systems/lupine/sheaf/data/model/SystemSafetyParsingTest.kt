@@ -37,7 +37,14 @@ class SystemSafetyParsingTest {
                 "applies_to_fields": true,
                 "applies_to_fronts": true,
                 "applies_to_journals": true,
-                "applies_to_images": false
+                "applies_to_images": false,
+                "applies_to_notifications": true,
+                "applies_to_reminders": false,
+                "applies_to_polls": true,
+                "applies_to_messages": false,
+                "applies_to_relationships": true,
+                "applies_to_archive": true,
+                "applies_to_profile_visibility": true
               },
               "pending_actions": [
                 {
@@ -51,6 +58,12 @@ class SystemSafetyParsingTest {
                   "fronting_member_ids": ["mem-2"],
                   "fronting_member_names": ["Sam"],
                   "status": "pending"
+                }
+              ],
+              "pending_exposures": [
+                {
+                  "kind": "view_flags",
+                  "activates_at": "2026-05-06T20:02:00Z"
                 }
               ],
               "pending_changes": [
@@ -76,6 +89,17 @@ class SystemSafetyParsingTest {
         assertEquals("totp", parsed.settings.authTier)
         assertTrue(parsed.settings.appliesToMembers)
         assertTrue(parsed.settings.appliesToJournals)
+        assertTrue(parsed.settings.appliesToProfileVisibility)
+        assertTrue(parsed.settings.appliesToNotifications)
+        assertEquals(false, parsed.settings.appliesToReminders)
+        assertTrue(parsed.settings.appliesToPolls)
+        assertEquals(false, parsed.settings.appliesToMessages)
+        assertTrue(parsed.settings.appliesToRelationships)
+        assertTrue(parsed.settings.appliesToArchive)
+
+        val exposure = parsed.pendingExposures.single()
+        assertEquals("view_flags", exposure.kind)
+        assertEquals("2026-05-06T20:02:00Z", exposure.activatesAt)
 
         assertEquals(1, parsed.pendingActions.size)
         val action = parsed.pendingActions.single()
@@ -117,6 +141,10 @@ class SystemSafetyParsingTest {
         assertEquals("password", parsed.settings.authTier)
         assertTrue(parsed.pendingActions.isEmpty())
         assertTrue(parsed.pendingChanges.isEmpty())
+        // Absent on an instance that predates the category; the category itself
+        // defaults to armed, matching the server.
+        assertTrue(parsed.pendingExposures.isEmpty())
+        assertTrue(parsed.settings.appliesToProfileVisibility)
     }
 
     @Test

@@ -296,6 +296,19 @@ data class SystemSafetySettings(
     @Json(name = "applies_to_journals") val appliesToJournals: Boolean,
     @Json(name = "applies_to_images") val appliesToImages: Boolean,
     @Json(name = "applies_to_revisions") val appliesToRevisions: Boolean = false,
+    @Json(name = "applies_to_notifications") val appliesToNotifications: Boolean = false,
+    @Json(name = "applies_to_reminders") val appliesToReminders: Boolean = false,
+    @Json(name = "applies_to_polls") val appliesToPolls: Boolean = false,
+    @Json(name = "applies_to_messages") val appliesToMessages: Boolean = false,
+    // Deleting a relationship TYPE, which takes every edge drawn with it. The
+    // per-edge visibility controls are a separate thing.
+    @Json(name = "applies_to_relationships") val appliesToRelationships: Boolean = false,
+    // No grace-able pending action behind this one: it only gates whether
+    // archiving a member needs re-auth.
+    @Json(name = "applies_to_archive") val appliesToArchive: Boolean = false,
+    // Armed by default server-side; the default here matches so an instance that
+    // predates the category doesn't read as unarmed.
+    @Json(name = "applies_to_profile_visibility") val appliesToProfileVisibility: Boolean = true,
     @Json(name = "auto_pin_first_revision") val autoPinFirstRevision: Boolean = true,
 )
 
@@ -311,6 +324,13 @@ data class SystemSafetyUpdate(
     @Json(name = "applies_to_journals") val appliesToJournals: Boolean? = null,
     @Json(name = "applies_to_images") val appliesToImages: Boolean? = null,
     @Json(name = "applies_to_revisions") val appliesToRevisions: Boolean? = null,
+    @Json(name = "applies_to_notifications") val appliesToNotifications: Boolean? = null,
+    @Json(name = "applies_to_reminders") val appliesToReminders: Boolean? = null,
+    @Json(name = "applies_to_polls") val appliesToPolls: Boolean? = null,
+    @Json(name = "applies_to_messages") val appliesToMessages: Boolean? = null,
+    @Json(name = "applies_to_relationships") val appliesToRelationships: Boolean? = null,
+    @Json(name = "applies_to_archive") val appliesToArchive: Boolean? = null,
+    @Json(name = "applies_to_profile_visibility") val appliesToProfileVisibility: Boolean? = null,
     @Json(name = "auto_pin_first_revision") val autoPinFirstRevision: Boolean? = null,
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
@@ -342,11 +362,20 @@ data class SafetyChangeRequestRead(
     val status: String,
 )
 
+// A staged raise-to-public waiting out the grace window. Count and time only,
+// no entity label, matching the pending-delete banner.
+@JsonClass(generateAdapter = true)
+data class PendingExposureRead(
+    val kind: String,
+    @Json(name = "activates_at") val activatesAt: String,
+)
+
 @JsonClass(generateAdapter = true)
 data class SystemSafetyResponse(
     val settings: SystemSafetySettings,
     @Json(name = "pending_actions") val pendingActions: List<PendingActionRead>,
     @Json(name = "pending_changes") val pendingChanges: List<SafetyChangeRequestRead>,
+    @Json(name = "pending_exposures") val pendingExposures: List<PendingExposureRead> = emptyList(),
 )
 
 @JsonClass(generateAdapter = true)

@@ -157,6 +157,17 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
+            val pendingExposuresCount = state.pendingSafetyExposures.size
+            if (pendingExposuresCount > 0) {
+                val earliest = state.pendingSafetyExposures.mapNotNull { parseFinalize(it.activatesAt) }.minOrNull()
+                SafetyPendingBanner(
+                    kind = SafetyBannerKind.EXPOSURES,
+                    count = pendingExposuresCount,
+                    earliestFinalize = earliest,
+                    onClick = onNavigateToSystemSafety,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
             state.pendingTrimNotice?.let { notice ->
                 TrimNoticePendingBanner(
                     notice = notice,
@@ -612,7 +623,7 @@ private fun SwitchFrontSheet(
 
 // ── System Safety pending banner ──────────────────────────────────────────────
 
-private enum class SafetyBannerKind { ACTIONS, CHANGES }
+private enum class SafetyBannerKind { ACTIONS, CHANGES, EXPOSURES }
 
 @Composable
 private fun SafetyPendingBanner(
@@ -664,6 +675,9 @@ private fun safetyBannerMessage(kind: SafetyBannerKind, count: Int, earliest: Of
         SafetyBannerKind.CHANGES ->
             if (count == 1) "Safety settings change pending — finalizes $time."
             else "$count safety settings changes pending — next finalizes $time."
+        SafetyBannerKind.EXPOSURES ->
+            if (count == 1) "1 change that makes something public takes effect $time."
+            else "$count changes that make something public. Next takes effect $time."
     }
 }
 
