@@ -729,7 +729,12 @@ fun SystemCategoryScreen(
     onNavigateToCustomFields: () -> Unit,
     onNavigateToTags: () -> Unit,
     onNavigateToArchivedMembers: () -> Unit,
+    onNavigateToSystemSafety: () -> Unit,
+    onNavigateToSharing: () -> Unit,
+    onNavigateToRetention: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.state.collectAsState()
     CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
         SettingItem(
             icon = Icons.Outlined.LocalOffer,
@@ -751,21 +756,7 @@ fun SystemCategoryScreen(
             subtitle = "View and restore archived members",
             onClick = onNavigateToArchivedMembers,
         )
-    }
-}
-
-// ── Safety ─────────────────────────────────────────────────────────────────
-
-@Composable
-fun SafetyCategoryScreen(
-    onNavigateUp: () -> Unit,
-    onNavigateToSystemSafety: () -> Unit,
-    onNavigateToRetention: () -> Unit,
-    onNavigateToSharing: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel(),
-) {
-    val state by viewModel.state.collectAsState()
-    CategoryScaffold(title = "Safety", onNavigateUp = onNavigateUp) {
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
             icon = Icons.Outlined.Shield,
             title = "System Safety",
