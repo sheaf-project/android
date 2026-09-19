@@ -13,6 +13,10 @@ interface SheafApiService {
     @GET("/v1/auth/config")
     suspend fun getAuthConfig(): AuthConfig
 
+    /** Instance version and build. Unauthenticated; safe before login. */
+    @GET("/v1/version")
+    suspend fun getServerVersion(): ServerVersion
+
     @GET("/v1/auth/captcha/challenge")
     suspend fun getCaptchaChallenge(): CaptchaChallenge
 

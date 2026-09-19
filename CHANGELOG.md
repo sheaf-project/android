@@ -17,6 +17,11 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Settings > Server shows the server's version.** Sheaf servers are run by
+  all sorts of people on all sorts of schedules, and features that need a newer
+  one say so; this is where you find out which version you're actually talking
+  to, so "needs 1.5.1 or later" is something you can act on.
+
 - **The fronting notification has settings of its own.** Notifications now has
   a "Fronting notification" screen holding the on/off switch and three new
   options: which icon it uses, whether the names show without expanding it, and

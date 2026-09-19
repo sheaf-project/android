@@ -87,6 +87,7 @@ class SettingsViewModel @Inject constructor(
     private val watchSession: WatchSessionRepository,
     private val accountDataWiper: systems.lupine.sheaf.data.repository.AccountDataWiper,
     private val cache: systems.lupine.sheaf.data.db.LocalCache,
+    private val serverInfo: systems.lupine.sheaf.data.repository.ServerInfoRepository,
     private val authInterceptor: systems.lupine.sheaf.data.api.AuthInterceptor,
     @dagger.hilt.android.qualifiers.ApplicationContext
     private val appContext: android.content.Context,
@@ -252,6 +253,15 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
     val frontNotificationRespawn: StateFlow<Boolean> = prefs.frontNotificationRespawn
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** What the instance reports about itself; null until fetched or if it won't say. */
+    val serverVersion: StateFlow<systems.lupine.sheaf.data.model.ServerVersion?> =
+        serverInfo.version
+
+    /** Ask the server what it is, if we do not already know for this instance. */
+    fun loadServerVersion() {
+        viewModelScope.launch { serverInfo.ensureLoaded() }
+    }
 
     fun toggleFrontNotification(enabled: Boolean) {
         viewModelScope.launch {
