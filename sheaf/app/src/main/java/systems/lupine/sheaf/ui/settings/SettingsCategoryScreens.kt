@@ -11,6 +11,7 @@ import androidx.biometric.BiometricManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.foundation.layout.*
@@ -668,15 +669,40 @@ fun ServerSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val savedBaseUrl by viewModel.baseUrl.collectAsState()
+    val serverVersion by viewModel.serverVersion.collectAsState()
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
     var urlError by remember { mutableStateOf<String?>(null) }
     var showUrlDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(savedBaseUrl) { viewModel.loadServerVersion() }
     CategoryScaffold(title = "Server", onNavigateUp = onNavigateUp) {
         SettingItem(
             icon = Icons.Outlined.Storage,
             title = "API Server",
             subtitle = savedBaseUrl.ifBlank { "Not configured" },
             onClick = { urlDraft = savedBaseUrl; urlError = null; showUrlDialog = true },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        // Here so that "this server doesn't support X yet" has somewhere to
+        // point: knowing you are on 1.5.0 is what makes that sentence
+        // actionable, whether you run the server or have to ask someone who
+        // does.
+        ListItem(
+            headlineContent = { Text("Server version") },
+            supportingContent = {
+                Text(
+                    serverVersion?.display?.let { version ->
+                        val mode = serverVersion?.mode?.takeIf { it.isNotBlank() }
+                        if (mode != null) "$version ($mode)" else version
+                    } ?: "Unknown - this server doesn't report one",
+                )
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
         )
     }
     if (showUrlDialog) {

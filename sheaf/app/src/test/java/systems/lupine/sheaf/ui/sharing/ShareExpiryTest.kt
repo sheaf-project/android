@@ -67,8 +67,17 @@ class ShareExpiryTest {
     @Test
     fun `a lapsed grant says so, with the date`() {
         val today = LocalDate.of(2026, 9, 10)
-        val past = endOfDayUtc(LocalDate.of(2026, 9, 1))
-        assertEquals("Expired 1 Sep 2026", dormantReason("active", past, today))
+        val expired = LocalDate.of(2026, 9, 1)
+        val past = endOfDayUtc(expired)
+        // Built with the same formatter rather than written out, because the
+        // date on screen follows the device's locale and the JDK's CLDR data -
+        // which is right for a user and fatal for a hardcoded string. September
+        // abbreviates to "Sep" on some CLDR versions and "Sept" on others, so
+        // this test used to pass or fail depending on the JDK it ran under.
+        assertEquals(
+            "Expired ${expired.format(EXPIRY_FORMAT)}",
+            dormantReason("active", past, today),
+        )
     }
 
     @Test

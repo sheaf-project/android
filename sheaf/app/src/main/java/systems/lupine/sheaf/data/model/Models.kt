@@ -29,6 +29,28 @@ data class AuthConfig(
     @Json(name = "privacy_url") val privacyUrl: String? = null,
 )
 
+/**
+ * What `/v1/version` reports about the instance.
+ *
+ * Unauthenticated and cheap, and the only way for the app to say what a server
+ * can and cannot do in terms a person can act on. Feature availability itself
+ * is always detected rather than inferred from this - a self-hoster running a
+ * dev build has a version string that tells you very little - but once a
+ * feature has been found missing, this is what turns "not supported" into
+ * "you're on 1.4.2".
+ */
+@JsonClass(generateAdapter = true)
+data class ServerVersion(
+    val version: String? = null,
+    @Json(name = "git_tag") val gitTag: String? = null,
+    @Json(name = "build_time") val buildTime: String? = null,
+    val mode: String? = null,
+) {
+    /** What to show a person: the tag if the build had one, else the version. */
+    val display: String? get() =
+        gitTag?.takeIf { it.isNotBlank() } ?: version?.takeIf { it.isNotBlank() }
+}
+
 @JsonClass(generateAdapter = true)
 data class UserRegister(
     val email: String,
