@@ -6,6 +6,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.SystemUpdate
+import systems.lupine.sheaf.ui.sharing.ShareError
+import systems.lupine.sheaf.ui.sharing.loadRaiseGate
+import systems.lupine.sheaf.ui.sharing.message
+import systems.lupine.sheaf.ui.sharing.toShareError
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,6 +37,14 @@ data class SystemEditUiState(
     val isUploadingAvatar: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null,
+    // The master Public switch is a ceiling like any other, so it takes the
+    // same gate as a member or a relationship edge.
+    val raiseGate: systems.lupine.sheaf.ui.sharing.RaiseGate =
+        systems.lupine.sheaf.ui.sharing.RaiseGate(),
+    val saveNeedsStepUp: Boolean = false,
+    val stepUpError: String? = null,
+    val pendingPrivacy: String? = null,
+    val privacyActivatesAt: String? = null,
 )
 
 @HiltViewModel
@@ -74,7 +86,15 @@ class SystemEditViewModel @Inject constructor(
                         showMemberCreatedDate = system.showMemberCreatedDate,
                     )
                     _baselineForm.value = _form.value
-                    _state.update { it.copy(isLoading = false) }
+                    baselinePrivacy = system.privacy
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            pendingPrivacy = system.pendingPrivacy,
+                            privacyActivatesAt = system.privacyActivatesAt,
+                        )
+                    }
+                    _state.update { it.copy(raiseGate = api.loadRaiseGate()) }
                 }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e.toUserMessage()) } }
         }
@@ -84,10 +104,24 @@ class SystemEditViewModel @Inject constructor(
         _form.update { it.update() }
     }
 
+    private var baselinePrivacy: String? = null
+
     fun save() {
+        if (systems.lupine.sheaf.ui.sharing.isRaiseToPublic(baselinePrivacy, _form.value.privacy) &&
+            _state.value.raiseGate.stepUpNeeded
+        ) {
+            _state.update { it.copy(saveNeedsStepUp = true, stepUpError = null) }
+            return
+        }
+        save(null, null)
+    }
+
+    fun dismissStepUp() { _state.update { it.copy(saveNeedsStepUp = false, stepUpError = null) } }
+
+    fun save(password: String?, totpCode: String?) {
         val f = _form.value
         viewModelScope.launch {
-            _state.update { it.copy(isSaving = true, error = null) }
+            _state.update { it.copy(isSaving = true, error = null, stepUpError = null) }
             runCatching {
                 api.updateOwnSystem(SystemUpdate(
                     name = f.name.takeIf { it.isNotBlank() },
@@ -100,6 +134,8 @@ class SystemEditViewModel @Inject constructor(
                     color = f.color.takeIf { it.isNotBlank() },
                     privacy = f.privacy,
                     showMemberCreatedDate = f.showMemberCreatedDate,
+                    password = password?.ifBlank { null },
+                    totpCode = totpCode?.ifBlank { null },
                 ))
             }
                 .onSuccess { updated ->
@@ -107,9 +143,34 @@ class SystemEditViewModel @Inject constructor(
                     // system (the member profile's created-date row) reflect the
                     // change straight away, without waiting for a Home refresh.
                     runCatching { cache.saveSystem(updated) }
-                    _state.update { it.copy(isSaving = false, saved = true) }
+                    baselinePrivacy = updated.privacy
+                    _state.update {
+                        it.copy(
+                            isSaving = false,
+                            saved = true,
+                            saveNeedsStepUp = false,
+                            pendingPrivacy = updated.pendingPrivacy,
+                            privacyActivatesAt = updated.privacyActivatesAt,
+                        )
+                    }
                 }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
+                .onFailure { e ->
+                    when (val err = e.toShareError("Failed to save")) {
+                        is ShareError.StepUpRequired -> _state.update {
+                            it.copy(isSaving = false, saveNeedsStepUp = true, stepUpError = null)
+                        }
+                        is ShareError.BadCredentials -> _state.update {
+                            it.copy(isSaving = false, saveNeedsStepUp = true, stepUpError = err.message)
+                        }
+                        else -> _state.update {
+                            it.copy(
+                                isSaving = false,
+                                saveNeedsStepUp = false,
+                                error = err.message("Failed to save"),
+                            )
+                        }
+                    }
+                }
         }
     }
 

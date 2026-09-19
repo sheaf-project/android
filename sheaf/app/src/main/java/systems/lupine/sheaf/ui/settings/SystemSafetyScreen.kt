@@ -21,6 +21,7 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import systems.lupine.sheaf.data.model.PendingActionRead
+import systems.lupine.sheaf.data.model.PendingExposureRead
 import systems.lupine.sheaf.data.model.SafetyChangeRequestRead
 import systems.lupine.sheaf.data.model.SystemSafetySettings
 import systems.lupine.sheaf.ui.components.*
@@ -102,14 +103,7 @@ fun SystemSafetyScreen(
             SectionHeader("Apply safety to")
             CategoryToggles(
                 draft = draft,
-                onMembers = { viewModel.updateDraft { copy(appliesToMembers = it) } },
-                onGroups = { viewModel.updateDraft { copy(appliesToGroups = it) } },
-                onTags = { viewModel.updateDraft { copy(appliesToTags = it) } },
-                onFields = { viewModel.updateDraft { copy(appliesToFields = it) } },
-                onFronts = { viewModel.updateDraft { copy(appliesToFronts = it) } },
-                onJournals = { viewModel.updateDraft { copy(appliesToJournals = it) } },
-                onImages = { viewModel.updateDraft { copy(appliesToImages = it) } },
-                onRevisions = { viewModel.updateDraft { copy(appliesToRevisions = it) } },
+                onChange = { next -> viewModel.updateDraft { next } },
             )
 
             SectionHeader("Revision history")
@@ -174,6 +168,16 @@ fun SystemSafetyScreen(
                         change = change,
                         cancelling = change.id in state.cancellingChangeIds,
                         onCancel = { viewModel.cancelPendingChange(change.id) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            }
+
+            if (state.pendingExposures.isNotEmpty()) {
+                SectionHeader("Pending public changes")
+                state.pendingExposures.forEach { exposure ->
+                    PendingExposureRow(
+                        exposure = exposure,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
                 }
@@ -359,30 +363,64 @@ private fun AuthTierRowSupportingText(needsTotp: Boolean, totpEnabled: Boolean) 
 @Composable
 private fun CategoryToggles(
     draft: SystemSafetySettings,
-    onMembers: (Boolean) -> Unit,
-    onGroups: (Boolean) -> Unit,
-    onTags: (Boolean) -> Unit,
-    onFields: (Boolean) -> Unit,
-    onFronts: (Boolean) -> Unit,
-    onJournals: (Boolean) -> Unit,
-    onImages: (Boolean) -> Unit,
-    onRevisions: (Boolean) -> Unit,
+    onChange: (SystemSafetySettings) -> Unit,
 ) {
-    data class CategoryRow(val label: String, val supporting: String?, val value: Boolean, val onChange: (Boolean) -> Unit)
+    data class CategoryRow(
+        val label: String,
+        val supporting: String?,
+        val value: Boolean,
+        val apply: (Boolean) -> SystemSafetySettings,
+    )
     val items = listOf(
-        CategoryRow("Members", null, draft.appliesToMembers, onMembers),
-        CategoryRow("Groups", null, draft.appliesToGroups, onGroups),
-        CategoryRow("Tags", null, draft.appliesToTags, onTags),
-        CategoryRow("Custom fields", null, draft.appliesToFields, onFields),
-        CategoryRow("Fronts", null, draft.appliesToFronts, onFronts),
-        CategoryRow("Journal entries", null, draft.appliesToJournals, onJournals),
-        CategoryRow("Images", null, draft.appliesToImages, onImages),
+        CategoryRow("Members", null, draft.appliesToMembers) { draft.copy(appliesToMembers = it) },
+        CategoryRow("Groups", null, draft.appliesToGroups) { draft.copy(appliesToGroups = it) },
+        CategoryRow("Tags", null, draft.appliesToTags) { draft.copy(appliesToTags = it) },
+        CategoryRow("Custom fields", null, draft.appliesToFields) { draft.copy(appliesToFields = it) },
+        CategoryRow("Fronts", null, draft.appliesToFronts) { draft.copy(appliesToFronts = it) },
+        CategoryRow("Journal entries", null, draft.appliesToJournals) { draft.copy(appliesToJournals = it) },
+        CategoryRow("Images", null, draft.appliesToImages) { draft.copy(appliesToImages = it) },
         CategoryRow(
             "Pinned revisions",
             "Require re-auth and grace before unpinning",
             draft.appliesToRevisions,
-            onRevisions,
-        ),
+        ) { draft.copy(appliesToRevisions = it) },
+        CategoryRow(
+            "Notifications",
+            "Deleting a channel or revoking a watcher",
+            draft.appliesToNotifications,
+        ) { draft.copy(appliesToNotifications = it) },
+        CategoryRow(
+            "Reminders",
+            "Deleting a reminder",
+            draft.appliesToReminders,
+        ) { draft.copy(appliesToReminders = it) },
+        CategoryRow(
+            "Polls",
+            "Deleting a poll, with its votes and audit log",
+            draft.appliesToPolls,
+        ) { draft.copy(appliesToPolls = it) },
+        CategoryRow(
+            "Messages",
+            "Deleting a board message or thread",
+            draft.appliesToMessages,
+        ) { draft.copy(appliesToMessages = it) },
+        CategoryRow(
+            "Relationships",
+            "Deleting a relationship type, which takes every relationship drawn with it",
+            draft.appliesToRelationships,
+        ) { draft.copy(appliesToRelationships = it) },
+        CategoryRow(
+            "Archive members",
+            "Re-auth to archive a member. No grace period, speed-bump only.",
+            draft.appliesToArchive,
+        ) { draft.copy(appliesToArchive = it) },
+        CategoryRow(
+            "Profile visibility",
+            "Gates making things more visible rather than deleting them: publishing a " +
+                "share view, adding someone to one that is already shared, or raising " +
+                "anything to public. With no grace period it just asks for re-auth first.",
+            draft.appliesToProfileVisibility,
+        ) { draft.copy(appliesToProfileVisibility = it) },
     )
     Column {
         items.forEachIndexed { index, row ->
@@ -390,7 +428,7 @@ private fun CategoryToggles(
                 headlineContent = { Text(row.label) },
                 supportingContent = row.supporting?.let { { Text(it) } },
                 trailingContent = {
-                    Switch(checked = row.value, onCheckedChange = row.onChange)
+                    Switch(checked = row.value, onCheckedChange = { onChange(row.apply(it)) })
                 },
             )
             if (index != items.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
@@ -506,6 +544,32 @@ private fun PendingChangeRow(
     }
 }
 
+// Read-only: un-exposing is immediate and ungated, but it happens where the
+// change was made (the share view, the member, the relationship), not here.
+@Composable
+private fun PendingExposureRow(
+    exposure: PendingExposureRead,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(formatExposureKind(exposure.kind), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Becomes public ${formatRelativeTime(exposure.activatesAt)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun ReauthDialog(
     authTier: String,
@@ -592,6 +656,13 @@ private fun formatField(field: String): String = when (field) {
     "applies_to_journals" -> "journal entries"
     "applies_to_images" -> "images"
     "applies_to_revisions" -> "pinned revisions"
+    "applies_to_notifications" -> "notifications"
+    "applies_to_reminders" -> "reminders"
+    "applies_to_polls" -> "polls"
+    "applies_to_messages" -> "messages"
+    "applies_to_relationships" -> "relationships"
+    "applies_to_archive" -> "archiving members"
+    "applies_to_profile_visibility" -> "profile visibility"
     "auto_pin_first_revision" -> "auto-pin first revision"
     else -> field
 }
@@ -605,7 +676,25 @@ private fun formatActionType(type: String): String = when (type) {
     "journal_delete" -> "Delete journal"
     "image_delete" -> "Delete image"
     "revision_unpin" -> "Unpin revision"
+    "watch_token_revoke" -> "Revoke watcher"
+    "channel_delete" -> "Delete channel"
+    "reminder_delete" -> "Delete reminder"
+    "poll_delete" -> "Delete poll"
+    "message_delete" -> "Delete message"
+    "message_thread_delete" -> "Delete thread"
+    "relationship_type_delete" -> "Delete relationship type"
     else -> type.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+private fun formatExposureKind(kind: String): String = when (kind) {
+    "system_privacy" -> "System set to public"
+    "member_privacy" -> "Member raised to public"
+    "member_fronting" -> "Member's fronting made visible"
+    "group_privacy" -> "Group raised to public"
+    "field_privacy" -> "Custom field raised to public"
+    "relationship_privacy" -> "Relationship raised to public"
+    "view_flags" -> "Share view showing more"
+    else -> kind.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
 private fun formatChangesSummary(changes: Map<String, Any?>): String {

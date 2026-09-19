@@ -313,6 +313,24 @@ fun GroupDetailScreen(
                 onSelect = { viewModel.updateForm { copy(parentId = it) } },
             )
 
+            SectionHeader("Privacy")
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                listOf("public", "friends", "private").forEachIndexed { index, level ->
+                    SegmentedButton(
+                        selected = form.privacy == level,
+                        onClick = { viewModel.updateForm { copy(privacy = level) } },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                    ) { Text(level.replaceFirstChar { it.uppercase() }) }
+                }
+            }
+            Text(
+                state.pendingPrivacy?.let {
+                    "Staged: this becomes \"$it\" when the grace window passes."
+                } ?: "A public group only ever lists members a view already shows.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             Button(
                 onClick = { viewModel.save() },
                 enabled = !state.isSaving && form.name.isNotBlank(),
@@ -320,6 +338,17 @@ fun GroupDetailScreen(
             ) {
                 if (state.isSaving) CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 else Text(if (viewModel.isNewGroup) "Create Group" else "Save Changes")
+            }
+
+            if (state.saveNeedsStepUp) {
+                systems.lupine.sheaf.ui.sharing.StepUpSheet(
+                    authTier = state.raiseGate.authTier,
+                    totpEnabled = state.raiseGate.totpEnabled,
+                    isBusy = state.isSaving,
+                    errorMessage = state.stepUpError,
+                    onConfirm = { password, totp -> viewModel.save(password, totp) },
+                    onDismiss = { viewModel.dismissStepUp() },
+                )
             }
 
             // Members section (only for existing groups)

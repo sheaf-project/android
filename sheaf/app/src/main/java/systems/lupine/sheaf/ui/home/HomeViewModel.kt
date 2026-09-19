@@ -16,6 +16,7 @@ import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.model.GroupRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.data.model.PendingActionRead
+import systems.lupine.sheaf.data.model.PendingExposureRead
 import systems.lupine.sheaf.data.model.SafetyChangeRequestRead
 import systems.lupine.sheaf.data.model.SystemRead
 import systems.lupine.sheaf.data.model.UserRead
@@ -77,6 +78,7 @@ data class HomeUiState(
     val pendingOpCount: Int = 0,
     val pendingSafetyActions: List<PendingActionRead> = emptyList(),
     val pendingSafetyChanges: List<SafetyChangeRequestRead> = emptyList(),
+    val pendingSafetyExposures: List<PendingExposureRead> = emptyList(),
     // Pending revision-retention trim notice from /v1/retention. Set when the
     // server has a status="pending" notice (typically a tier downgrade).
     val pendingTrimNotice: systems.lupine.sheaf.data.model.RetentionTrimNoticeRead? = null,
@@ -348,6 +350,7 @@ class HomeViewModel @Inject constructor(
                             it.copy(
                                 pendingSafetyActions = safetyResp.pendingActions,
                                 pendingSafetyChanges = safetyResp.pendingChanges,
+                                pendingSafetyExposures = safetyResp.pendingExposures,
                             )
                         }
                     }

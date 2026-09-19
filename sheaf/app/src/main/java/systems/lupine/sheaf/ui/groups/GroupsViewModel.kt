@@ -4,6 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.ui.sharing.ShareError
+import systems.lupine.sheaf.ui.sharing.loadRaiseGate
+import systems.lupine.sheaf.ui.sharing.message
+import systems.lupine.sheaf.ui.sharing.toShareError
 import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.*
 import systems.lupine.sheaf.data.network.NetworkMonitor
@@ -164,6 +168,7 @@ data class GroupFormState(
     val color: String = "#534AB7",
     // null = top-level group; otherwise the parent group's id (subgroups).
     val parentId: String? = null,
+    val privacy: String = "private",
 )
 
 data class GroupDetailUiState(
@@ -177,6 +182,11 @@ data class GroupDetailUiState(
     val isDeleting: Boolean = false,
     val error: String? = null,
     val saved: Boolean = false,
+    val raiseGate: systems.lupine.sheaf.ui.sharing.RaiseGate =
+        systems.lupine.sheaf.ui.sharing.RaiseGate(),
+    val saveNeedsStepUp: Boolean = false,
+    val stepUpError: String? = null,
+    val pendingPrivacy: String? = null,
     val deleted: Boolean = false,
     val showMemberSheet: Boolean = false,
     val memberSelection: Set<String> = emptySet(),
@@ -203,8 +213,11 @@ class GroupDetailViewModel @Inject constructor(
     private val _baselineForm = MutableStateFlow(GroupFormState())
     val baselineForm: StateFlow<GroupFormState> = _baselineForm.asStateFlow()
 
+    private var baselinePrivacy: String? = null
+
     init {
         markdownImages.loadUser(viewModelScope)
+        viewModelScope.launch { _state.update { it.copy(raiseGate = api.loadRaiseGate()) } }
         if (!isNewGroup && groupId != null) load()
         loadAllMembers()
         loadAllGroups()
@@ -238,8 +251,11 @@ class GroupDetailViewModel @Inject constructor(
                     description = group.description ?: "",
                     color       = group.color ?: "#534AB7",
                     parentId    = group.parentId,
+                    privacy     = group.privacy,
                 )
                 _baselineForm.value = _form.value
+                baselinePrivacy = group.privacy
+                _state.update { it.copy(pendingPrivacy = group.pendingPrivacy) }
             }.onFailure { e ->
                 _state.update { it.copy(isLoading = false, error = e.toUserMessage()) }
             }
@@ -256,10 +272,22 @@ class GroupDetailViewModel @Inject constructor(
     fun updateForm(update: GroupFormState.() -> GroupFormState) { _form.update(update) }
 
     fun save() {
+        if (systems.lupine.sheaf.ui.sharing.isRaiseToPublic(baselinePrivacy, _form.value.privacy) &&
+            _state.value.raiseGate.stepUpNeeded
+        ) {
+            _state.update { it.copy(saveNeedsStepUp = true, stepUpError = null) }
+            return
+        }
+        save(null, null)
+    }
+
+    fun dismissStepUp() { _state.update { it.copy(saveNeedsStepUp = false, stepUpError = null) } }
+
+    fun save(password: String?, totpCode: String?) {
         val f = _form.value
         if (f.name.isBlank()) return
         viewModelScope.launch {
-            _state.update { it.copy(isSaving = true, error = null) }
+            _state.update { it.copy(isSaving = true, error = null, stepUpError = null) }
             runCatching {
                 if (isNewGroup) {
                     api.createGroup(GroupCreate(
@@ -274,11 +302,30 @@ class GroupDetailViewModel @Inject constructor(
                         description = f.description.takeIf { it.isNotBlank() },
                         color       = f.color.takeIf { it.isNotBlank() },
                         parentId    = f.parentId,
+                        privacy     = f.privacy,
+                        password    = password?.ifBlank { null },
+                        totpCode    = totpCode?.ifBlank { null },
                     ))
                 }
             }
-                .onSuccess { _state.update { it.copy(isSaving = false, saved = true) } }
-                .onFailure { e -> _state.update { it.copy(isSaving = false, error = e.toUserMessage()) } }
+                .onSuccess { _state.update { it.copy(isSaving = false, saved = true, saveNeedsStepUp = false) } }
+                .onFailure { e ->
+                    when (val err = e.toShareError("Couldn't save this group")) {
+                        is ShareError.StepUpRequired -> _state.update {
+                            it.copy(isSaving = false, saveNeedsStepUp = true, stepUpError = null)
+                        }
+                        is ShareError.BadCredentials -> _state.update {
+                            it.copy(isSaving = false, saveNeedsStepUp = true, stepUpError = err.message)
+                        }
+                        else -> _state.update {
+                            it.copy(
+                                isSaving = false,
+                                saveNeedsStepUp = false,
+                                error = err.message("Couldn't save this group"),
+                            )
+                        }
+                    }
+                }
         }
     }
 

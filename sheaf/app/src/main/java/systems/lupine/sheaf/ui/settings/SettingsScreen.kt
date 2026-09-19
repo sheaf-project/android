@@ -63,7 +63,6 @@ fun SettingsScreen(
     onNavigateToServer: () -> Unit,
     onNavigateToSystem: () -> Unit,
     onNavigateToData: () -> Unit,
-    onNavigateToSafety: () -> Unit,
     onNavigateToDanger: () -> Unit,
     onNavigateToAdminPanel: () -> Unit,
     onNavigateToSupport: () -> Unit,
@@ -234,15 +233,8 @@ fun SettingsScreen(
             SettingItem(
                 icon = Icons.AutoMirrored.Outlined.List,
                 title = "System",
-                subtitle = "Tags, custom fields, archived members",
+                subtitle = "Tags, custom fields, archived members, safety, sharing",
                 onClick = onNavigateToSystem,
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingItem(
-                icon = Icons.Outlined.Shield,
-                title = "Safety",
-                subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
-                onClick = onNavigateToSafety,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(
@@ -852,6 +844,14 @@ fun SystemEditScreen(
                     ) { Text(level.replaceFirstChar { it.uppercase() }) }
                 }
             }
+            state.pendingPrivacy?.let { staged ->
+                Text(
+                    "Staged: this becomes \"$staged\" when the grace window passes. " +
+                        "Setting it back to private takes effect at once.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             SectionHeader("Display")
             // Part of this form rather than an instant-apply toggle, so it
@@ -892,6 +892,17 @@ fun SystemEditScreen(
                 else Text("Save Changes")
             }
         }
+    }
+
+    if (state.saveNeedsStepUp) {
+        systems.lupine.sheaf.ui.sharing.StepUpSheet(
+            authTier = state.raiseGate.authTier,
+            totpEnabled = state.raiseGate.totpEnabled,
+            isBusy = state.isSaving,
+            errorMessage = state.stepUpError,
+            onConfirm = { password, totp -> viewModel.save(password, totp) },
+            onDismiss = { viewModel.dismissStepUp() },
+        )
     }
 }
 
