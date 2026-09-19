@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.PendingActionRead
+import systems.lupine.sheaf.data.model.PendingExposureRead
 import systems.lupine.sheaf.data.model.SafetyChangeRequestRead
 import systems.lupine.sheaf.data.model.SystemSafetySettings
 import systems.lupine.sheaf.data.model.SystemSafetyUpdate
@@ -25,6 +26,7 @@ data class SystemSafetyUiState(
     val draft: SystemSafetySettings? = null,
     val pendingActions: List<PendingActionRead> = emptyList(),
     val pendingChanges: List<SafetyChangeRequestRead> = emptyList(),
+    val pendingExposures: List<PendingExposureRead> = emptyList(),
     val totpEnabled: Boolean = false,
     val isSaving: Boolean = false,
     val saveError: String? = null,
@@ -64,6 +66,7 @@ class SystemSafetyViewModel @Inject constructor(
                             draft = resp.settings,
                             pendingActions = resp.pendingActions,
                             pendingChanges = resp.pendingChanges,
+                            pendingExposures = resp.pendingExposures,
                             totpEnabled = user?.totpEnabled == true,
                         )
                     }
@@ -197,6 +200,13 @@ class SystemSafetyViewModel @Inject constructor(
         appliesToJournals = draft.appliesToJournals.takeIf { it != current.appliesToJournals },
         appliesToImages = draft.appliesToImages.takeIf { it != current.appliesToImages },
         appliesToRevisions = draft.appliesToRevisions.takeIf { it != current.appliesToRevisions },
+        appliesToNotifications = draft.appliesToNotifications.takeIf { it != current.appliesToNotifications },
+        appliesToReminders = draft.appliesToReminders.takeIf { it != current.appliesToReminders },
+        appliesToPolls = draft.appliesToPolls.takeIf { it != current.appliesToPolls },
+        appliesToMessages = draft.appliesToMessages.takeIf { it != current.appliesToMessages },
+        appliesToRelationships = draft.appliesToRelationships.takeIf { it != current.appliesToRelationships },
+        appliesToArchive = draft.appliesToArchive.takeIf { it != current.appliesToArchive },
+        appliesToProfileVisibility = draft.appliesToProfileVisibility.takeIf { it != current.appliesToProfileVisibility },
         autoPinFirstRevision = draft.autoPinFirstRevision.takeIf { it != current.autoPinFirstRevision },
         password = password?.ifBlank { null },
         totpCode = totpCode?.ifBlank { null },
@@ -222,6 +232,13 @@ class SystemSafetyViewModel @Inject constructor(
             if (current.appliesToJournals && !draft.appliesToJournals) return true
             if (current.appliesToImages && !draft.appliesToImages) return true
             if (current.appliesToRevisions && !draft.appliesToRevisions) return true
+            if (current.appliesToNotifications && !draft.appliesToNotifications) return true
+            if (current.appliesToReminders && !draft.appliesToReminders) return true
+            if (current.appliesToPolls && !draft.appliesToPolls) return true
+            if (current.appliesToMessages && !draft.appliesToMessages) return true
+            if (current.appliesToRelationships && !draft.appliesToRelationships) return true
+            if (current.appliesToArchive && !draft.appliesToArchive) return true
+            if (current.appliesToProfileVisibility && !draft.appliesToProfileVisibility) return true
             if (current.autoPinFirstRevision && !draft.autoPinFirstRevision) return true
             return false
         }
