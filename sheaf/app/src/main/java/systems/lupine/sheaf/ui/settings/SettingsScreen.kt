@@ -63,7 +63,6 @@ fun SettingsScreen(
     onNavigateToServer: () -> Unit,
     onNavigateToSystem: () -> Unit,
     onNavigateToData: () -> Unit,
-    onNavigateToSafety: () -> Unit,
     onNavigateToDanger: () -> Unit,
     onNavigateToAdminPanel: () -> Unit,
     onNavigateToSupport: () -> Unit,
@@ -234,15 +233,8 @@ fun SettingsScreen(
             SettingItem(
                 icon = Icons.AutoMirrored.Outlined.List,
                 title = "System",
-                subtitle = "Tags, custom fields, archived members",
+                subtitle = "Tags, custom fields, archived members, safety, sharing",
                 onClick = onNavigateToSystem,
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingItem(
-                icon = Icons.Outlined.Shield,
-                title = "Safety",
-                subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
-                onClick = onNavigateToSafety,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingItem(

@@ -136,7 +136,6 @@ object Routes {
     const val RELATIONSHIPS          = "relationships"
     const val RELATIONSHIP_GRAPH     = "relationships/graph"
     const val SETTINGS_DATA          = "settings/data"
-    const val SETTINGS_SAFETY        = "settings/safety-cat"
     const val SETTINGS_DANGER        = "settings/danger"
     const val SETTINGS_TAGS          = "settings/tags"
     const val SETTINGS_RETENTION     = "settings/retention"
@@ -486,7 +485,6 @@ fun SheafApp(
                     onNavigateToServer        = { navController.navigate(Routes.SETTINGS_SERVER) },
                     onNavigateToSystem        = { navController.navigate(Routes.SETTINGS_SYSTEM) },
                     onNavigateToData          = { navController.navigate(Routes.SETTINGS_DATA) },
-                    onNavigateToSafety        = { navController.navigate(Routes.SETTINGS_SAFETY) },
                     onNavigateToDanger        = { navController.navigate(Routes.SETTINGS_DANGER) },
                     onNavigateToAdminPanel    = { navController.navigate(Routes.ADMIN_PANEL) },
                     onNavigateToSupport       = { navController.navigate(Routes.SUPPORT) },
@@ -635,6 +633,9 @@ fun SheafApp(
                     onNavigateToCustomFields = { navController.navigate(Routes.CUSTOM_FIELDS) },
                     onNavigateToTags = { navController.navigate(Routes.SETTINGS_TAGS) },
                     onNavigateToArchivedMembers = { navController.navigate(Routes.ARCHIVED_MEMBERS) },
+                    onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
+                    onNavigateToSharing = { navController.navigate(Routes.SHARING) },
+                    onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
                 )
             }
             composable(Routes.RELATIONSHIPS) {
@@ -673,14 +674,6 @@ fun SheafApp(
                     onNavigateToOpenPluralImport = { navController.navigate(Routes.OPENPLURAL_IMPORT) },
                     onNavigateToAmpersandImport = { navController.navigate(Routes.AMPERSAND_IMPORT) },
                     onNavigateToImportHistory = { navController.navigate(Routes.IMPORT_HISTORY) },
-                )
-            }
-            composable(Routes.SETTINGS_SAFETY) {
-                systems.lupine.sheaf.ui.settings.SafetyCategoryScreen(
-                    onNavigateUp = { navController.navigateUp() },
-                    onNavigateToSystemSafety = { navController.navigate(Routes.SYSTEM_SAFETY) },
-                    onNavigateToRetention = { navController.navigate(Routes.SETTINGS_RETENTION) },
-                    onNavigateToSharing = { navController.navigate(Routes.SHARING) },
                 )
             }
             composable(Routes.SETTINGS_RETENTION) {
