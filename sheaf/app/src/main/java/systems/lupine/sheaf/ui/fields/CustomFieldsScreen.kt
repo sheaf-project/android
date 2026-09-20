@@ -188,6 +188,17 @@ fun CustomFieldsScreen(
             },
         )
     }
+
+    if (state.stepUpEdit != null) {
+        systems.lupine.sheaf.ui.sharing.StepUpSheet(
+            authTier = state.raiseGate.authTier,
+            totpEnabled = state.raiseGate.totpEnabled,
+            isBusy = state.isSaving,
+            errorMessage = state.stepUpError,
+            onConfirm = { password, totp -> viewModel.confirmStepUp(password, totp) },
+            onDismiss = { viewModel.dismissStepUp() },
+        )
+    }
 }
 
 // ── Field list item ───────────────────────────────────────────────────────────

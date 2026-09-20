@@ -29,6 +29,28 @@ data class AuthConfig(
     @Json(name = "privacy_url") val privacyUrl: String? = null,
 )
 
+/**
+ * What `/v1/version` reports about the instance.
+ *
+ * Unauthenticated and cheap, and the only way for the app to say what a server
+ * can and cannot do in terms a person can act on. Feature availability itself
+ * is always detected rather than inferred from this - a self-hoster running a
+ * dev build has a version string that tells you very little - but once a
+ * feature has been found missing, this is what turns "not supported" into
+ * "you're on 1.4.2".
+ */
+@JsonClass(generateAdapter = true)
+data class ServerVersion(
+    val version: String? = null,
+    @Json(name = "git_tag") val gitTag: String? = null,
+    @Json(name = "build_time") val buildTime: String? = null,
+    val mode: String? = null,
+) {
+    /** What to show a person: the tag if the build had one, else the version. */
+    val display: String? get() =
+        gitTag?.takeIf { it.isNotBlank() } ?: version?.takeIf { it.isNotBlank() }
+}
+
 @JsonClass(generateAdapter = true)
 data class UserRegister(
     val email: String,
@@ -154,6 +176,12 @@ data class UserRead(
     @Json(name = "uploads_allowed") val uploadsAllowed: Boolean = true,
     @Json(name = "bio_uploads_allowed") val bioUploadsAllowed: Boolean = true,
     @Json(name = "external_images_allowed") val externalImagesAllowed: Boolean = true,
+    // Instance policy: whether this deployment serves a public-profile surface
+    // at all. Off means the public router 404s wholesale, so no sharing UI.
+    @Json(name = "public_profiles_enabled") val publicProfilesEnabled: Boolean = false,
+    // Null means the client should prompt for the 18+ declaration the first
+    // time the user tries to publish something.
+    @Json(name = "adult_attested_at") val adultAttestedAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -240,6 +268,10 @@ data class SystemRead(
     @Json(name = "avatar_url") val avatarUrl: String?,
     val color: String?,
     val privacy: String,
+    // A raise of the master switch waiting out the grace window. `privacy`
+    // above is still the truth until privacyActivatesAt passes.
+    @Json(name = "pending_privacy") val pendingPrivacy: String? = null,
+    @Json(name = "privacy_activates_at") val privacyActivatesAt: String? = null,
     @Json(name = "delete_confirmation") val deleteConfirmation: String?,
     // Default to true if the field is missing (older cached payloads); matches
     // the backend default for replace_fronts_default and web's `?? true` fallback.
@@ -280,6 +312,9 @@ data class SystemUpdate(
     val privacy: String? = null,
     val note: String? = null,
     @Json(name = "show_member_created_date") val showMemberCreatedDate: Boolean? = null,
+    // Only consulted when raising privacy to public is deferred.
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 // ── System Safety ─────────────────────────────────────────────────────────────
@@ -296,6 +331,19 @@ data class SystemSafetySettings(
     @Json(name = "applies_to_journals") val appliesToJournals: Boolean,
     @Json(name = "applies_to_images") val appliesToImages: Boolean,
     @Json(name = "applies_to_revisions") val appliesToRevisions: Boolean = false,
+    @Json(name = "applies_to_notifications") val appliesToNotifications: Boolean = false,
+    @Json(name = "applies_to_reminders") val appliesToReminders: Boolean = false,
+    @Json(name = "applies_to_polls") val appliesToPolls: Boolean = false,
+    @Json(name = "applies_to_messages") val appliesToMessages: Boolean = false,
+    // Deleting a relationship TYPE, which takes every edge drawn with it. The
+    // per-edge visibility controls are a separate thing.
+    @Json(name = "applies_to_relationships") val appliesToRelationships: Boolean = false,
+    // No grace-able pending action behind this one: it only gates whether
+    // archiving a member needs re-auth.
+    @Json(name = "applies_to_archive") val appliesToArchive: Boolean = false,
+    // Armed by default server-side; the default here matches so an instance that
+    // predates the category doesn't read as unarmed.
+    @Json(name = "applies_to_profile_visibility") val appliesToProfileVisibility: Boolean = true,
     @Json(name = "auto_pin_first_revision") val autoPinFirstRevision: Boolean = true,
 )
 
@@ -311,6 +359,13 @@ data class SystemSafetyUpdate(
     @Json(name = "applies_to_journals") val appliesToJournals: Boolean? = null,
     @Json(name = "applies_to_images") val appliesToImages: Boolean? = null,
     @Json(name = "applies_to_revisions") val appliesToRevisions: Boolean? = null,
+    @Json(name = "applies_to_notifications") val appliesToNotifications: Boolean? = null,
+    @Json(name = "applies_to_reminders") val appliesToReminders: Boolean? = null,
+    @Json(name = "applies_to_polls") val appliesToPolls: Boolean? = null,
+    @Json(name = "applies_to_messages") val appliesToMessages: Boolean? = null,
+    @Json(name = "applies_to_relationships") val appliesToRelationships: Boolean? = null,
+    @Json(name = "applies_to_archive") val appliesToArchive: Boolean? = null,
+    @Json(name = "applies_to_profile_visibility") val appliesToProfileVisibility: Boolean? = null,
     @Json(name = "auto_pin_first_revision") val autoPinFirstRevision: Boolean? = null,
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
@@ -342,11 +397,20 @@ data class SafetyChangeRequestRead(
     val status: String,
 )
 
+// A staged raise-to-public waiting out the grace window. Count and time only,
+// no entity label, matching the pending-delete banner.
+@JsonClass(generateAdapter = true)
+data class PendingExposureRead(
+    val kind: String,
+    @Json(name = "activates_at") val activatesAt: String,
+)
+
 @JsonClass(generateAdapter = true)
 data class SystemSafetyResponse(
     val settings: SystemSafetySettings,
     @Json(name = "pending_actions") val pendingActions: List<PendingActionRead>,
     @Json(name = "pending_changes") val pendingChanges: List<SafetyChangeRequestRead>,
+    @Json(name = "pending_exposures") val pendingExposures: List<PendingExposureRead> = emptyList(),
 )
 
 @JsonClass(generateAdapter = true)
@@ -439,6 +503,12 @@ data class MemberRead(
     // Set when a System Safety grace period has this queued for deletion.
     // Still returned and still usable until the window closes; the UI marks it.
     @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
+    // Ceilings. never_shareable is absolute: no view can publish this member.
+    @Json(name = "never_shareable") val neverShareable: Boolean = false,
+    @Json(name = "fronting_private") val frontingPrivate: Boolean = false,
+    // Set while a request to drop the fronting guard is waiting out the grace
+    // window. The flag above is still the truth until it passes.
+    @Json(name = "fronting_private_activates_at") val frontingPrivateActivatesAt: String? = null,
 ) {
     val displayNameOrName: String get() = displayName?.takeIf { it.isNotBlank() } ?: name
 
@@ -504,6 +574,14 @@ data class MemberUpdate(
     // Short glyph shown beside the member's name and in place of an
     // avatar. Server caps it at 8 code points.
     val emoji: String? = null,
+    // Ceilings. never_shareable keeps a member off every public surface
+    // whatever a view says; fronting_private keeps their front state from
+    // propagating at all.
+    @Json(name = "never_shareable") val neverShareable: Boolean? = null,
+    @Json(name = "fronting_private") val frontingPrivate: Boolean? = null,
+    // Only consulted when the edit is a deferred exposure. Never stored.
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 // ── Fronts ────────────────────────────────────────────────────────────────────
@@ -589,6 +667,11 @@ data class GroupRead(
     val name: String,
     val description: String?,
     val color: String?,
+    val privacy: String = "private",
+    // A raise waiting out the grace window. `privacy` above is still the truth
+    // until privacyActivatesAt passes.
+    @Json(name = "pending_privacy") val pendingPrivacy: String? = null,
+    @Json(name = "privacy_activates_at") val privacyActivatesAt: String? = null,
     @Json(name = "parent_id") val parentId: String?,
     // Where the owner put this group among its siblings. Ties break on name,
     // so a system that has never reordered anything (every group at 0, which
@@ -633,6 +716,10 @@ data class GroupUpdate(
     val description: String? = null,
     val color: String? = null,
     @Json(name = "parent_id") val parentId: String? = null,
+    val privacy: String? = null,
+    // Popped server-side before persistence, never a group column.
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -728,6 +815,8 @@ data class CustomFieldUpdate(
     val name: String? = null,
     val options: CustomFieldOptions? = null,
     val privacy: String? = null,
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 // Per-member custom field values. The value column on the wire is

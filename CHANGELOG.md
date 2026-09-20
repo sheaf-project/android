@@ -6,16 +6,36 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
 
-### Fixed
-
-- **Home stops waiting on a slow call it doesn't draw.** Who's fronting now
-  appears as soon as its own data arrives, instead of waiting for every
-  background request the screen makes. Most visible after a switch, and on
-  systems with a lot of members and history where the quick-switch ranking can
-  take a few seconds to come back. The watch's tiles no longer wait on it
-  either.
-
 ### Added
+
+- **Manage public profiles and share links from your phone.** Sharing has a
+  screen of its own: what each share view holds, whether it's live, and who can
+  currently see what, with rotate and revoke reachable for every grant
+  including ones that are pending or expired. When nothing is being served it
+  says which switch is responsible rather than leaving you to guess. There's no
+  in-app viewer for a shared page, because a link already opens in any browser.
+  Needs a server running 1.4.0 or later.
+
+- **Choose what a view's links unfurl into.** Each share view decides whether a
+  pasted link shows a rich card naming your system, and whether a member's
+  permalink shows that member, as two separate choices. Both default to a
+  generic card, and turning one on goes through the same re-auth and grace
+  period as any other change that shows more.
+
+- **Every System Safety category, including the one for going public.** The
+  screen knew nine of the server's fifteen categories; the other six were
+  dropped on parse, so notifications, reminders, polls, messages,
+  relationships and archive could be neither seen nor changed from the phone.
+  All fifteen are there now, including profile visibility, which guards
+  changes that make something *more* visible rather than deleting it.
+
+- **A warning before something becomes public.** Raises waiting out the grace
+  window now show on Home and on System Safety, with how long is left.
+
+- **Settings > Server shows the server's version.** Sheaf servers are run by
+  all sorts of people on all sorts of schedules, and features that need a newer
+  one say so; this is where you find out which version you're actually talking
+  to, so "needs 1.5.1 or later" is something you can act on.
 
 - **The fronting notification has settings of its own.** Notifications now has
   a "Fronting notification" screen holding the on/off switch and three new
@@ -23,26 +43,42 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   whether it comes back if you swipe it away. Everything defaults to what it
   did before, so nothing changes unless you change it.
 
-  - **Names behind an expand.** With "show names without expanding" off, the
-    notification says only "Tap to expand" until you open it, on the lock
-    screen as well as in the shade.
-  - **Bring it back if dismissed.** Android always lets a notification be
-    swiped away, whatever an app asks for. With this on, it returns about five
-    minutes later rather than staying gone until the next refresh.
-  - **Icon choice.** A generic people glyph, as before, or the Sheaf mark.
-    Note this is the status bar only, and some phones hide silent
-    notifications from the status bar entirely.
-
-## [Unreleased]
-
-### Added
-
+- **Names behind an expand.** With "show names without expanding" off, the
+  notification says only "Tap to expand" until you open it, on the lock
+  screen as well as in the shade.
+- **Bring it back if dismissed.** Android always lets a notification be
+  swiped away, whatever an app asks for. With this on, it returns about five
+  minutes later rather than staying gone until the next refresh.
+- **Icon choice.** A generic people glyph, as before, or the Sheaf mark.
+  Note this is the status bar only, and some phones hide silent
+  notifications from the status bar entirely.
 - **Wear: add a tile more than once.** Every Sheaf tile can now be added to the
   watch several times, each copy configured separately: a quick-switch tile per
   group of people, a fronters tile for one set and another for a different set.
   Each copy can be narrowed to its own roster of members, and one left
   unconfigured shows everybody exactly as before. Reached from the tile's own
   settings on the watch.
+
+### Changed
+- **Safety settings live under System.** System Safety, Sharing and revision
+  retention all describe your system rather than the app, so they've moved into
+  Settings > System and the separate Safety category is gone.
+
+### Fixed
+
+- **A certificate problem now says it's a certificate problem.** A TLS failure
+  read as "Network error, check your connection", which sent anyone with a
+  private CA, a certificate issued for another name, or an expired one off to
+  debug the wrong thing. The three cases are now named, including the answer to
+  the obvious follow-up: certificates you installed on the device aren't used.
+  Wording only; what the app trusts is unchanged.
+
+- **Home stops waiting on a slow call it doesn't draw.** Who's fronting now
+  appears as soon as its own data arrives, instead of waiting for every
+  background request the screen makes. Most visible after a switch, and on
+  systems with a lot of members and history where the quick-switch ranking can
+  take a few seconds to come back. The watch's tiles no longer wait on it
+  either.
 
 ## [1.3.3] - 2026-09-10
 

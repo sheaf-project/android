@@ -11,6 +11,7 @@ import androidx.biometric.BiometricManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.foundation.layout.*
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Dashboard
@@ -667,15 +669,40 @@ fun ServerSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val savedBaseUrl by viewModel.baseUrl.collectAsState()
+    val serverVersion by viewModel.serverVersion.collectAsState()
     var urlDraft by remember(savedBaseUrl) { mutableStateOf(savedBaseUrl) }
     var urlError by remember { mutableStateOf<String?>(null) }
     var showUrlDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(savedBaseUrl) { viewModel.loadServerVersion() }
     CategoryScaffold(title = "Server", onNavigateUp = onNavigateUp) {
         SettingItem(
             icon = Icons.Outlined.Storage,
             title = "API Server",
             subtitle = savedBaseUrl.ifBlank { "Not configured" },
             onClick = { urlDraft = savedBaseUrl; urlError = null; showUrlDialog = true },
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        // Here so that "this server doesn't support X yet" has somewhere to
+        // point: knowing you are on 1.5.0 is what makes that sentence
+        // actionable, whether you run the server or have to ask someone who
+        // does.
+        ListItem(
+            headlineContent = { Text("Server version") },
+            supportingContent = {
+                Text(
+                    serverVersion?.display?.let { version ->
+                        val mode = serverVersion?.mode?.takeIf { it.isNotBlank() }
+                        if (mode != null) "$version ($mode)" else version
+                    } ?: "Unknown - this server doesn't report one",
+                )
+            },
+            leadingContent = {
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
         )
     }
     if (showUrlDialog) {
@@ -728,7 +755,12 @@ fun SystemCategoryScreen(
     onNavigateToCustomFields: () -> Unit,
     onNavigateToTags: () -> Unit,
     onNavigateToArchivedMembers: () -> Unit,
+    onNavigateToSystemSafety: () -> Unit,
+    onNavigateToSharing: () -> Unit,
+    onNavigateToRetention: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.state.collectAsState()
     CategoryScaffold(title = "System", onNavigateUp = onNavigateUp) {
         SettingItem(
             icon = Icons.Outlined.LocalOffer,
@@ -750,25 +782,25 @@ fun SystemCategoryScreen(
             subtitle = "View and restore archived members",
             onClick = onNavigateToArchivedMembers,
         )
-    }
-}
-
-// ── Safety ─────────────────────────────────────────────────────────────────
-
-@Composable
-fun SafetyCategoryScreen(
-    onNavigateUp: () -> Unit,
-    onNavigateToSystemSafety: () -> Unit,
-    onNavigateToRetention: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel(),
-) {
-    val state by viewModel.state.collectAsState()
-    CategoryScaffold(title = "Safety", onNavigateUp = onNavigateUp) {
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
             icon = Icons.Outlined.Shield,
             title = "System Safety",
             subtitle = formatSafetySubtitle(state.system?.deleteConfirmation),
             onClick = onNavigateToSystemSafety,
+        )
+        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+        // Shown whatever the instance switch says: an owner must always be able
+        // to reach revoke, including after an operator turns publishing off.
+        SettingItem(
+            icon = Icons.Outlined.Public,
+            title = "Sharing",
+            subtitle = if (state.user?.publicProfilesEnabled == true) {
+                "Share views, links and who can currently see what"
+            } else {
+                "Public profiles are off on this instance"
+            },
+            onClick = onNavigateToSharing,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
@@ -787,15 +819,7 @@ fun DataSettingsScreen(
     onNavigateUp: () -> Unit,
     onNavigateToFiles: () -> Unit,
     onNavigateToExportData: () -> Unit,
-    onNavigateToSpImport: () -> Unit,
-    onNavigateToSheafImport: () -> Unit,
-    onNavigateToPkFileImport: () -> Unit,
-    onNavigateToPkApiImport: () -> Unit,
-    onNavigateToTupperboxImport: () -> Unit,
-    onNavigateToPluralSpaceImport: () -> Unit,
-    onNavigateToPrismImport: () -> Unit,
-    onNavigateToOpenPluralImport: () -> Unit,
-    onNavigateToAmpersandImport: () -> Unit,
+    onNavigateToImport: () -> Unit,
     onNavigateToImportHistory: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -848,65 +872,9 @@ fun DataSettingsScreen(
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(
             icon = Icons.Outlined.Upload,
-            title = "Import from Simply Plural",
-            subtitle = "Import members, groups, and history",
-            onClick = onNavigateToSpImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Sheaf Export",
-            subtitle = "Restore from a Sheaf JSON backup",
-            onClick = onNavigateToSheafImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from PluralKit (file)",
-            subtitle = "Use a PK export JSON from `pk;export`",
-            onClick = onNavigateToPkFileImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.CloudDownload,
-            title = "Import from PluralKit (API)",
-            subtitle = "Connect with your PK token to import live",
-            onClick = onNavigateToPkApiImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Tupperbox",
-            subtitle = "Use a Tupperbox export JSON from `tul!export`",
-            onClick = onNavigateToTupperboxImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from PluralSpace",
-            subtitle = "Use a PluralSpace .zip data export",
-            onClick = onNavigateToPluralSpaceImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Prism",
-            subtitle = "Use an encrypted .prism export and its passphrase",
-            onClick = onNavigateToPrismImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from OpenPlural",
-            subtitle = "Use an OpenPlural .json or .openplural.zip export",
-            onClick = onNavigateToOpenPluralImport,
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-        SettingItem(
-            icon = Icons.Outlined.Upload,
-            title = "Import from Ampersand",
-            subtitle = "Use an Ampersand .json data export",
-            onClick = onNavigateToAmpersandImport,
+            title = "Import data",
+            subtitle = "Simply Plural, PluralKit, Tupperbox, Prism, and more",
+            onClick = onNavigateToImport,
         )
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
         SettingItem(

@@ -8,6 +8,11 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
+import java.security.cert.CertificateExpiredException
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -43,6 +48,54 @@ class ErrorMessagesTest {
         assertEquals(
             "Network error — check your connection and try again",
             IOException("disk full or whatever").toUserMessage(),
+        )
+    }
+
+    // Shaped like what Android throws: the handshake exception wraps the
+    // validator's verdict a level or two down.
+    private fun handshake(cause: Throwable) =
+        SSLHandshakeException("handshake failed").apply { initCause(cause) }
+
+    @Test
+    fun `untrusted certificate says so instead of blaming the network`() {
+        val e = handshake(
+            CertificateException(CertPathValidatorException("Trust anchor for certification path not found.")),
+        )
+        assertEquals(
+            "The server's certificate isn't trusted. Sheaf doesn't use certificates installed " +
+                "on this device, so the server needs one from a public certificate authority",
+            e.toUserMessage(),
+        )
+    }
+
+    @Test
+    fun `expired certificate is not reported as untrusted`() {
+        val e = handshake(
+            CertificateException(
+                CertPathValidatorException("timestamp check failed", CertificateExpiredException()),
+            ),
+        )
+        assertEquals(
+            "The server's certificate has expired or isn't valid yet. Check this device's date " +
+                "and time, or renew the certificate",
+            e.toUserMessage(),
+        )
+    }
+
+    @Test
+    fun `certificate for another hostname says the address does not match`() {
+        assertEquals(
+            "The server's certificate doesn't match this address. Use the address the " +
+                "certificate was issued for",
+            SSLPeerUnverifiedException("Hostname 10.0.0.5 not verified").toUserMessage(),
+        )
+    }
+
+    @Test
+    fun `a handshake failure with no certificate cause stays a network error`() {
+        assertEquals(
+            IOException("x").toUserMessage(),
+            SSLHandshakeException("Connection closed by peer").toUserMessage(),
         )
     }
 
