@@ -113,14 +113,66 @@ val drawerGroups: List<DrawerGroup> = listOf(
     ),
 )
 
+/**
+ * Sharing, which is in the drawer only sometimes - see [drawerGroupsFor]. Kept
+ * out of [drawerGroups] so the always-present list stays the list of things
+ * that are always present.
+ */
+val sharingDest = DrawerDest(Routes.SHARING, "Sharing", Icons.Outlined.Public, Icons.Filled.Public)
+
+/**
+ * The drawer's destinations for this account.
+ *
+ * [showSharing] is on when the instance serves a public surface, or when it
+ * does not but this account still has grants on file: grants outlive the
+ * setting, and Sharing is the only place to revoke one. Hiding it in that
+ * second case would leave somebody published with no way to reach the button
+ * that unpublishes them.
+ */
+fun drawerGroupsFor(showSharing: Boolean): List<DrawerGroup> =
+    if (!showSharing) drawerGroups
+    else drawerGroups.map { group ->
+        if (group.title == "System") group.copy(items = group.items + sharingDest) else group
+    }
+
 /** Every destination, flattened. */
 val allDests: List<DrawerDest> = drawerGroups.flatMap { it.items }
 
-/** Every route the drawer can reach, for chrome / selection decisions. */
-val drawerRoutes: Set<String> = allDests.mapTo(mutableSetOf()) { it.route }
+/**
+ * Every route the drawer can reach, for chrome / selection decisions. Sharing
+ * is here whether or not it is currently listed: when it is reachable it is a
+ * top-level destination like any other, and a route that is missing from this
+ * set loses the bottom bar.
+ */
+val drawerRoutes: Set<String> =
+    allDests.mapTo(mutableSetOf()) { it.route } + sharingDest.route
 
-/** Everything the user may pin. Home is excluded: it owns the first slot. */
-val pinnableDests: List<DrawerDest> = allDests.filter { it.route != Routes.HOME }
+/**
+ * Everything the user may pin. Home is excluded: it owns the first slot.
+ *
+ * Sharing is pinnable even though it is not always in the drawer. A pin is the
+ * user's decision, and an operator turning the instance switch off must not
+ * silently rearrange their bar: the slot stays, greyed out, and says so when
+ * tapped. Undoing the pin is then their call rather than something that
+ * happened to them. See [unavailableRoutes].
+ */
+val pinnableDests: List<DrawerDest> = allDests.filter { it.route != Routes.HOME } + sharingDest
+
+/**
+ * Pinned destinations this server currently has nothing behind, and the line to
+ * say when one is tapped.
+ *
+ * The general shape for anything an operator can switch off: the slot is drawn
+ * dimmed rather than removed, and tapping it explains rather than navigating to
+ * an empty screen. Nothing here is an error the user caused, so the wording
+ * says what happened and that it can come back.
+ */
+fun unavailableRoutes(sharingAvailable: Boolean): Map<String, String> =
+    if (sharingAvailable) emptyMap()
+    else mapOf(
+        Routes.SHARING to "Sharing is turned off on this server. " +
+            "Anything you published is kept, not revoked.",
+    )
 
 /** How many slots sit between Home and the More entry. */
 const val PIN_SLOTS = 3
@@ -159,6 +211,7 @@ fun resolvePins(saved: List<String>?): List<DrawerDest> {
 fun AppDrawerContent(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
+    showSharing: Boolean = false,
 ) {
     ModalDrawerSheet {
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -167,7 +220,7 @@ fun AppDrawerContent(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(start = 28.dp, top = 20.dp, bottom = 12.dp),
             )
-            drawerGroups.forEachIndexed { index, group ->
+            drawerGroupsFor(showSharing).forEachIndexed { index, group ->
                 if (group.title != null) {
                     Text(
                         text = group.title,

@@ -4,6 +4,25 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **"Don't show again" on an announcement now sticks.** It was saved to the
+  server correctly and then never read back, so the announcement returned on
+  the next launch. Anything you dismissed permanently before this stays
+  dismissed once you update.
+
+### Changed
+
+- **Sharing is in the navigation drawer.** It was only reachable through
+  Settings > System, which is not where you look when you want to take
+  something down in a hurry. It now sits with the rest of the system, matching
+  the web app, and can be pinned to the bottom bar. It appears when your server
+  offers public profiles, or when it doesn't but you still have something
+  published, so revoking is always reachable. Still listed under
+  Settings > System too.
+
 ## [1.4.0] - 2026-09-20
 
 ### Added

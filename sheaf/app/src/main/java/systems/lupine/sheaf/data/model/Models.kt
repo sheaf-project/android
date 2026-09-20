@@ -892,7 +892,12 @@ data class ClientSettingsBody(
 )
 
 data class ClientSettingsResponse(
-    val clientId: String,
+    // The server sends client_id. Moshi does not convert snake_case, so
+    // without this the field is absent, and being non-null with no default it
+    // failed the WHOLE response - every read of client settings threw, every
+    // caller swallowed it in runCatching, and "don't show again" came back on
+    // the next launch because the dismissed set could never be restored.
+    @Json(name = "client_id") val clientId: String,
     val settings: Map<String, Any>,
 )
 
