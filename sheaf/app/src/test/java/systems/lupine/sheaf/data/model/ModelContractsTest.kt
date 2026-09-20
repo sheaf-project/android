@@ -13,6 +13,30 @@ class ModelContractsTest {
 
     private val moshi = Moshi.Builder().build()
 
+    @Test fun `client settings decode from the shape the server sends`() {
+        // This failed for the life of the feature: the response carries
+        // client_id, the field was named clientId with no mapping, and Moshi
+        // does not convert snake_case. A non-null field with no default takes
+        // the whole payload down with it, so every read threw and every caller
+        // swallowed it - "don't show again" persisted server-side and was
+        // never read back, so the announcement returned on the next launch.
+        val json = """
+            {"client_id": "android",
+             "settings": {"dismissed_announcements": ["a1", "a2"]}}
+        """.trimIndent()
+        // The app's own Moshi, not the bare one above: this type is handled by
+        // KotlinJsonAdapterFactory rather than codegen, so a plain builder
+        // cannot read it and would not be testing what ships.
+        val parsed = systems.lupine.sheaf.di.NetworkModule.provideMoshi()
+            .adapter(ClientSettingsResponse::class.java)
+            .fromJson(json)!!
+        assertEquals("android", parsed.clientId)
+        assertEquals(
+            listOf("a1", "a2"),
+            (parsed.settings["dismissed_announcements"] as List<*>).map { it as String },
+        )
+    }
+
     @Test fun `an explicit null timezone reaches the wire`() {
         // "Automatic" is an explicit null, and the backend patches with
         // exclude_unset: an omitted field means "leave unchanged". Without

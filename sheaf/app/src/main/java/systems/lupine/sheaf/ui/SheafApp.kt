@@ -26,10 +26,13 @@ import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import android.net.Uri
+import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -51,6 +54,8 @@ import systems.lupine.sheaf.ui.navigation.NavPinsScreen
 import systems.lupine.sheaf.ui.navigation.NavPinsViewModel
 import systems.lupine.sheaf.ui.navigation.drawerRoutes
 import systems.lupine.sheaf.ui.navigation.homeDest
+import systems.lupine.sheaf.ui.navigation.unavailableRoutes
+import systems.lupine.sheaf.ui.sharing.SharingAvailabilityViewModel
 import systems.lupine.sheaf.ui.members.MemberDetailScreen
 import systems.lupine.sheaf.ui.members.MemberProfileScreen
 import systems.lupine.sheaf.ui.members.MembersScreen
@@ -174,6 +179,10 @@ private val MAX_CONTENT_WIDTH = 840.dp
 // it gets (so capping it would just cost columns).
 private val FULL_BLEED_ROUTES = setOf(Routes.RELATIONSHIP_GRAPH, Routes.HOME)
 
+// Material's disabled-content opacity, for a bar slot that is pinned but has
+// nothing behind it on this server.
+private const val DISABLED_ALPHA = 0.38f
+
 // Destinations that keep the bar/rail on screen: everything the drawer can
 // reach, which is a superset of whatever is currently pinned to the bar.
 // Without this, stepping to a drawer destination would drop the app chrome and
@@ -187,12 +196,19 @@ fun SheafApp(
     pendingRedemption: PendingRedemptionHolder,
     authViewModel: AuthViewModel = hiltViewModel(),
     navPinsViewModel: NavPinsViewModel = hiltViewModel(),
+    sharingAvailability: SharingAvailabilityViewModel = hiltViewModel(),
 ) {
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
     val pendingRedeem by pendingRedemption.pending.collectAsState()
     val fileCdnBase by authViewModel.fileCdnBase.collectAsState()
     val displayZone by authViewModel.effectiveDisplayZone.collectAsState()
     val navController = rememberNavController()
+
+    // Whether this account has any sharing to manage, which decides if the
+    // drawer lists it at all. Re-asked on sign-in and cleared on sign-out, so
+    // it never carries over from the previous account.
+    val showSharing by sharingAvailability.visible.collectAsState()
+    LaunchedEffect(isLoggedIn) { sharingAvailability.refresh(isLoggedIn) }
 
     // React to login state changes
     LaunchedEffect(isLoggedIn) {
@@ -253,8 +269,17 @@ fun SheafApp(
     // Home owns the first slot always; the rest are the user's pins.
     val pinned by navPinsViewModel.pins.collectAsState()
     val barDestinations = remember(pinned) { listOf(homeDest) + pinned }
+    val unavailable = remember(showSharing) { unavailableRoutes(sharingAvailable = showSharing) }
+    val context = LocalContext.current
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    // Re-ask whenever the drawer opens, not only at sign-in: publishing a first
+    // share link should put the entry there without waiting for a relaunch, and
+    // opening the drawer is both the moment the answer matters and a bound on
+    // how often it is asked.
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) sharingAvailability.refresh(isLoggedIn)
+    }
     val scope = rememberCoroutineScope()
     // Switching top-level destination is a "start over here" move, not a step
     // deeper, so drawer and bar navigation share the same options: reset to the
@@ -280,6 +305,7 @@ fun SheafApp(
                     scope.launch { drawerState.close() }
                     goTo(route)
                 },
+                showSharing = showSharing,
             )
         },
     ) {
@@ -288,16 +314,34 @@ fun SheafApp(
         navigationSuiteItems = {
             barDestinations.forEach { dest ->
                 val selected = currentDest?.hierarchy?.any { it.route == dest.route } == true
+                // A pinned destination this server currently has nothing behind
+                // keeps its slot, dimmed, and says why when tapped. Removing it
+                // would be an operator's switch quietly rearranging somebody
+                // else's bar; putting them on a dead screen would be worse.
+                val unavailableReason = unavailable[dest.route]
+                val dimmed = unavailableReason != null
                 item(
-                    selected = selected,
-                    onClick = { goTo(dest.route) },
+                    selected = selected && !dimmed,
+                    onClick = {
+                        if (unavailableReason != null) {
+                            Toast.makeText(context, unavailableReason, Toast.LENGTH_LONG).show()
+                        } else {
+                            goTo(dest.route)
+                        }
+                    },
                     icon = {
                         Icon(
-                            if (selected) dest.selectedIcon else dest.icon,
+                            if (selected && !dimmed) dest.selectedIcon else dest.icon,
                             contentDescription = dest.label,
+                            modifier = if (dimmed) Modifier.alpha(DISABLED_ALPHA) else Modifier,
                         )
                     },
-                    label = { Text(dest.label) },
+                    label = {
+                        Text(
+                            dest.label,
+                            modifier = if (dimmed) Modifier.alpha(DISABLED_ALPHA) else Modifier,
+                        )
+                    },
                 )
             }
             // Overflow entry. Reads as selected whenever the current screen is
