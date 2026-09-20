@@ -70,7 +70,14 @@ class FrontHistoryTileService : TileService() {
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<Tile> {
         val authenticated = WearAuthManager(applicationContext).isAuthenticated
         // Newest first; ring buffer is appended chronologically.
-        val history = readFrontHistory(this).reversed().take(MAX_VISIBLE)
+        // Same per-tile roster the fronting tiles use: an empty one means
+        // everybody. An entry survives if anyone on it is on the roster, so a
+        // co-front involving one of them is still part of their history.
+        val roster = loadTileMemberSet(this, requestParams.tileId).toSet()
+        val history = readFrontHistory(this)
+            .reversed()
+            .filter { entry -> roster.isEmpty() || entry.memberIds.any { it in roster } }
+            .take(MAX_VISIBLE)
         val byId = readMembersSnapshot(this).orEmpty().associateBy { it.id }
 
         val status = readLoadStatus(this)

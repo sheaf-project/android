@@ -34,8 +34,12 @@ class FrontingTileService : TileService() {
     )
 
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<Tile> {
-        val prefs = getSharedPreferences("tile_data", Context.MODE_PRIVATE)
-        val names = prefs.getString("fronting_names", null)
+        // Joined here rather than read from the pre-joined tile_data blob:
+        // that blob is the whole system's fronter list, and this tile may be
+        // configured to show only some of them.
+        val names = orderedFronters(this, requestParams.tileId)
+            .joinToString(", ") { it.name }
+            .ifBlank { null }
         val authenticated = WearAuthManager(applicationContext).isAuthenticated
         val status = systems.lupine.sheaf.wear.complications.readLoadStatus(this)
 

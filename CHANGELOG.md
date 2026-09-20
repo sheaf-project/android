@@ -43,18 +43,23 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   whether it comes back if you swipe it away. Everything defaults to what it
   did before, so nothing changes unless you change it.
 
-  - **Names behind an expand.** With "show names without expanding" off, the
-    notification says only "Tap to expand" until you open it, on the lock
-    screen as well as in the shade.
-  - **Bring it back if dismissed.** Android always lets a notification be
-    swiped away, whatever an app asks for. With this on, it returns about five
-    minutes later rather than staying gone until the next refresh.
-  - **Icon choice.** A generic people glyph, as before, or the Sheaf mark.
-    Note this is the status bar only, and some phones hide silent
-    notifications from the status bar entirely.
+- **Names behind an expand.** With "show names without expanding" off, the
+  notification says only "Tap to expand" until you open it, on the lock
+  screen as well as in the shade.
+- **Bring it back if dismissed.** Android always lets a notification be
+  swiped away, whatever an app asks for. With this on, it returns about five
+  minutes later rather than staying gone until the next refresh.
+- **Icon choice.** A generic people glyph, as before, or the Sheaf mark.
+  Note this is the status bar only, and some phones hide silent
+  notifications from the status bar entirely.
+- **Wear: add a tile more than once.** Every Sheaf tile can now be added to the
+  watch several times, each copy configured separately: a quick-switch tile per
+  group of people, a fronters tile for one set and another for a different set.
+  Each copy can be narrowed to its own roster of members, and one left
+  unconfigured shows everybody exactly as before. Reached from the tile's own
+  settings on the watch.
 
 ### Changed
-
 - **Safety settings live under System.** System Safety, Sharing and revision
   retention all describe your system rather than the app, so they've moved into
   Settings > System and the separate Safety category is gone.

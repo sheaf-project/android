@@ -44,7 +44,7 @@ class FrontingWithAvatarsTileService : TileService() {
         // tile cache flags as a mismatch and renders blank.
         val builder = ResourceBuilders.Resources.Builder()
             .setVersion(requestParams.version)
-        for (id in frontingMemberIds()) {
+        for (id in frontingMemberIds(requestParams.tileId)) {
             tileAvatarResource(this, id)?.let { res ->
                 builder.addIdToImageMapping(tileAvatarResourceId(id), res)
             }
@@ -54,7 +54,7 @@ class FrontingWithAvatarsTileService : TileService() {
 
     override fun onTileRequest(requestParams: TileRequest): ListenableFuture<Tile> {
         val authenticated = WearAuthManager(applicationContext).isAuthenticated
-        val members = orderedFronters(this)
+        val members = orderedFronters(this, requestParams.tileId)
         val status = systems.lupine.sheaf.wear.complications.readLoadStatus(this)
 
         val layout = when {
@@ -87,7 +87,11 @@ class FrontingWithAvatarsTileService : TileService() {
         )
     }
 
-    private fun frontingMemberIds(): List<String> = orderedFronters(this).map { it.id }
+    // Takes the tile id so the images declared match the members this copy of
+    // the tile will actually draw. A superset would render fine and waste the
+    // decode; a subset renders blanks, so it has to follow the same filter.
+    private fun frontingMemberIds(tileId: Int): List<String> =
+        orderedFronters(this, tileId).map { it.id }
 
     private fun avatarsAndNamesLayout(members: List<MemberRow>): Layout {
         val visible = members.take(MAX_AVATARS)
@@ -191,12 +195,24 @@ class FrontingWithAvatarsTileService : TileService() {
  * shared snapshot lives in `tile_data` SharedPreferences; we read it through
  * the same helpers complications use so a single refresh feeds everything.
  */
-internal fun orderedFronters(context: Context): List<MemberRow> {
+/**
+ * Who is fronting, in fronting order, narrowed to this tile's own roster.
+ *
+ * [tileId] is the copy of the tile asking. An empty roster means "everybody",
+ * which is what an unconfigured tile has and therefore what every tile did
+ * before it could be configured at all. A roster that names people the tile
+ * has never heard of simply matches nothing; it is a filter, not a claim that
+ * those members exist.
+ */
+internal fun orderedFronters(context: Context, tileId: Int = -1): List<MemberRow> {
     val fronters = readFrontersSnapshot(context).orEmpty()
     if (fronters.isEmpty()) return emptyList()
     val members = readMembersSnapshot(context).orEmpty()
     val byId = members.associateBy { it.id }
-    return fronters.mapNotNull { byId[it.id] }
+    val allowed = if (tileId == -1) emptySet() else loadTileMemberSet(context, tileId).toSet()
+    return fronters
+        .filter { allowed.isEmpty() || it.id in allowed }
+        .mapNotNull { byId[it.id] }
 }
 
 /**
