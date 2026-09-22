@@ -43,6 +43,7 @@ data class AuthConfig(
 data class ServerVersion(
     val version: String? = null,
     @Json(name = "git_tag") val gitTag: String? = null,
+    @Json(name = "git_commit") val gitCommit: String? = null,
     @Json(name = "build_time") val buildTime: String? = null,
     val mode: String? = null,
 ) {
