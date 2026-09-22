@@ -4,14 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.AdminAuthStatus
-import systems.lupine.sheaf.data.model.AdminChangeEmailRequest
-import systems.lupine.sheaf.data.model.AdminReasonBody
-import systems.lupine.sheaf.data.model.AdminResetPasswordRequest
-import systems.lupine.sheaf.data.model.AdminSuspendRequest
 import systems.lupine.sheaf.data.model.AdminStats
 import systems.lupine.sheaf.data.model.AdminStepUpVerify
-import systems.lupine.sheaf.data.model.AdminUserRead
-import systems.lupine.sheaf.data.model.AdminUserUpdate
 import systems.lupine.sheaf.data.model.AnnouncementCreate
 import systems.lupine.sheaf.data.model.BulkApproveRequest
 import systems.lupine.sheaf.data.model.AnnouncementRead
@@ -30,18 +24,15 @@ data class AdminPanelUiState(
     val isLoading: Boolean = false,
     val authStatus: AdminAuthStatus? = null,
     val stats: AdminStats? = null,
-    val users: List<AdminUserRead> = emptyList(),
     val approvals: List<PendingUserRead> = emptyList(),
     val invites: List<InviteCodeRead> = emptyList(),
     val announcements: List<AnnouncementRead> = emptyList(),
     val error: String? = null,
     val isSteppingUp: Boolean = false,
     val stepUpError: String? = null,
-    val search: String = "",
     val maintenanceMessage: String? = null,
     val isCreatingInvite: Boolean = false,
     val createInviteError: String? = null,
-    val recoveryMessage: String? = null,
     val isSavingAnnouncement: Boolean = false,
     val announcementSaved: Boolean = false,
     val announcementError: String? = null,
@@ -94,7 +85,6 @@ class AdminPanelViewModel @Inject constructor(
 
     private data class AdminData(
         val stats: AdminStats,
-        val users: List<AdminUserRead>,
         val approvals: List<PendingUserRead>,
         val invites: List<InviteCodeRead>,
         val announcements: List<AnnouncementRead>,
@@ -105,7 +95,6 @@ class AdminPanelViewModel @Inject constructor(
             runCatching {
                 AdminData(
                     stats = api.getAdminStats(),
-                    users = api.getAdminUsers(),
                     approvals = api.getApprovals(),
                     invites = api.listInvites(),
                     announcements = api.listAllAnnouncements(),
@@ -115,7 +104,6 @@ class AdminPanelViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             stats = data.stats,
-                            users = data.users,
                             approvals = data.approvals,
                             invites = data.invites,
                             announcements = data.announcements,
@@ -148,26 +136,6 @@ class AdminPanelViewModel @Inject constructor(
             runCatching { api.deleteInvite(id) }
                 .onSuccess { _state.update { it.copy(invites = it.invites.filter { i -> i.id != id }) } }
                 .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to delete invite")) } }
-        }
-    }
-
-    fun setSearch(query: String) {
-        _state.update { it.copy(search = query) }
-        viewModelScope.launch {
-            runCatching { api.getAdminUsers(search = query.ifBlank { null }) }
-                .onSuccess { users -> _state.update { it.copy(users = users) } }
-        }
-    }
-
-    fun updateUser(id: String, update: AdminUserUpdate) {
-        viewModelScope.launch {
-            runCatching { api.updateAdminUser(id, update) }
-                .onSuccess { updated ->
-                    _state.update { s ->
-                        s.copy(users = s.users.map { if (it.id == id) updated else it })
-                    }
-                }
-                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to update user")) } }
         }
     }
 
@@ -232,156 +200,10 @@ class AdminPanelViewModel @Inject constructor(
         }
     }
 
-    fun resetPassword(userId: String, reason: String, newPassword: String?) {
-        viewModelScope.launch {
-            runCatching {
-                api.adminResetPassword(
-                    userId,
-                    AdminResetPasswordRequest(reason = reason, newPassword = newPassword?.ifBlank { null }),
-                )
-            }
-                .onSuccess { _state.update { it.copy(recoveryMessage = "Password reset successfully") } }
-                .onFailure { e ->
-                    val msg = if (e is HttpException && e.code() == 403) "Insufficient permissions"
-                              else e.toUserMessage("Failed to reset password")
-                    _state.update { it.copy(error = msg) }
-                }
-        }
-    }
-
-    fun changeEmail(userId: String, reason: String, newEmail: String) {
-        viewModelScope.launch {
-            runCatching { api.adminChangeEmail(userId, AdminChangeEmailRequest(reason = reason, newEmail = newEmail)) }
-                .onSuccess {
-                    _state.update { s ->
-                        s.copy(
-                            recoveryMessage = "Email changed to $newEmail",
-                            users = s.users.map { if (it.id == userId) it.copy(email = newEmail) else it },
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    val msg = if (e is HttpException && e.code() == 409) "Email already in use"
-                              else e.toUserMessage("Failed to change email")
-                    _state.update { it.copy(error = msg) }
-                }
-        }
-    }
-
-    fun disableTotp(userId: String, reason: String) {
-        viewModelScope.launch {
-            runCatching { api.adminDisableTotp(userId, AdminReasonBody(reason)) }
-                .onSuccess {
-                    _state.update { s ->
-                        s.copy(
-                            recoveryMessage = "TOTP disabled",
-                            users = s.users.map { if (it.id == userId) it.copy(totpEnabled = false) else it },
-                        )
-                    }
-                }
-                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to disable TOTP")) } }
-        }
-    }
-
-    fun verifyEmail(userId: String, reason: String) {
-        viewModelScope.launch {
-            runCatching { api.adminVerifyEmail(userId, AdminReasonBody(reason)) }
-                .onSuccess {
-                    _state.update { s ->
-                        s.copy(
-                            recoveryMessage = "Email marked as verified",
-                            users = s.users.map { if (it.id == userId) it.copy(emailVerified = true) else it },
-                        )
-                    }
-                }
-                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to verify email")) } }
-        }
-    }
-
-    fun cancelDeletion(userId: String, reason: String) {
-        viewModelScope.launch {
-            runCatching { api.adminCancelDeletion(userId, AdminReasonBody(reason)) }
-                .onSuccess {
-                    _state.update { s ->
-                        s.copy(
-                            recoveryMessage = "Account deletion cancelled",
-                            users = s.users.map { if (it.id == userId) it.copy(accountStatus = "active") else it },
-                        )
-                    }
-                }
-                .onFailure { e -> _state.update { it.copy(error = e.toUserMessage("Failed to cancel deletion")) } }
-        }
-    }
-
     // ── Moderation ──────────────────────────────────────────────────────────
-
-    fun suspendUser(userId: String, reason: String, durationDays: Int?) {
-        moderate(
-            userId = userId,
-            call = { api.adminSuspendUser(userId, AdminSuspendRequest(reason = reason, durationDays = durationDays)) },
-            newStatus = "suspended",
-            message = "Account suspended",
-            failure = "Failed to suspend account",
-        )
-    }
-
-    fun unsuspendUser(userId: String, reason: String) {
-        moderate(
-            userId = userId,
-            call = { api.adminUnsuspendUser(userId, AdminReasonBody(reason)) },
-            newStatus = "active",
-            message = "Suspension lifted",
-            failure = "Failed to lift suspension",
-        )
-    }
-
-    fun banUser(userId: String, reason: String) {
-        moderate(
-            userId = userId,
-            call = { api.adminBanUser(userId, AdminReasonBody(reason)) },
-            newStatus = "banned",
-            message = "Account banned",
-            failure = "Failed to ban account",
-        )
-    }
-
-    fun unbanUser(userId: String, reason: String) {
-        moderate(
-            userId = userId,
-            call = { api.adminUnbanUser(userId, AdminReasonBody(reason)) },
-            newStatus = "active",
-            message = "Ban lifted",
-            failure = "Failed to lift ban",
-        )
-    }
 
     // Shared shape for the four moderation actions: run the call, optimistically
     // reflect the new account_status in the loaded row, surface a result toast.
-    private fun moderate(
-        userId: String,
-        call: suspend () -> Unit,
-        newStatus: String,
-        message: String,
-        failure: String,
-    ) {
-        viewModelScope.launch {
-            runCatching { call() }
-                .onSuccess {
-                    _state.update { s ->
-                        s.copy(
-                            recoveryMessage = message,
-                            users = s.users.map { if (it.id == userId) it.copy(accountStatus = newStatus) else it },
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    val msg = if (e is HttpException && e.code() == 403) "Insufficient permissions"
-                              else e.toUserMessage(failure)
-                    _state.update { it.copy(error = msg) }
-                }
-        }
-    }
-
     fun createAnnouncement(create: AnnouncementCreate) {
         viewModelScope.launch {
             _state.update { it.copy(isSavingAnnouncement = true, announcementError = null) }
@@ -430,7 +252,6 @@ class AdminPanelViewModel @Inject constructor(
     fun clearMaintenanceMessage() { _state.update { it.copy(maintenanceMessage = null) } }
     fun clearStepUpError() { _state.update { it.copy(stepUpError = null) } }
     fun clearCreateInviteError() { _state.update { it.copy(createInviteError = null) } }
-    fun clearRecoveryMessage() { _state.update { it.copy(recoveryMessage = null) } }
     fun clearAnnouncementError() { _state.update { it.copy(announcementError = null) } }
     fun clearAnnouncementSaved() { _state.update { it.copy(announcementSaved = false) } }
 }
