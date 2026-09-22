@@ -1313,6 +1313,7 @@ data class AnnouncementRead(
     val severity: String,
     val dismissible: Boolean,
     val active: Boolean,
+    @Json(name = "visible_while_logged_out") val visibleWhileLoggedOut: Boolean = false,
     @Json(name = "starts_at") val startsAt: String?,
     @Json(name = "expires_at") val expiresAt: String?,
     @Json(name = "created_at") val createdAt: String,
@@ -1327,6 +1328,7 @@ data class AnnouncementCreate(
     val severity: String = "info",
     val dismissible: Boolean = true,
     val active: Boolean = true,
+    @Json(name = "visible_while_logged_out") val visibleWhileLoggedOut: Boolean = false,
     @Json(name = "starts_at") val startsAt: String? = null,
     @Json(name = "expires_at") val expiresAt: String? = null,
 )
@@ -1338,6 +1340,7 @@ data class AnnouncementUpdate(
     val severity: String? = null,
     val dismissible: Boolean? = null,
     val active: Boolean? = null,
+    @Json(name = "visible_while_logged_out") val visibleWhileLoggedOut: Boolean? = null,
     @Json(name = "starts_at") val startsAt: String? = null,
     @Json(name = "expires_at") val expiresAt: String? = null,
     @Json(name = "clear_starts_at") val clearStartsAt: Boolean = false,

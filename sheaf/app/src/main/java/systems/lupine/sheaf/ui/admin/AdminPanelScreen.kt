@@ -31,8 +31,16 @@ import systems.lupine.sheaf.data.model.AnnouncementRead
 import systems.lupine.sheaf.data.model.AnnouncementUpdate
 import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
+import systems.lupine.sheaf.ui.components.TimeInputRow
+import systems.lupine.sheaf.ui.components.datePickerDate
+import systems.lupine.sheaf.ui.components.datePickerMillis
 import systems.lupine.sheaf.ui.components.SectionHeader
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -291,8 +299,14 @@ fun AdminPanelScreen(
                             severity = create.severity,
                             dismissible = create.dismissible,
                             active = create.active,
+                            visibleWhileLoggedOut = create.visibleWhileLoggedOut,
                             startsAt = create.startsAt,
                             expiresAt = create.expiresAt,
+                            // PATCH reads an omitted timestamp as "leave it
+                            // alone", so unticking a schedule that was set has
+                            // to say so explicitly or it silently stays.
+                            clearStartsAt = create.startsAt == null && editing.startsAt != null,
+                            clearExpiresAt = create.expiresAt == null && editing.expiresAt != null,
                         ))
                     },
                     onDismiss = { announcementToEdit = null; viewModel.clearAnnouncementError() },
@@ -457,7 +471,7 @@ private fun CreateInviteDialog(
 ) {
     var maxUsesText by remember { mutableStateOf("0") }
     var note by remember { mutableStateOf("") }
-    var expiresAt by remember { mutableStateOf("") }
+    var expiresAt by remember { mutableStateOf<Instant?>(null) }
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
@@ -479,13 +493,12 @@ private fun CreateInviteDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                ScheduleField(
+                    label = "Expires",
+                    toggleLabel = "Set an expiry",
+                    offLabel = "Never expires",
                     value = expiresAt,
-                    onValueChange = { expiresAt = it },
-                    label = { Text("Expires at (optional)") },
-                    placeholder = { Text("2026-12-31T00:00:00Z") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    onChange = { expiresAt = it },
                 )
                 if (error != null) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -494,7 +507,7 @@ private fun CreateInviteDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(maxUsesText.toIntOrNull() ?: 0, note, expiresAt) },
+                onClick = { onCreate(maxUsesText.toIntOrNull() ?: 0, note, expiresAt?.toString()) },
                 enabled = !isCreating,
             ) {
                 if (isCreating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -519,10 +532,25 @@ private fun AnnouncementListItem(
         ListItem(
             headlineContent = { Text(announcement.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
+                // Same facts the web list badges, in the same order: an
+                // announcement that greets logged-out visitors should say so
+                // wherever it is listed.
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(announcement.severity, style = MaterialTheme.typography.bodySmall)
                     Text("·", style = MaterialTheme.typography.bodySmall)
                     Text(if (announcement.active) "active" else "inactive", style = MaterialTheme.typography.bodySmall)
+                    if (!announcement.dismissible) {
+                        Text("·", style = MaterialTheme.typography.bodySmall)
+                        Text("non-dismissible", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (announcement.visibleWhileLoggedOut) {
+                        Text("·", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "logged-out",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
                 }
             },
             trailingContent = {
@@ -562,8 +590,9 @@ private fun AnnouncementDialog(
     var severity by remember { mutableStateOf(initial?.severity ?: "info") }
     var dismissible by remember { mutableStateOf(initial?.dismissible ?: true) }
     var active by remember { mutableStateOf(initial?.active ?: true) }
-    var startsAt by remember { mutableStateOf(initial?.startsAt ?: "") }
-    var expiresAt by remember { mutableStateOf(initial?.expiresAt ?: "") }
+    var loggedOut by remember { mutableStateOf(initial?.visibleWhileLoggedOut ?: false) }
+    var startsAt by remember { mutableStateOf(parseAdminInstant(initial?.startsAt)) }
+    var expiresAt by remember { mutableStateOf(parseAdminInstant(initial?.expiresAt)) }
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -604,22 +633,40 @@ private fun AnnouncementDialog(
                     Checkbox(checked = active, onCheckedChange = { active = it })
                     Text("Active", style = MaterialTheme.typography.bodyMedium)
                 }
-                OutlinedTextField(
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = loggedOut, onCheckedChange = { loggedOut = it })
+                    Column {
+                        Text("Visible while logged out", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Shows on the login page",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+                ScheduleField(
+                    label = "Starts",
+                    toggleLabel = "Schedule a start",
+                    offLabel = "Shows as soon as it's active",
                     value = startsAt,
-                    onValueChange = { startsAt = it },
-                    label = { Text("Starts at (optional)") },
-                    placeholder = { Text("2026-01-01T00:00:00Z") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    onChange = { startsAt = it },
                 )
-                OutlinedTextField(
+                ScheduleField(
+                    label = "Expires",
+                    toggleLabel = "Set an expiry",
+                    offLabel = "Shows until it's turned off",
                     value = expiresAt,
-                    onValueChange = { expiresAt = it },
-                    label = { Text("Expires at (optional)") },
-                    placeholder = { Text("2026-12-31T00:00:00Z") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    onChange = { expiresAt = it },
                 )
+                if (startsAt != null && expiresAt != null && !expiresAt!!.isAfter(startsAt)) {
+                    Text(
+                        "The expiry must be after the start.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 if (error != null) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
@@ -634,11 +681,13 @@ private fun AnnouncementDialog(
                         severity = severity,
                         dismissible = dismissible,
                         active = active,
-                        startsAt = startsAt.ifBlank { null },
-                        expiresAt = expiresAt.ifBlank { null },
+                        visibleWhileLoggedOut = loggedOut,
+                        startsAt = startsAt?.toString(),
+                        expiresAt = expiresAt?.toString(),
                     ))
                 },
-                enabled = !isSaving && title.isNotBlank() && body.isNotBlank(),
+                enabled = !isSaving && title.isNotBlank() && body.isNotBlank() &&
+                    (startsAt == null || expiresAt == null || expiresAt!!.isAfter(startsAt)),
             ) {
                 if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Text(if (initial == null) "Create" else "Save")
@@ -649,6 +698,99 @@ private fun AnnouncementDialog(
         },
     )
 }
+
+/**
+ * An optional point in time, as a checkbox plus a date button and a time row.
+ *
+ * Replaces a free-text field that wanted a hand-typed `2026-12-31T00:00:00Z`:
+ * one typo and the server rejected the whole announcement, and getting it right
+ * meant doing the UTC conversion in your head. The value is carried as an
+ * [Instant] and shown in the device's zone, so what the picker says is what the
+ * announcement does locally.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScheduleField(
+    label: String,
+    toggleLabel: String,
+    offLabel: String,
+    value: Instant?,
+    onChange: (Instant?) -> Unit,
+) {
+    val zone = remember { ZoneId.systemDefault() }
+    val local = value?.atZone(zone)?.toLocalDateTime()
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker && local != null) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = datePickerMillis(local.toLocalDate())
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        onChange(
+                            LocalDateTime.of(datePickerDate(millis), local.toLocalTime())
+                                .atZone(zone).toInstant(),
+                        )
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
+        ) { DatePicker(state = pickerState) }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = value != null,
+                // Defaulting to "now" rather than a blank field: an announcement
+                // scheduled from here is nearly always minutes or hours out, and
+                // adjusting a filled-in time is less work than building one.
+                onCheckedChange = { checked ->
+                    onChange(
+                        if (checked) LocalDateTime.now(zone).withSecond(0).withNano(0)
+                            .atZone(zone).toInstant()
+                        else null,
+                    )
+                },
+            )
+            Text(
+                if (value == null) offLabel else toggleLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (value == null) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (local != null) {
+            OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(local.toLocalDate().format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
+            }
+            TimeInputRow(
+                time = local.toLocalTime(),
+                onTimeChange = { time ->
+                    onChange(LocalDateTime.of(local.toLocalDate(), time).atZone(zone).toInstant())
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Read a timestamp the server sent back, or null if it is absent or unreadable.
+ *
+ * Both columns are `timestamptz`, so an offset is expected; the bare-[Instant]
+ * fallback covers a `Z` suffix, and anything else drops to null rather than
+ * throwing inside a composable.
+ */
+private fun parseAdminInstant(iso: String?): Instant? =
+    if (iso.isNullOrBlank()) null
+    else runCatching { OffsetDateTime.parse(iso).toInstant() }
+        .recoverCatching { Instant.parse(iso) }
+        .getOrNull()
 
 @Composable
 private fun MaintenanceButton(label: String, onClick: () -> Unit) {
