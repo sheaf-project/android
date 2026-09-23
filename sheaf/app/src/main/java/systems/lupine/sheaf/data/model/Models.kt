@@ -509,6 +509,10 @@ data class MemberRead(
     // Set while a request to drop the fronting guard is waiting out the grace
     // window. The flag above is still the truth until it passes.
     @Json(name = "fronting_private_activates_at") val frontingPrivateActivatesAt: String? = null,
+    // A raise to public waiting out the grace window. `privacy` above is still
+    // the truth until privacyActivatesAt passes; lowering cancels it.
+    @Json(name = "pending_privacy") val pendingPrivacy: String? = null,
+    @Json(name = "privacy_activates_at") val privacyActivatesAt: String? = null,
 ) {
     val displayNameOrName: String get() = displayName?.takeIf { it.isNotBlank() } ?: name
 
@@ -548,6 +552,10 @@ data class MemberCreate(
     // Short glyph shown beside the member's name and in place of an
     // avatar. Server caps it at 8 code points.
     val emoji: String? = null,
+    // Only consulted when creating them public would publish them, i.e. a
+    // share view serves everyone set to Public.
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
 )
 
 /** Optional step-up credentials for archiving a member. Only consulted when
