@@ -371,7 +371,7 @@ interface SheafApiService {
         @Query("member_id") memberId: String? = null,
         @Query("system_only") systemOnly: Boolean? = null,
         @Query("pinned") pinned: Boolean? = null,
-        @Query("before") before: String? = null,
+        @Query("cursor") before: String? = null,
         @Query("limit") limit: Int = 50,
     ): JournalListResponse
 
@@ -1079,7 +1079,7 @@ interface SheafApiService {
         @Query("board_member_id") boardMemberId: String? = null,
         @Query("caller_member_id") callerMemberId: String? = null,
         @Query("limit") limit: Int = 100,
-        @Query("before") before: String? = null,
+        @Query("cursor") before: String? = null,
     ): MessagesPage
 
     @POST("/v1/messages")
