@@ -1193,6 +1193,7 @@ object ImportJobSource {
     // unpacks images when present (no separate archive source like Sheaf).
     const val OPENPLURAL_FILE = "openplural_file"
     const val AMPERSAND_FILE = "ampersand_file"
+    const val BERRYTREE_FILE = "berrytree_file"
 }
 
 // ── Ampersand import ──────────────────────────────────────────────────────────
@@ -1217,6 +1218,35 @@ data class AmpersandPreviewSummary(
     @Json(name = "asset_count") val assetCount: Int = 0,
     @Json(name = "limit_warnings") val limitWarnings: List<String> = emptyList(),
 )
+
+// ── BerryTree import ─────────────────────────────────────────────────────────
+//
+// Experimental server-side: built from a single sample export, so the preview
+// lists every section it cannot read yet instead of dropping them quietly.
+// Template members are left out of `members` and counted separately.
+@JsonClass(generateAdapter = true)
+data class BerryTreePreviewSummary(
+    @Json(name = "system_name") val systemName: String? = null,
+    @Json(name = "member_count") val memberCount: Int = 0,
+    val members: List<BerryTreePreviewItem> = emptyList(),
+    @Json(name = "template_count") val templateCount: Int = 0,
+    @Json(name = "custom_front_count") val customFrontCount: Int = 0,
+    @Json(name = "fronting_type_count") val frontingTypeCount: Int = 0,
+    @Json(name = "front_history_count") val frontHistoryCount: Int = 0,
+    @Json(name = "folder_count") val folderCount: Int = 0,
+    @Json(name = "tag_count") val tagCount: Int = 0,
+    @Json(name = "custom_field_count") val customFieldCount: Int = 0,
+    @Json(name = "unsupported_sections") val unsupportedSections: List<BerryTreeSection> = emptyList(),
+    // What BerryTree's own exporter says it failed to write.
+    @Json(name = "export_errors") val exportErrors: List<String> = emptyList(),
+    @Json(name = "limit_warnings") val limitWarnings: List<String> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class BerryTreePreviewItem(val id: String, val name: String)
+
+@JsonClass(generateAdapter = true)
+data class BerryTreeSection(val name: String, val count: Int)
 
 // ── Export ──────────────────────────────────────────────────────────────────
 

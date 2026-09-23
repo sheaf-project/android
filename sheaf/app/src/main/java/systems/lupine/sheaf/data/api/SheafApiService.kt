@@ -629,6 +629,12 @@ interface SheafApiService {
         @Part file: MultipartBody.Part,
     ): AmpersandPreviewSummary
 
+    @Multipart
+    @POST("/v1/import/berrytree/preview")
+    suspend fun previewBerryTreeImport(
+        @Part file: MultipartBody.Part,
+    ): BerryTreePreviewSummary
+
     /**
      * Preview an OpenPlural v0.1 import. Accepts a bare `.json` export or an
      * `.openplural.zip` bundle (the endpoint sniffs the zip magic). Reuses the
