@@ -77,6 +77,10 @@ class MemberUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<MemberUpdate>() {
             clears("birthday", value.birthday)
             clears("note", value.note)
             clears("emoji", value.emoji)
+            omitsWhenNull("never_shareable", value.neverShareable)
+            omitsWhenNull("fronting_private", value.frontingPrivate)
+            omitsWhenNull("password", value.password)
+            omitsWhenNull("totp_code", value.totpCode)
         }
         writer.endObject()
     }
@@ -99,10 +103,13 @@ class GroupUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<GroupUpdate>() {
         writer.beginObject()
         PatchWriter(writer, anyAdapter).apply {
             omitsWhenNull("name", value.name)
+            omitsWhenNull("privacy", value.privacy)
             clears("description", value.description)
             clears("color", value.color)
             // Clearing this is how a subgroup is promoted back to top level.
             clears("parent_id", value.parentId)
+            omitsWhenNull("password", value.password)
+            omitsWhenNull("totp_code", value.totpCode)
         }
         writer.endObject()
     }
@@ -135,6 +142,8 @@ class SystemUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<SystemUpdate>() {
             clears("avatar_url", value.avatarUrl)
             clears("color", value.color)
             clears("note", value.note)
+            omitsWhenNull("password", value.password)
+            omitsWhenNull("totp_code", value.totpCode)
         }
         writer.endObject()
     }
