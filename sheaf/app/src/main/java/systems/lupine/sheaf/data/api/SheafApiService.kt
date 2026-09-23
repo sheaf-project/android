@@ -370,6 +370,7 @@ interface SheafApiService {
     suspend fun listJournals(
         @Query("member_id") memberId: String? = null,
         @Query("system_only") systemOnly: Boolean? = null,
+        @Query("pinned") pinned: Boolean? = null,
         @Query("before") before: String? = null,
         @Query("limit") limit: Int = 50,
     ): JournalListResponse
@@ -391,6 +392,15 @@ interface SheafApiService {
         @Path("id") id: String,
         @Body body: JournalEntryDeleteConfirm = JournalEntryDeleteConfirm(),
     ): Response<JournalEntryDeletePending>
+
+    @POST("/v1/journals/{id}/pin")
+    suspend fun pinJournal(@Path("id") id: String): JournalEntryRead
+
+    @POST("/v1/journals/{id}/unpin")
+    suspend fun unpinJournal(
+        @Path("id") id: String,
+        @Body body: JournalEntryUnpinConfirm = JournalEntryUnpinConfirm(),
+    ): JournalEntryUnpinResponse
 
     @GET("/v1/journals/{id}/revisions")
     suspend fun listJournalRevisions(@Path("id") id: String): List<ContentRevisionRead>
