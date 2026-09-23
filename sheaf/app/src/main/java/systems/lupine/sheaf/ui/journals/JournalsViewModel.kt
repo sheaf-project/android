@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +20,7 @@ import systems.lupine.sheaf.data.model.JournalEntryCreate
 import systems.lupine.sheaf.data.model.JournalEntryDeletePending
 import systems.lupine.sheaf.data.model.JournalEntryRead
 import systems.lupine.sheaf.data.model.JournalEntryReadWithCount
+import systems.lupine.sheaf.data.model.JournalEntryUnpinConfirm
 import systems.lupine.sheaf.data.model.JournalEntryUpdate
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.data.model.PinRevisionRequest
@@ -32,7 +35,11 @@ import javax.inject.Inject
 
 enum class JournalFilter { ALL, SYSTEM_ONLY }
 
+// Pinned entries load in one request above the paginated list; 200 is the API's max page.
+private const val PINNED_LIMIT = 200
+
 data class JournalsUiState(
+    val pinned: List<JournalEntryRead> = emptyList(),
     val entries: List<JournalEntryRead> = emptyList(),
     val members: Map<String, MemberRead> = emptyMap(),
     val filter: JournalFilter = JournalFilter.ALL,
@@ -59,34 +66,46 @@ class JournalsViewModel @Inject constructor(
 
     fun setFilter(filter: JournalFilter) {
         if (filter == _state.value.filter) return
-        _state.update { it.copy(filter = filter, entries = emptyList(), nextCursor = null) }
+        _state.update { it.copy(filter = filter, pinned = emptyList(), entries = emptyList(), nextCursor = null) }
         load()
     }
 
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = it.entries.isEmpty(), error = null) }
+            _state.update { it.copy(isLoading = it.entries.isEmpty() && it.pinned.isEmpty(), error = null) }
             val online = networkMonitor.isOnline.first()
             if (!online) {
-                val cached = cache.getJournals()
+                val cached = cache.getJournals().orEmpty()
                 _state.update {
                     it.copy(
-                        entries = cached.orEmpty(),
+                        pinned = cached.filter { e -> e.pinnedAt != null },
+                        entries = cached.filter { e -> e.pinnedAt == null },
                         isLoading = false,
                     )
                 }
                 return@launch
             }
             val filter = _state.value.filter
+            val systemOnly = if (filter == JournalFilter.SYSTEM_ONLY) true else null
             runCatching {
-                api.listJournals(
-                    systemOnly = if (filter == JournalFilter.SYSTEM_ONLY) true else null,
-                )
+                coroutineScope {
+                    val pinnedReq = async {
+                        runCatching {
+                            api.listJournals(systemOnly = systemOnly, pinned = true, limit = PINNED_LIMIT)
+                        }.getOrNull()?.items.orEmpty()
+                    }
+                    val resp = api.listJournals(systemOnly = systemOnly, pinned = false)
+                    pinnedReq.await() to resp
+                }
             }
-                .onSuccess { resp ->
-                    if (filter == JournalFilter.ALL) cache.saveJournals(resp.items)
+                .onSuccess { (pinnedItems, resp) ->
+                    // A server without pinning ignores the filter and sends every
+                    // entry both times, so only keep what is actually pinned.
+                    val pinned = pinnedItems.filter { it.pinnedAt != null }
+                    if (filter == JournalFilter.ALL) cache.saveJournals(pinned + resp.items)
                     _state.update {
                         it.copy(
+                            pinned = pinned,
                             entries = resp.items,
                             nextCursor = resp.nextCursor,
                             isLoading = false,
@@ -96,12 +115,18 @@ class JournalsViewModel @Inject constructor(
                 .onFailure { e ->
                     val cached = if (filter == JournalFilter.ALL) cache.getJournals() else null
                     if (cached != null) {
-                        _state.update { it.copy(entries = cached, isLoading = false) }
+                        _state.update {
+                            it.copy(
+                                pinned = cached.filter { x -> x.pinnedAt != null },
+                                entries = cached.filter { x -> x.pinnedAt == null },
+                                isLoading = false,
+                            )
+                        }
                     } else {
                         _state.update { s ->
                             s.copy(
                                 isLoading = false,
-                                error = if (s.entries.isEmpty()) e.toUserMessage() else s.error,
+                                error = if (s.entries.isEmpty() && s.pinned.isEmpty()) e.toUserMessage() else s.error,
                             )
                         }
                     }
@@ -118,6 +143,7 @@ class JournalsViewModel @Inject constructor(
             runCatching {
                 api.listJournals(
                     systemOnly = if (filter == JournalFilter.SYSTEM_ONLY) true else null,
+                    pinned = false,
                     before = cursor,
                 )
             }
@@ -173,6 +199,10 @@ data class JournalDetailUiState(
     val pendingRevisionId: String? = null,
     val pinError: String? = null,
     val unpinQueued: Boolean = false,
+    val isPinningEntry: Boolean = false,
+    val entrySafety: RevisionSafety = RevisionSafety(),
+    val showEntryUnpinDialog: Boolean = false,
+    val entryUnpinError: String? = null,
 )
 
 @HiltViewModel
@@ -418,6 +448,96 @@ class JournalDetailViewModel @Inject constructor(
                     _state.update { it.copy(pendingRevisionId = null, pinError = msg) }
                 }
         }
+    }
+
+    fun pinEntry() {
+        val id = entryId ?: return
+        _state.update { it.copy(isPinningEntry = true, error = null) }
+        viewModelScope.launch {
+            runCatching { api.pinJournal(id) }
+                .onSuccess { updated ->
+                    _state.update {
+                        it.copy(
+                            isPinningEntry = false,
+                            entry = it.entry?.copy(pinnedAt = updated.pinnedAt, pendingUnpinAt = updated.pendingUnpinAt),
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isPinningEntry = false, error = e.toUserMessage("Failed to pin entry")) }
+                }
+        }
+    }
+
+    /**
+     * Safety is read at tap time: with the journals category armed the unpin
+     * needs re-auth and gets queued, otherwise it goes straight through.
+     */
+    fun requestUnpinEntry() {
+        if (entryId == null) return
+        _state.update { it.copy(isPinningEntry = true, error = null) }
+        viewModelScope.launch {
+            val safety = runCatching {
+                val x = api.getSystemSafety()
+                val user = runCatching { api.getMe() }.getOrNull()
+                // RevisionSafety only needs to know whether the covering category
+                // is on; for entry unpins that is the journals one.
+                RevisionSafety(
+                    authTier = x.settings.authTier,
+                    totpEnabled = user?.totpEnabled == true,
+                    appliesToRevisions = x.settings.appliesToJournals,
+                    gracePeriodDays = x.settings.gracePeriodDays,
+                )
+            }.getOrNull()
+            if (safety?.willQueueUnpin == true) {
+                _state.update {
+                    it.copy(isPinningEntry = false, entrySafety = safety, showEntryUnpinDialog = true)
+                }
+            } else {
+                unpinEntry()
+            }
+        }
+    }
+
+    fun unpinEntry(password: String? = null, totpCode: String? = null) {
+        val id = entryId ?: return
+        _state.update { it.copy(isPinningEntry = true, entryUnpinError = null) }
+        viewModelScope.launch {
+            runCatching {
+                api.unpinJournal(id, JournalEntryUnpinConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
+            }
+                .onSuccess { resp ->
+                    _state.update { st ->
+                        val updated = resp.entry
+                        st.copy(
+                            isPinningEntry = false,
+                            showEntryUnpinDialog = false,
+                            entry = if (updated != null) {
+                                st.entry?.copy(pinnedAt = updated.pinnedAt, pendingUnpinAt = null)
+                            } else {
+                                st.entry?.copy(pendingUnpinAt = resp.finalizeAfter)
+                            },
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update { st ->
+                        if (st.showEntryUnpinDialog) {
+                            val msg = if (e is retrofit2.HttpException && e.code() in listOf(400, 401))
+                                "Incorrect password or authenticator code"
+                            else
+                                e.toUserMessage("Failed to unpin entry")
+                            st.copy(isPinningEntry = false, entryUnpinError = msg)
+                        } else {
+                            st.copy(isPinningEntry = false, error = e.toUserMessage("Failed to unpin entry"))
+                        }
+                    }
+                }
+        }
+    }
+
+    fun dismissEntryUnpinDialog() {
+        _state.update { it.copy(showEntryUnpinDialog = false, entryUnpinError = null) }
     }
 
     fun clearPinError() { _state.update { it.copy(pinError = null) } }

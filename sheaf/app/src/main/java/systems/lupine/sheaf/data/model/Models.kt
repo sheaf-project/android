@@ -1650,6 +1650,8 @@ data class JournalEntryRead(
     // Set when a System Safety grace period has this queued for deletion.
     // Still returned and still usable until the window closes; the UI marks it.
     @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
+    @Json(name = "pinned_at") val pinnedAt: String? = null,
+    @Json(name = "pending_unpin_at") val pendingUnpinAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -1669,6 +1671,8 @@ data class JournalEntryReadWithCount(
     // Mirrors JournalEntryRead: the detail screen reads this variant, so the
     // field has to exist on both or the entry looks safe once you open it.
     @Json(name = "pending_delete_at") val pendingDeleteAt: String? = null,
+    @Json(name = "pinned_at") val pinnedAt: String? = null,
+    @Json(name = "pending_unpin_at") val pendingUnpinAt: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -1704,6 +1708,20 @@ data class JournalEntryDeleteConfirm(
 data class JournalEntryDeletePending(
     @Json(name = "pending_action_id") val pendingActionId: String,
     @Json(name = "finalize_after") val finalizeAfter: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class JournalEntryUnpinConfirm(
+    val password: String? = null,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+/** Same shape as [UnpinRevisionResponse]: `entry` when immediate, pending fields when queued. */
+@JsonClass(generateAdapter = true)
+data class JournalEntryUnpinResponse(
+    val entry: JournalEntryRead? = null,
+    @Json(name = "pending_action_id") val pendingActionId: String? = null,
+    @Json(name = "finalize_after") val finalizeAfter: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
