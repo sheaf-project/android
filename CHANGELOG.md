@@ -4,6 +4,40 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Added
+
+- **A share view can show everyone set to Public.** Instead of adding members
+  one at a time, turn on "Show everyone set to Public" and the view follows
+  each member's privacy setting from then on. The list you picked by hand is
+  kept but not used while this is on, and comes back if you turn it off.
+  Members marked never shareable are still never shown. On a view that's
+  already live, turning it on asks you to re-authenticate and waits out the
+  grace period like any other way of showing more. Needs a server running
+  1.6.0 or later.
+
+- **Import from BerryTree (experimental).** Brings across members, custom
+  statuses (as custom fronts), front history, folders (as groups), tags and
+  custom fields. Template members are left out unless you tick them. Before
+  anything is imported, the preview lists every part of your export that
+  can't be read yet. Needs a server running 1.6.0 or later.
+
+### Changed
+
+- **Raising a member to Public now shows when it takes effect.** With a
+  System Safety grace period set, the member editor says when a member will
+  go Public, and picking a lower level cancels it. Editing anything else
+  about them no longer cancels the wait by accident.
+
+### Fixed
+
+- **Re-authentication now reaches the server when editing members, groups
+  and system settings.** The password and code you typed were dropped before
+  the request went out, so a change that needed them could never save.
+  "Never shareable" and "Keep fronting private" on a member now save too, and
+  so does changing a group's privacy.
+
 ## [1.4.1] - 2026-09-20
 
 ### Changed
