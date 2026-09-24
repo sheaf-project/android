@@ -67,6 +67,9 @@ data class ShareViewRead(
     // when the system is not public, and (member cards) with permalinks off.
     @Json(name = "link_preview_effective") val linkPreviewEffective: String = PREVIEW_GENERIC,
     @Json(name = "member_link_preview_effective") val memberLinkPreviewEffective: String = PREVIEW_GENERIC,
+    // Serve every member set to Public, worked out live, instead of the
+    // hand-picked list. `members` is kept but not consulted while this is on.
+    @Json(name = "include_all_public_members") val includeAllPublicMembers: Boolean = false,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "is_shared") val isShared: Boolean,
     // A flag flip that exposes more on an already-shared view is staged. The
@@ -80,6 +83,7 @@ data class ShareViewRead(
     @Json(name = "pending_include_groups") val pendingIncludeGroups: Boolean? = null,
     @Json(name = "pending_link_preview_mode") val pendingLinkPreviewMode: String? = null,
     @Json(name = "pending_member_link_preview_mode") val pendingMemberLinkPreviewMode: String? = null,
+    @Json(name = "pending_include_all_public_members") val pendingIncludeAllPublicMembers: Boolean? = null,
     @Json(name = "flags_activate_at") val flagsActivateAt: String? = null,
     val members: List<ShareViewMemberRead> = emptyList(),
     val fields: List<ShareViewFieldRead> = emptyList(),
@@ -116,6 +120,7 @@ data class ShareViewUpdate(
     @Json(name = "include_groups") val includeGroups: Boolean? = null,
     @Json(name = "link_preview_mode") val linkPreviewMode: String? = null,
     @Json(name = "member_link_preview_mode") val memberLinkPreviewMode: String? = null,
+    @Json(name = "include_all_public_members") val includeAllPublicMembers: Boolean? = null,
     @Json(name = "member_permalinks") val memberPermalinks: Boolean? = null,
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
@@ -200,6 +205,9 @@ data class ShareAuditEntry(
     @Json(name = "include_fronting") val includeFronting: Boolean,
     @Json(name = "include_relationships") val includeRelationships: Boolean,
     @Json(name = "include_groups") val includeGroups: Boolean,
+    // With this on, member_count is curation that is not being used and only
+    // served_member_count describes the page.
+    @Json(name = "include_all_public_members") val includeAllPublicMembers: Boolean = false,
     @Json(name = "member_permalinks") val memberPermalinks: Boolean,
     @Json(name = "relationship_count") val relationshipCount: Int,
     @Json(name = "group_count") val groupCount: Int,

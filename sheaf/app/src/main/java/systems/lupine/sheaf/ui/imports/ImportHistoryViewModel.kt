@@ -103,6 +103,7 @@ internal fun importSourceLabel(source: String): String = when (source) {
     "tupperbox_file"    -> "Tupperbox"
     "pluralspace_file"  -> "PluralSpace"
     "prism_file"        -> "Prism"
+    "berrytree_file"    -> "BerryTree"
     else                -> source
 }
 

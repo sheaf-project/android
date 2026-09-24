@@ -455,6 +455,63 @@ private val ampersand = ImportSource(
     },
 )
 
+private val berryTree = ImportSource(
+    id = "berrytree",
+    source = ImportJobSource.BERRYTREE_FILE,
+    label = "BerryTree",
+    title = "Import from BerryTree",
+    subtitle = "Experimental: use a BerryTree .json export",
+    constants = mapOf(CONFLICT_SKIP to "\"skip\""),
+    alwaysEmitMemberIds = true,
+    input = ImportInput.File(
+        prompt = "Choose your BerryTree export to get started.",
+        help = "Export your data from BerryTree as JSON, then select the file here. This importer is " +
+            "experimental: the preview lists anything in your file it can't read yet before " +
+            "anything is imported.",
+    ),
+    preview = { api, req ->
+        val s = api.previewBerryTreeImport(req.file!!)
+        val x = mutableListOf<String>()
+        s.unsupportedSections.forEach { x += "${it.name} (${it.count}) - not supported yet, will be skipped" }
+        if (s.exportErrors.isNotEmpty()) {
+            x += "BerryTree reported problems writing this export, so it was incomplete before it got here:"
+            x += s.exportErrors
+        }
+        x += s.limitWarnings
+        ImportPreview(
+            systemName = s.systemName,
+            headline = "Experimental. If something you need is listed as not supported, " +
+                "get in touch and bring your export.",
+            members = s.members.map { PreviewMember(it.id, it.name) },
+            memberCount = s.memberCount,
+            categories = listOf(
+                ImportCategory(
+                    key = "system_profile",
+                    label = "System profile",
+                    visible = s.systemName != null,
+                    default = s.systemName != null,
+                ),
+                counted(
+                    "templates", "Template members", s.templateCount, default = false,
+                    note = "These count against your member limit. Only brought across when all members are selected.",
+                ),
+                counted("custom_fronts", "Custom statuses, as custom fronts", s.customFrontCount),
+                counted("folders", "Folders, as groups", s.folderCount),
+                counted("tags", "Tags", s.tagCount),
+                counted("custom_fields", "Custom fields", s.customFieldCount),
+                ImportCategory(
+                    key = "front_history",
+                    label = "Front history (${s.frontHistoryCount} entries)",
+                    visible = s.frontHistoryCount > 0,
+                    default = s.frontHistoryCount > 0,
+                    note = if (s.frontingTypeCount > 0) "Fronting types are kept on each entry's status text." else null,
+                ),
+            ),
+            skipped = x,
+        )
+    },
+)
+
 /** Every source the Import screen can run, in the order the picker lists them. */
 val importSources: List<ImportSource> = listOf(
     simplyPlural,
@@ -466,6 +523,7 @@ val importSources: List<ImportSource> = listOf(
     prism,
     openPlural,
     ampersand,
+    berryTree,
 )
 
 fun importSourceById(id: String?): ImportSource? = importSources.firstOrNull { it.id == id }

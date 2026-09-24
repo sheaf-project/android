@@ -27,9 +27,13 @@ import systems.lupine.sheaf.data.model.ShareViewUpdate
 import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
-/** The six flags that widen what a view serves, and so carry a pending twin. */
+/** The flags that widen what a view serves, and so carry a pending twin. */
 enum class ExposureFlag(val label: String, val supporting: String) {
     INCLUDE_MEMBERS("Show the roster", "The list of members in this view"),
+    INCLUDE_ALL_PUBLIC_MEMBERS(
+        "Show everyone set to Public",
+        "Follows each member's privacy instead of the list below, so someone you set to Public later appears without editing the view",
+    ),
     INCLUDE_BIO("Show bios", "Each member's description"),
     INCLUDE_FRONTING("Show who is fronting", "Live front state for members in this view"),
     FRONTING_SHOW_COUNT("Count hidden fronters", "Adds \"and N others not shown\""),
@@ -207,6 +211,7 @@ class ShareViewDetailViewModel @Inject constructor(
         val body = when (r) {
             is ViewRaise.Flag -> when (r.flag) {
                 ExposureFlag.INCLUDE_MEMBERS -> ShareViewUpdate(includeMembers = r.value)
+                ExposureFlag.INCLUDE_ALL_PUBLIC_MEMBERS -> ShareViewUpdate(includeAllPublicMembers = r.value)
                 ExposureFlag.INCLUDE_BIO -> ShareViewUpdate(includeBio = r.value)
                 ExposureFlag.INCLUDE_FRONTING -> ShareViewUpdate(includeFronting = r.value)
                 ExposureFlag.FRONTING_SHOW_COUNT -> ShareViewUpdate(frontingShowCount = r.value)

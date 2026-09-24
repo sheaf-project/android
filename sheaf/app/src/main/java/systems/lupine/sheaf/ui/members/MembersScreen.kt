@@ -810,6 +810,15 @@ fun MemberDetailScreen(
                     ) { Text(level.replaceFirstChar { it.uppercase() }) }
                 }
             }
+            val staged = state.member?.takeIf { it.pendingPrivacy != null && form.privacy == it.pendingPrivacy }
+            staged?.privacyActivatesAt?.let { at ->
+                Text(
+                    "Staged: goes Public on ${formatRevisionDate(at, LocalDisplayTimeZone.current)}. " +
+                        "Until then they stay ${staged.privacy}. Picking a lower level cancels it.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             // Two ceilings that outrank any share view. They live here because
             // this is where the member is edited, not on the sharing screen.
