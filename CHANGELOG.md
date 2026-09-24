@@ -37,6 +37,18 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   the request went out, so a change that needed them could never save.
   "Never shareable" and "Keep fronting private" on a member now save too, and
   so does changing a group's privacy.
+- **Pin journal entries.** The pin button at the top of an entry keeps it in a
+  Pinned section above the rest of the journal list. With the Journal entries
+  toggle in System Safety on, unpinning asks you to re-authenticate and waits
+  out the grace period, and the entry shows when the unpin will go through.
+  You can cancel it from System Safety like any other queued action. Needs a
+  server running 1.6.0 or later.
+
+### Fixed
+
+- **Scrolling further down the journal list loads older entries.** Loading
+  more asked the server for the first page again, so the list never got past
+  its first 50 entries.
 
 ## [1.4.1] - 2026-09-20
 
