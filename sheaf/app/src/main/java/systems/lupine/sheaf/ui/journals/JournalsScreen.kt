@@ -109,14 +109,14 @@ fun JournalsScreen(
                 state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-                state.error != null && state.entries.isEmpty() -> Column(
+                state.error != null && state.entries.isEmpty() && state.pinned.isEmpty() -> Column(
                     Modifier.fillMaxSize().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     ErrorBanner(state.error!!)
                     Button(onClick = { viewModel.load() }) { Text("Retry") }
                 }
-                state.entries.isEmpty() -> EmptyState(
+                state.entries.isEmpty() && state.pinned.isEmpty() -> EmptyState(
                     icon = Icons.AutoMirrored.Outlined.MenuBook,
                     title = "No journal entries yet",
                     subtitle = "Tap + to write your first entry.",
@@ -130,6 +130,20 @@ fun JournalsScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    if (state.pinned.isNotEmpty()) {
+                        item(key = "pinned-header") { ListSectionHeader("Pinned", Icons.Outlined.PushPin) }
+                        // Prefixed so an entry caught mid-unpin in both lists can't collide on key.
+                        items(state.pinned, key = { "pinned:${it.id}" }) { entry ->
+                            JournalCard(
+                                entry = entry,
+                                member = entry.memberId?.let { state.members[it] },
+                                onClick = { onEntryClick(entry.id) },
+                            )
+                        }
+                        if (state.entries.isNotEmpty()) {
+                            item(key = "entries-header") { ListSectionHeader("Entries", null) }
+                        }
+                    }
                     items(state.entries, key = { it.id }) { entry ->
                         JournalCard(
                             entry = entry,
@@ -174,6 +188,29 @@ private fun FilterRow(
 }
 
 @Composable
+private fun ListSectionHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector?) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(top = 4.dp),
+    ) {
+        if (icon != null) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 private fun JournalCard(
     entry: JournalEntryRead,
     member: MemberRead?,
@@ -189,6 +226,15 @@ private fun JournalCard(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             PendingDeleteBadge(entry.pendingDeleteAt)
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (entry.pinnedAt != null) {
+                    Icon(
+                        Icons.Outlined.PushPin,
+                        contentDescription = if (entry.pendingUnpinAt != null) "Pinned, unpin scheduled" else "Pinned",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(
                     entry.title?.takeIf { it.isNotBlank() } ?: "Untitled",
                     style = MaterialTheme.typography.titleMedium,
@@ -319,6 +365,22 @@ fun JournalDetailScreen(
                         }
                         IconButton(onClick = { viewModel.toggleRevisions() }) {
                             Icon(Icons.Default.History, contentDescription = "Revisions")
+                        }
+                        val entry = state.entry!!
+                        if (entry.pinnedAt != null) {
+                            IconButton(
+                                onClick = { viewModel.requestUnpinEntry() },
+                                enabled = !state.isPinningEntry && entry.pendingUnpinAt == null,
+                            ) {
+                                Icon(Icons.Filled.PushPin, contentDescription = "Unpin")
+                            }
+                        } else {
+                            IconButton(
+                                onClick = { viewModel.pinEntry() },
+                                enabled = !state.isPinningEntry,
+                            ) {
+                                Icon(Icons.Outlined.PushPin, contentDescription = "Pin")
+                            }
                         }
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
@@ -605,6 +667,19 @@ fun JournalDetailScreen(
         }
     }
 
+    if (state.showEntryUnpinDialog) {
+        val days = state.entrySafety.gracePeriodDays
+        RevisionUnpinDialog(
+            safety = state.entrySafety,
+            isUnpinning = state.isPinningEntry,
+            errorMessage = state.entryUnpinError,
+            onConfirm = { pwd, code -> viewModel.unpinEntry(pwd, code) },
+            onDismiss = { viewModel.dismissEntryUnpinDialog() },
+            queuedMessage = "The entry will stay pinned for $days ${if (days == 1) "day" else "days"} " +
+                "before it's unpinned. You can cancel from System Safety before then.",
+        )
+    }
+
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -658,6 +733,26 @@ private fun JournalReader(
                     "· edited ${formatJournalDate(entry.updatedAt, LocalDisplayTimeZone.current)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
+            }
+        }
+        if (entry.pinnedAt != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.PushPin,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    entry.pendingUnpinAt?.let {
+                        "Pinned · unpins ${formatJournalDate(it, LocalDisplayTimeZone.current)}"
+                    } ?: "Pinned",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }

@@ -329,6 +329,10 @@ private fun auditCounts(entry: ShareAuditEntry): String {
     val parts = mutableListOf<String>()
     parts += if (!entry.includeMembers) {
         "${entry.memberCount} members curated, roster not shown"
+    } else if (entry.includeAllPublicMembers) {
+        // The curated rows are not the rule here, so "3 of 5" would compare
+        // against a list nobody is using.
+        "${entry.servedMemberCount ?: 0} members (everyone set to Public)"
     } else {
         val served = entry.servedMemberCount
         if (served != null && served != entry.memberCount) {

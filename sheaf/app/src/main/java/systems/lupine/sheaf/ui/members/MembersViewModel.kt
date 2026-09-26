@@ -422,7 +422,9 @@ class MemberDetailViewModel @Inject constructor(
                         note        = m.note ?: "",
                         color       = m.color ?: "#7F77DD",
                         birthday    = m.birthday ?: "",
-                        privacy     = m.privacy,
+                        // A staged raise shows as the level it is heading for,
+                        // so picking anything lower is a change that cancels it.
+                        privacy     = m.pendingPrivacy ?: m.privacy,
                         avatarUrl   = m.avatarUrl,
                         bannerUrl   = m.bannerUrl,
                         neverShareable = m.neverShareable,
@@ -507,6 +509,8 @@ class MemberDetailViewModel @Inject constructor(
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
                         privacy     = f.privacy,
                         note        = f.note.takeIf { it.isNotBlank() },
+                        password    = password?.ifBlank { null },
+                        totpCode    = totpCode?.ifBlank { null },
                     )).also { createdMemberId = it.id }
                 } else {
                     val update = MemberUpdate(
@@ -524,7 +528,10 @@ class MemberDetailViewModel @Inject constructor(
                         bannerUrl   = f.bannerUrl,
                         color       = f.color.takeIf { it.isNotBlank() },
                         birthday    = f.birthday.takeIf { it.isNotBlank() },
-                        privacy     = f.privacy,
+                        // Any level other than public counts as a lowering,
+                        // which cancels a staged raise, so only send it when
+                        // it was actually changed.
+                        privacy     = f.privacy.takeIf { it != _baselineForm.value.privacy },
                         // Empty string clears the column server-side; this lets
                         // a user wipe a note that was previously set.
                         note        = f.note,
