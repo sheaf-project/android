@@ -731,6 +731,8 @@ private fun FrontEntrySheet(
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
 
     if (showStartDatePicker) {
         val pickerState = rememberDatePickerState(
@@ -768,6 +770,22 @@ private fun FrontEntrySheet(
         ) { DatePicker(state = pickerState) }
     }
 
+    if (showStartTimePicker) {
+        FrontTimePickerDialog(
+            time = startTime,
+            onDismiss = { showStartTimePicker = false },
+            onConfirm = { startTime = it; showStartTimePicker = false },
+        )
+    }
+
+    if (showEndTimePicker) {
+        FrontTimePickerDialog(
+            time = endTime,
+            onDismiss = { showEndTimePicker = false },
+            onConfirm = { endTime = it; showEndTimePicker = false },
+        )
+    }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -792,6 +810,7 @@ private fun FrontEntrySheet(
                 )
             } else {
                 var memberQuery by remember { mutableStateOf("") }
+                var showAllMembers by remember { mutableStateOf(false) }
                 if (groups.isNotEmpty()) {
                     GroupFilterChips(
                         groups = groups,
@@ -818,7 +837,12 @@ private fun FrontEntrySheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    filteredMembers.forEach { member ->
+                    val filtering = memberQuery.isNotBlank() || activeGroupId != null
+                    val collapsed = !showAllMembers && !filtering && filteredMembers.size > 5
+                    val visibleMembers = if (collapsed) {
+                        filteredMembers.filterIndexed { i, m -> i < 5 || m.id in selectedIds }
+                    } else filteredMembers
+                    visibleMembers.forEach { member ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -835,6 +859,11 @@ private fun FrontEntrySheet(
                             Text(member.displayNameWithEmoji, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
+                    if (!filtering && filteredMembers.size > 5) {
+                        TextButton(onClick = { showAllMembers = !showAllMembers }) {
+                            Text(if (showAllMembers) "Show less" else "Show all (${filteredMembers.size})")
+                        }
+                    }
                 }
             }
 
@@ -845,8 +874,10 @@ private fun FrontEntrySheet(
                 OutlinedButton(onClick = { showStartDatePicker = true }, modifier = Modifier.weight(1f)) {
                     Text(startDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
                 }
+                OutlinedButton(onClick = { showStartTimePicker = true }, modifier = Modifier.weight(1f)) {
+                    Text(startTime.format(DateTimeFormatter.ofPattern("h:mm a")))
+                }
             }
-            TimeInputRow(time = startTime, onTimeChange = { startTime = it })
 
             HorizontalDivider()
 
@@ -861,8 +892,10 @@ private fun FrontEntrySheet(
                     OutlinedButton(onClick = { showEndDatePicker = true }, modifier = Modifier.weight(1f)) {
                         Text(endDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
                     }
+                    OutlinedButton(onClick = { showEndTimePicker = true }, modifier = Modifier.weight(1f)) {
+                        Text(endTime.format(DateTimeFormatter.ofPattern("h:mm a")))
+                    }
                 }
-                TimeInputRow(time = endTime, onTimeChange = { endTime = it })
             }
 
             HorizontalDivider()
@@ -913,69 +946,18 @@ private fun FrontEntrySheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimeInputRow(time: LocalTime, onTimeChange: (LocalTime) -> Unit) {
-    // These must NOT be keyed on `time`: every accepted keystroke calls
-    // onTimeChange, which updates the parent `time`, which would re-key the
-    // remember, replace this text state, and snap the cursor back to the
-    // start — making the field impossible to type into. The fields are the
-    // source of truth while editing and `time` only ever changes via them.
-    var hourText by remember { mutableStateOf(time.format(DateTimeFormatter.ofPattern("h"))) }
-    var minuteText by remember { mutableStateOf(time.format(DateTimeFormatter.ofPattern("mm"))) }
-    var isPm by remember { mutableStateOf(time.hour >= 12) }
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(
-            value = hourText,
-            onValueChange = { v ->
-                if (v.length <= 2 && v.all { it.isDigit() }) {
-                    hourText = v
-                    val h = v.toIntOrNull() ?: return@OutlinedTextField
-                    if (h in 1..12) {
-                        val hour24 = if (isPm) { if (h == 12) 12 else h + 12 } else { if (h == 12) 0 else h }
-                        onTimeChange(time.withHour(hour24).withMinute(minuteText.toIntOrNull() ?: time.minute))
-                    }
-                }
-            },
-            label = { Text("Hour") },
-            modifier = Modifier.weight(1f),
-            singleLine = true,
-        )
-        Text(":", style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
-            value = minuteText,
-            onValueChange = { v ->
-                if (v.length <= 2 && v.all { it.isDigit() }) {
-                    minuteText = v
-                    val m = v.toIntOrNull() ?: return@OutlinedTextField
-                    if (m in 0..59) onTimeChange(time.withMinute(m))
-                }
-            },
-            label = { Text("Min") },
-            modifier = Modifier.weight(1f),
-            singleLine = true,
-        )
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
-            SegmentedButton(
-                selected = !isPm,
-                onClick = {
-                    isPm = false
-                    val h = if (time.hour >= 12) time.hour - 12 else time.hour
-                    onTimeChange(time.withHour(if (h == 0) 0 else h))
-                },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-            ) { Text("AM") }
-            SegmentedButton(
-                selected = isPm,
-                onClick = {
-                    isPm = true
-                    val h = if (time.hour < 12) time.hour + 12 else time.hour
-                    onTimeChange(time.withHour(h))
-                },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-            ) { Text("PM") }
-        }
-    }
+private fun FrontTimePickerDialog(time: LocalTime, onDismiss: () -> Unit, onConfirm: (LocalTime) -> Unit) {
+    val state = rememberTimePickerState(initialHour = time.hour, initialMinute = time.minute)
+    TimePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Select time") },
+    ) { TimePicker(state = state) }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
