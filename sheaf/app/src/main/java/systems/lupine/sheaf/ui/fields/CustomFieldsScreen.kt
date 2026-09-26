@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.CustomFieldRead
@@ -211,13 +212,39 @@ private fun FieldListItem(
     onMoveUp: (() -> Unit)? = null,
     onMoveDown: (() -> Unit)? = null,
 ) {
+    // The name shares this row with three icon buttons, and ListItem gives the
+    // trailing slot the width it asks for before the headline gets any. With
+    // the privacy chip in there too the name was left a column one character
+    // wide, spelling itself vertically down the screen. Reported from the
+    // field. The chip moves down beside the type, where it has a full line to
+    // sit on, and the name is capped at two lines so no future addition to the
+    // trailing slot can collapse it again.
     ListItem(
         headlineContent = {
-            Text(field.name, style = MaterialTheme.typography.titleMedium)
+            Text(
+                field.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
         supportingContent = {
-            Column {
-                Text(field.fieldTypeDisplay, style = MaterialTheme.typography.bodySmall)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(field.fieldTypeDisplay, style = MaterialTheme.typography.bodySmall)
+                    SuggestionChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                field.privacyDisplay,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        },
+                    )
+                }
                 PendingDeleteBadge(field.pendingDeleteAt)
             }
         },
@@ -231,17 +258,8 @@ private fun FieldListItem(
         trailingContent = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                SuggestionChip(
-                    onClick = {},
-                    label = {
-                        Text(
-                            field.privacyDisplay,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    },
-                )
                 // This order is what a member's profile and any shared page
                 // show their fields in, so it is worth being able to set.
                 // See GroupCard: no explicit tint, so the button's own

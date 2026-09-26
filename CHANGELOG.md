@@ -8,6 +8,30 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **About has a screen of its own.** The settings row squeezed the version,
+  commit, build time and flavour onto one line, so on a narrow screen the
+  commit was cut off and the only way to read it was to turn the phone
+  sideways. Tapping it now opens a screen where each fact gets its own row and
+  copies to the clipboard, including the full commit hash rather than the short
+  one. It also reports what the server says it is: version, tag, commit, build
+  time and mode.
+
+- **Announcements can be scheduled with a date picker.** Admin only. The start
+  and expiry wanted a hand-typed `2026-12-31T00:00:00Z`, where one typo meant
+  the server rejected the whole announcement. Both are now a date picker and a
+  time field, as is the expiry on an invite code.
+
+- **Announcements can be set to show on the login page.** Admin only. The
+  server has supported this for a long time and the setting simply wasn't on
+  the phone, so it could only be set from the web client.
+
+### Changed
+
+- **The admin account list is its own screen.** It rendered every account
+  inline, which pushed invite codes, announcements and maintenance several
+  screens down and left the search field scrolled off above its own results.
+  Searching also waits for a pause in typing now, instead of asking the server
+  again on every keystroke.
 - **A share view can show everyone set to Public.** Instead of adding members
   one at a time, turn on "Show everyone set to Public" and the view follows
   each member's privacy setting from then on. The list you picked by hand is
