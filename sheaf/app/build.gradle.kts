@@ -42,6 +42,16 @@ val gitCommitShort: String = runCatching {
         .inputStream.bufferedReader().readText().trim()
 }.getOrNull()?.takeIf { it.isNotBlank() } ?: "unknown"
 
+// Full SHA of the same commit. The short one identifies a build at a glance;
+// this is the one you paste into a bug report or hand to `git show`, which is
+// why About offers it as a copyable field rather than only on screen.
+val gitCommitFull: String = runCatching {
+    ProcessBuilder("git", "rev-parse", "HEAD")
+        .redirectErrorStream(true)
+        .start()
+        .inputStream.bufferedReader().readText().trim()
+}.getOrNull()?.takeIf { it.isNotBlank() } ?: "unknown"
+
 // Build timestamp (UTC) at configure time, also surfaced via BuildConfig.
 // Same purpose as gitCommitShort but answers "when was this APK compiled" —
 // useful for the "wait, did I actually install the new build" moment when
@@ -79,6 +89,7 @@ android {
         versionName = providers.gradleProperty("versionName").orNull
             ?: "$latestReleaseTag-dev"
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommitShort\"")
+        buildConfigField("String", "GIT_COMMIT_FULL", "\"$gitCommitFull\"")
         buildConfigField("String", "BUILD_TIME", "\"$buildTimestamp\"")
     }
 
