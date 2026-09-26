@@ -19,7 +19,7 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 - **Announcements can be scheduled with a date picker.** Admin only. The start
   and expiry wanted a hand-typed `2026-12-31T00:00:00Z`, where one typo meant
   the server rejected the whole announcement. Both are now a date picker and a
-  time field, as is the expiry on an invite code.
+  time picker, as is the expiry on an invite code.
 
 - **Announcements can be set to show on the login page.** Admin only. The
   server has supported this for a long time and the setting simply wasn't on
@@ -32,6 +32,15 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   screens down and left the search field scrolled off above its own results.
   Searching also waits for a pause in typing now, instead of asking the server
   again on every keystroke.
+- **Times are picked from a clock instead of typed.** Front history entries
+  and admin schedules had separate hour and minute boxes with an AM/PM
+  toggle, and tapping one brought up the full keyboard. The time is now a
+  button next to the date that opens the standard time picker, which follows
+  the phone's 12/24 hour setting.
+- **The front entry member list is shorter.** Adding or editing a front
+  entry listed every member before you could reach the times. It now shows
+  the first five plus anyone already picked, with "Show all" to expand.
+  Searching or filtering by group still shows every match.
 - **A share view can show everyone set to Public.** Instead of adding members
   one at a time, turn on "Show everyone set to Public" and the view follows
   each member's privacy setting from then on. The list you picked by hand is

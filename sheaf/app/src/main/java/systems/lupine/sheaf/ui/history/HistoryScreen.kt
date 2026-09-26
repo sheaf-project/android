@@ -792,6 +792,7 @@ private fun FrontEntrySheet(
                 )
             } else {
                 var memberQuery by remember { mutableStateOf("") }
+                var showAllMembers by remember { mutableStateOf(false) }
                 if (groups.isNotEmpty()) {
                     GroupFilterChips(
                         groups = groups,
@@ -818,7 +819,12 @@ private fun FrontEntrySheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    filteredMembers.forEach { member ->
+                    val filtering = memberQuery.isNotBlank() || activeGroupId != null
+                    val collapsed = !showAllMembers && !filtering && filteredMembers.size > 5
+                    val visibleMembers = if (collapsed) {
+                        filteredMembers.filterIndexed { i, m -> i < 5 || m.id in selectedIds }
+                    } else filteredMembers
+                    visibleMembers.forEach { member ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -835,6 +841,11 @@ private fun FrontEntrySheet(
                             Text(member.displayNameWithEmoji, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
+                    if (!filtering && filteredMembers.size > 5) {
+                        TextButton(onClick = { showAllMembers = !showAllMembers }) {
+                            Text(if (showAllMembers) "Show less" else "Show all (${filteredMembers.size})")
+                        }
+                    }
                 }
             }
 
@@ -845,8 +856,8 @@ private fun FrontEntrySheet(
                 OutlinedButton(onClick = { showStartDatePicker = true }, modifier = Modifier.weight(1f)) {
                     Text(startDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
                 }
+                TimePickerButton(time = startTime, onTimeChange = { startTime = it }, modifier = Modifier.weight(1f))
             }
-            TimeInputRow(time = startTime, onTimeChange = { startTime = it })
 
             HorizontalDivider()
 
@@ -861,8 +872,8 @@ private fun FrontEntrySheet(
                     OutlinedButton(onClick = { showEndDatePicker = true }, modifier = Modifier.weight(1f)) {
                         Text(endDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
                     }
+                    TimePickerButton(time = endTime, onTimeChange = { endTime = it }, modifier = Modifier.weight(1f))
                 }
-                TimeInputRow(time = endTime, onTimeChange = { endTime = it })
             }
 
             HorizontalDivider()
