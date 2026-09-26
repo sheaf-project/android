@@ -731,8 +731,6 @@ private fun FrontEntrySheet(
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
-    var showStartTimePicker by remember { mutableStateOf(false) }
-    var showEndTimePicker by remember { mutableStateOf(false) }
 
     if (showStartDatePicker) {
         val pickerState = rememberDatePickerState(
@@ -768,22 +766,6 @@ private fun FrontEntrySheet(
             },
             dismissButton = { TextButton(onClick = { showEndDatePicker = false }) { Text("Cancel") } },
         ) { DatePicker(state = pickerState) }
-    }
-
-    if (showStartTimePicker) {
-        FrontTimePickerDialog(
-            time = startTime,
-            onDismiss = { showStartTimePicker = false },
-            onConfirm = { startTime = it; showStartTimePicker = false },
-        )
-    }
-
-    if (showEndTimePicker) {
-        FrontTimePickerDialog(
-            time = endTime,
-            onDismiss = { showEndTimePicker = false },
-            onConfirm = { endTime = it; showEndTimePicker = false },
-        )
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -874,9 +856,7 @@ private fun FrontEntrySheet(
                 OutlinedButton(onClick = { showStartDatePicker = true }, modifier = Modifier.weight(1f)) {
                     Text(startDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
                 }
-                OutlinedButton(onClick = { showStartTimePicker = true }, modifier = Modifier.weight(1f)) {
-                    Text(startTime.format(DateTimeFormatter.ofPattern("h:mm a")))
-                }
+                TimePickerButton(time = startTime, onTimeChange = { startTime = it }, modifier = Modifier.weight(1f))
             }
 
             HorizontalDivider()
@@ -892,9 +872,7 @@ private fun FrontEntrySheet(
                     OutlinedButton(onClick = { showEndDatePicker = true }, modifier = Modifier.weight(1f)) {
                         Text(endDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
                     }
-                    OutlinedButton(onClick = { showEndTimePicker = true }, modifier = Modifier.weight(1f)) {
-                        Text(endTime.format(DateTimeFormatter.ofPattern("h:mm a")))
-                    }
+                    TimePickerButton(time = endTime, onTimeChange = { endTime = it }, modifier = Modifier.weight(1f))
                 }
             }
 
@@ -944,20 +922,6 @@ private fun FrontEntrySheet(
             ) { Text(if (isEditing) "Save Changes" else "Add Entry") }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FrontTimePickerDialog(time: LocalTime, onDismiss: () -> Unit, onConfirm: (LocalTime) -> Unit) {
-    val state = rememberTimePickerState(initialHour = time.hour, initialMinute = time.minute)
-    TimePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { onConfirm(LocalTime.of(state.hour, state.minute)) }) { Text("OK") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Select time") },
-    ) { TimePicker(state = state) }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

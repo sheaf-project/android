@@ -31,7 +31,7 @@ import systems.lupine.sheaf.data.model.AnnouncementRead
 import systems.lupine.sheaf.data.model.AnnouncementUpdate
 import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
-import systems.lupine.sheaf.ui.components.TimeInputRow
+import systems.lupine.sheaf.ui.components.TimePickerButton
 import systems.lupine.sheaf.ui.components.datePickerDate
 import systems.lupine.sheaf.ui.components.datePickerMillis
 import systems.lupine.sheaf.ui.components.SectionHeader
@@ -700,7 +700,7 @@ private fun AnnouncementDialog(
 }
 
 /**
- * An optional point in time, as a checkbox plus a date button and a time row.
+ * An optional point in time, as a checkbox plus a date button and a time button.
  *
  * Replaces a free-text field that wanted a hand-typed `2026-12-31T00:00:00Z`:
  * one typo and the server rejected the whole announcement, and getting it right
@@ -766,15 +766,18 @@ private fun ScheduleField(
             )
         }
         if (local != null) {
-            OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(local.toLocalDate().format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
+                    Text(local.toLocalDate().format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
+                }
+                TimePickerButton(
+                    time = local.toLocalTime(),
+                    onTimeChange = { t ->
+                        onChange(LocalDateTime.of(local.toLocalDate(), t).atZone(zone).toInstant())
+                    },
+                    modifier = Modifier.weight(1f),
+                )
             }
-            TimeInputRow(
-                time = local.toLocalTime(),
-                onTimeChange = { time ->
-                    onChange(LocalDateTime.of(local.toLocalDate(), time).atZone(zone).toInstant())
-                },
-            )
         }
     }
 }
