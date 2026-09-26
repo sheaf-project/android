@@ -189,6 +189,15 @@ fun ShareViewDetailScreen(
                 )
 
                 SectionHeader("Members in this view")
+                if (view.includeAllPublicMembers) {
+                    Text(
+                        "This view shows everyone set to Public, so the list below is not being " +
+                            "used. It is kept as it is, and comes back if you turn that off. " +
+                            "Members marked never shareable are still never shown.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
                 view.members.forEach { row ->
                     val name = state.allMembers.find { it.id == row.memberId }?.name ?: "Unknown member"
                     ListItem(
@@ -431,6 +440,7 @@ internal fun previewNote(
 
 private fun ExposureFlag.liveValue(v: ShareViewRead): Boolean = when (this) {
     ExposureFlag.INCLUDE_MEMBERS -> v.includeMembers
+    ExposureFlag.INCLUDE_ALL_PUBLIC_MEMBERS -> v.includeAllPublicMembers
     ExposureFlag.INCLUDE_BIO -> v.includeBio
     ExposureFlag.INCLUDE_FRONTING -> v.includeFronting
     ExposureFlag.FRONTING_SHOW_COUNT -> v.frontingShowCount
@@ -440,6 +450,7 @@ private fun ExposureFlag.liveValue(v: ShareViewRead): Boolean = when (this) {
 
 private fun ExposureFlag.pendingValue(v: ShareViewRead): Boolean? = when (this) {
     ExposureFlag.INCLUDE_MEMBERS -> v.pendingIncludeMembers
+    ExposureFlag.INCLUDE_ALL_PUBLIC_MEMBERS -> v.pendingIncludeAllPublicMembers
     ExposureFlag.INCLUDE_BIO -> v.pendingIncludeBio
     ExposureFlag.INCLUDE_FRONTING -> v.pendingIncludeFronting
     ExposureFlag.FRONTING_SHOW_COUNT -> v.pendingFrontingShowCount

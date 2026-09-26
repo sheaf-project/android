@@ -104,6 +104,76 @@ class PatchJsonAdaptersTest {
         assertTrue("\"show_member_created_date\":false" in system(SystemUpdate(showMemberCreatedDate = false)))
     }
 
+    // ── Every field reaches the wire ──────────────────────────────────────────
+
+    // A hand-written adapter only writes what it lists, so a field left off the
+    // list is dropped without a sound. That is how the ceilings and the step-up
+    // credentials went missing: re-auth never reached the server and the guard
+    // switches never saved.
+
+    private fun assertAllKeys(json: String, keys: List<String>) =
+        keys.forEach { assertTrue("\"$it\":" in json, "$it missing from: $json") }
+
+    @Test fun `every member field is written when set`() {
+        val json = member(
+            MemberUpdate(
+                name = "A", displayName = "D", description = "d", pronouns = "p",
+                avatarUrl = "a", bannerUrl = "b", color = "#fff", birthday = "2000-01-01",
+                privacy = "public", note = "n", emoji = "x",
+                neverShareable = false, frontingPrivate = false,
+                password = "pw", totpCode = "123456",
+            ),
+        )
+        assertAllKeys(
+            json,
+            listOf(
+                "name", "display_name", "description", "pronouns", "avatar_url", "banner_url",
+                "color", "birthday", "privacy", "note", "emoji",
+                "never_shareable", "fronting_private", "password", "totp_code",
+            ),
+        )
+        assertTrue("\"never_shareable\":false" in json, json)
+    }
+
+    @Test fun `every group field is written when set`() {
+        val json = group(
+            GroupUpdate(
+                name = "G", description = "d", color = "#fff", parentId = "p",
+                privacy = "public", password = "pw", totpCode = "123456",
+            ),
+        )
+        assertAllKeys(
+            json,
+            listOf("name", "description", "color", "parent_id", "privacy", "password", "totp_code"),
+        )
+    }
+
+    @Test fun `every system field is written when set`() {
+        val json = system(
+            SystemUpdate(
+                name = "S", description = "d", tag = "t", avatarUrl = "a", color = "#fff",
+                privacy = "public", note = "n", showMemberCreatedDate = true,
+                password = "pw", totpCode = "123456",
+            ),
+        )
+        assertAllKeys(
+            json,
+            listOf(
+                "name", "description", "tag", "avatar_url", "color", "privacy", "note",
+                "show_member_created_date", "password", "totp_code",
+            ),
+        )
+    }
+
+    @Test fun `unset ceilings, credentials and privacy are left out`() {
+        // All NOT NULL or step-up only: a null would fail the save or be noise.
+        listOf(member(MemberUpdate(name = "A")), group(GroupUpdate(name = "G")), system(SystemUpdate(name = "S")))
+            .forEach { json ->
+                listOf("never_shareable", "fronting_private", "privacy", "password", "totp_code")
+                    .forEach { assertFalse("\"$it\"" in json, "$it should be omitted: $json") }
+            }
+    }
+
     @Test fun `the bodies stay valid JSON objects`() {
         listOf(member(MemberUpdate(name = "A")), group(GroupUpdate(name = "G")), system(SystemUpdate(name = "S")))
             .forEach {

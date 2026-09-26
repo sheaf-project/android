@@ -48,6 +48,7 @@ fun RevisionUnpinDialog(
     errorMessage: String?,
     onConfirm: (password: String?, totpCode: String?) -> Unit,
     onDismiss: () -> Unit,
+    queuedMessage: String? = null,
 ) {
     var password by remember { mutableStateOf("") }
     var totpCode by remember { mutableStateOf("") }
@@ -62,7 +63,9 @@ fun RevisionUnpinDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    if (willQueue) {
+                    if (willQueue && queuedMessage != null) {
+                        queuedMessage
+                    } else if (willQueue) {
                         "Unpinning will be queued for ${safety.gracePeriodDays} " +
                             "${if (safety.gracePeriodDays == 1) "day" else "days"} before " +
                             "the revision becomes eligible for the rolling history sweep. " +

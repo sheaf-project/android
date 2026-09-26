@@ -377,7 +377,11 @@ private fun CategoryToggles(
         CategoryRow("Tags", null, draft.appliesToTags) { draft.copy(appliesToTags = it) },
         CategoryRow("Custom fields", null, draft.appliesToFields) { draft.copy(appliesToFields = it) },
         CategoryRow("Fronts", null, draft.appliesToFronts) { draft.copy(appliesToFronts = it) },
-        CategoryRow("Journal entries", null, draft.appliesToJournals) { draft.copy(appliesToJournals = it) },
+        CategoryRow(
+            "Journal entries",
+            "Deleting or unpinning an entry",
+            draft.appliesToJournals,
+        ) { draft.copy(appliesToJournals = it) },
         CategoryRow("Images", null, draft.appliesToImages) { draft.copy(appliesToImages = it) },
         CategoryRow(
             "Pinned revisions",
@@ -674,6 +678,7 @@ private fun formatActionType(type: String): String = when (type) {
     "field_delete" -> "Delete field"
     "front_delete" -> "Delete front"
     "journal_delete" -> "Delete journal"
+    "journal_unpin" -> "Unpin journal"
     "image_delete" -> "Delete image"
     "revision_unpin" -> "Unpin revision"
     "watch_token_revoke" -> "Revoke watcher"
