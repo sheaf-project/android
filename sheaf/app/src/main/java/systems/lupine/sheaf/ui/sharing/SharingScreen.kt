@@ -65,6 +65,7 @@ import systems.lupine.sheaf.data.model.ShareAuditEntry
 import systems.lupine.sheaf.data.model.ShareGrantRead
 import systems.lupine.sheaf.data.model.ShareViewRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
+import systems.lupine.sheaf.ui.components.WarningCard
 import systems.lupine.sheaf.ui.components.SectionHeader
 import systems.lupine.sheaf.ui.components.datePickerDate
 import systems.lupine.sheaf.ui.components.datePickerMillis
@@ -426,32 +427,6 @@ internal fun dormantReason(
 // on their own calendar.
 internal fun parseExpiry(iso: String?): LocalDate? = iso?.let {
     runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).toLocalDate() }.getOrNull()
-}
-
-@Composable
-private fun WarningCard(text: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = LocalWarningColors.current.container),
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.Warning,
-                contentDescription = null,
-                tint = LocalWarningColors.current.onContainer,
-                modifier = Modifier.size(20.dp),
-            )
-            Text(
-                text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LocalWarningColors.current.onContainer,
-            )
-        }
-    }
 }
 
 // Deliberately coarse server-side: the anonymous surface returns one uniform
