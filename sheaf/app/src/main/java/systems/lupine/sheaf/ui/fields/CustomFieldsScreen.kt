@@ -218,6 +218,7 @@ private fun FieldListItem(
         supportingContent = {
             Column {
                 Text(field.fieldTypeDisplay, style = MaterialTheme.typography.bodySmall)
+                StagedPrivacyNote(field.pendingPrivacy, field.privacyActivatesAt)
                 PendingDeleteBadge(field.pendingDeleteAt)
             }
         },
@@ -233,15 +234,10 @@ private fun FieldListItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                SuggestionChip(
-                    onClick = {},
-                    label = {
-                        Text(
-                            field.privacyDisplay,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    },
-                )
+                // The same tag the member editor and the member profile show,
+                // so the three places a field's level appears cannot disagree
+                // about what it is or what it is called.
+                PrivacyTag(field.privacy)
                 // This order is what a member's profile and any shared page
                 // show their fields in, so it is worth being able to set.
                 // See GroupCard: no explicit tint, so the button's own

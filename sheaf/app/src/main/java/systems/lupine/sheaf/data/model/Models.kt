@@ -266,6 +266,9 @@ data class SystemRead(
     val description: String?,
     val tag: String?,
     @Json(name = "avatar_url") val avatarUrl: String?,
+    // Wide 3:1 header image, the exact twin of a member's. Absent on servers
+    // older than 1.6.0, which is why it defaults rather than being required.
+    @Json(name = "banner_url") val bannerUrl: String? = null,
     val color: String?,
     val privacy: String,
     // A raise of the master switch waiting out the grace window. `privacy`
@@ -308,6 +311,7 @@ data class SystemUpdate(
     val description: String? = null,
     val tag: String? = null,
     @Json(name = "avatar_url") val avatarUrl: String? = null,
+    @Json(name = "banner_url") val bannerUrl: String? = null,
     val color: String? = null,
     val privacy: String? = null,
     val note: String? = null,
@@ -799,6 +803,10 @@ data class CustomFieldRead(
     val options: CustomFieldOptions? = null,
     val order: Int,
     val privacy: String,
+    // A raise waiting out a System Safety grace period. `privacy` above is
+    // still what the field actually is until privacyActivatesAt passes.
+    @Json(name = "pending_privacy") val pendingPrivacy: String? = null,
+    @Json(name = "privacy_activates_at") val privacyActivatesAt: String? = null,
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     // Set when a System Safety grace period has this queued for deletion.

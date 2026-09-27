@@ -26,6 +26,7 @@ data class SystemEditForm(
     val note: String = "",
     val tag: String = "",
     val avatarUrl: String = "",
+    val bannerUrl: String = "",
     val color: String = "",
     val privacy: String = "private",
     val showMemberCreatedDate: Boolean = false,
@@ -35,6 +36,7 @@ data class SystemEditUiState(
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isUploadingAvatar: Boolean = false,
+    val isUploadingBanner: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null,
     // The master Public switch is a ceiling like any other, so it takes the
@@ -81,6 +83,7 @@ class SystemEditViewModel @Inject constructor(
                         note = system.note ?: "",
                         tag = system.tag ?: "",
                         avatarUrl = system.avatarUrl ?: "",
+                        bannerUrl = system.bannerUrl ?: "",
                         color = system.color ?: "",
                         privacy = system.privacy,
                         showMemberCreatedDate = system.showMemberCreatedDate,
@@ -131,6 +134,7 @@ class SystemEditViewModel @Inject constructor(
                     note = f.note,
                     tag = f.tag.takeIf { it.isNotBlank() },
                     avatarUrl = f.avatarUrl.takeIf { it.isNotBlank() },
+                    bannerUrl = f.bannerUrl.takeIf { it.isNotBlank() },
                     color = f.color.takeIf { it.isNotBlank() },
                     privacy = f.privacy,
                     showMemberCreatedDate = f.showMemberCreatedDate,
@@ -219,6 +223,34 @@ class SystemEditViewModel @Inject constructor(
                     _state.update { it.copy(isUploadingAvatar = false, error = "Failed to upload avatar: ${e.toUserMessage()}") }
                 }
         }
+    }
+
+    /**
+     * Upload a pre-cropped banner. Same endpoint and `purpose=banner` tag as a
+     * member's, because on the server the two are the same kind of image.
+     */
+    fun uploadBannerBytes(bytes: ByteArray, fileName: String = "banner.png") {
+        viewModelScope.launch {
+            _state.update { it.copy(isUploadingBanner = true, error = null) }
+            runCatching {
+                val requestBody = bytes.toRequestBody("image/png".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+                api.uploadFile(part, purpose = "banner")
+            }
+                .onSuccess { response ->
+                    _form.update { it.copy(bannerUrl = response.url) }
+                    _state.update { it.copy(isUploadingBanner = false) }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(isUploadingBanner = false, error = "Failed to upload banner: ${e.toUserMessage()}")
+                    }
+                }
+        }
+    }
+
+    fun removeBanner() {
+        _form.update { it.copy(bannerUrl = "") }
     }
 
     fun removeAvatar() {

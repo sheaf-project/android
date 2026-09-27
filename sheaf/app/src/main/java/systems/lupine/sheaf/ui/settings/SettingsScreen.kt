@@ -708,6 +708,15 @@ fun SystemEditScreen(
         ) {
             if (state.error != null) ErrorBanner(state.error!!)
 
+            // Banner, above the avatar: the same control a member's uses, and
+            // the same place it sits on the member editor.
+            systems.lupine.sheaf.ui.avatar.BannerPicker(
+                bannerUrl = form.bannerUrl,
+                isUploading = state.isUploadingBanner,
+                onPickedBytes = { bytes -> viewModel.uploadBannerBytes(bytes) },
+                onRemove = { viewModel.removeBanner() },
+            )
+
             // Avatar picker
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Box {

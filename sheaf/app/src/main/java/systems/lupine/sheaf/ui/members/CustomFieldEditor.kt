@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import systems.lupine.sheaf.data.model.CustomFieldRead
+import systems.lupine.sheaf.ui.components.PrivacyTag
+import systems.lupine.sheaf.ui.components.StagedPrivacyNote
 import systems.lupine.sheaf.ui.components.datePickerDate
 import systems.lupine.sheaf.ui.components.datePickerMillis
 import java.time.Instant
@@ -75,6 +77,12 @@ internal fun CustomFieldEditor(
     onChange: (Any?) -> Unit,
 ) {
     val choices = field.options?.choices
+    // The level lives on the definition and applies to every member, which is
+    // exactly why the editor could not answer "wait, is that one public?" on
+    // its own: you had to leave the member, open Settings, find the field and
+    // come back. It sits under the input, where Material puts supporting text,
+    // so it reads as belonging to the field above it rather than the next one.
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
     when (field.fieldType) {
         "text" -> TextEditor(label = field.name, value = value as? String, onChange = onChange)
         "number" -> NumberEditor(label = field.name, value = value, onChange = onChange)
@@ -97,6 +105,9 @@ internal fun CustomFieldEditor(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
+    }
+        PrivacyTag(field.privacy)
+        StagedPrivacyNote(field.pendingPrivacy, field.privacyActivatesAt)
     }
 }
 

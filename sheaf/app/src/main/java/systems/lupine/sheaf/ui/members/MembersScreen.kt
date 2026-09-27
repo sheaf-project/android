@@ -431,7 +431,6 @@ fun MemberDetailScreen(
     val form  by viewModel.form.collectAsState()
     val baseline by viewModel.baselineForm.collectAsState()
     var showAvatarMenu by remember { mutableStateOf(false) }
-    var showBannerMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     // Holds the URI of the just-picked image while the cropper dialog
     // is on screen. Null means no crop in progress. The crop dialog
@@ -451,23 +450,6 @@ fun MemberDetailScreen(
             onConfirm = { bytes ->
                 pendingCropUri = null
                 viewModel.uploadAvatarBytes(bytes)
-            },
-        )
-    }
-
-    // Separate crop pipeline for the wide 3:1 banner.
-    var pendingBannerCropUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    val bannerPickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri -> pendingBannerCropUri = uri }
-
-    pendingBannerCropUri?.let { uri ->
-        systems.lupine.sheaf.ui.avatar.BannerCropDialog(
-            sourceUri = uri,
-            onCancel = { pendingBannerCropUri = null },
-            onConfirm = { bytes ->
-                pendingBannerCropUri = null
-                viewModel.uploadBannerBytes(bytes)
             },
         )
     }
@@ -539,89 +521,12 @@ fun MemberDetailScreen(
         ) {
 
             // Banner (wide 3:1 header, shown on the profile only, not in lists).
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(3f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { showBannerMenu = true },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (!form.bannerUrl.isNullOrEmpty()) {
-                    AsyncImage(
-                        model = form.bannerUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Image,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Add banner", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(8.dp)
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .clickable { showBannerMenu = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit banner",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-
-                if (state.isUploadingBanner) {
-                    Box(
-                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(strokeWidth = 3.dp)
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = showBannerMenu,
-                    onDismissRequest = { showBannerMenu = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Choose photo") },
-                        leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
-                        onClick = {
-                            showBannerMenu = false
-                            bannerPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                    )
-                    if (!form.bannerUrl.isNullOrEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text("Remove banner", color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                            },
-                            onClick = {
-                                showBannerMenu = false
-                                viewModel.removeBanner()
-                            },
-                        )
-                    }
-                }
-            }
+            systems.lupine.sheaf.ui.avatar.BannerPicker(
+                bannerUrl = form.bannerUrl,
+                isUploading = state.isUploadingBanner,
+                onPickedBytes = { bytes -> viewModel.uploadBannerBytes(bytes) },
+                onRemove = { viewModel.removeBanner() },
+            )
 
             // Avatar
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -1198,10 +1103,23 @@ fun MemberProfileScreen(
                                 ListItem(
                                     headlineContent = { Text(field.name) },
                                     supportingContent = {
-                                        Text(
-                                            display,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                        )
+                                        // Value, then who can see it. In the
+                                        // supporting slot rather than the
+                                        // trailing one: a trailing tag would
+                                        // take its width from the name, which
+                                        // is how a long field name ended up
+                                        // spelling itself down the screen.
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text(
+                                                display,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            PrivacyTag(field.privacy)
+                                            StagedPrivacyNote(
+                                                field.pendingPrivacy,
+                                                field.privacyActivatesAt,
+                                            )
+                                        }
                                     },
                                     colors = itemColors,
                                 )
