@@ -25,6 +25,7 @@ import systems.lupine.sheaf.data.model.REL_DIRECTION_INCOMING
 import systems.lupine.sheaf.data.model.REL_DIRECTION_OUTGOING
 import systems.lupine.sheaf.data.model.RelationshipFromViewpoint
 import systems.lupine.sheaf.data.model.RelationshipTypeRead
+import systems.lupine.sheaf.ui.sharing.offersPublic
 import systems.lupine.sheaf.data.model.SYMMETRY_DIRECTIONAL
 import systems.lupine.sheaf.data.model.SYMMETRY_EITHER
 import systems.lupine.sheaf.data.model.SYMMETRY_SYMMETRIC
@@ -80,6 +81,14 @@ fun RelationshipsEditor(
                     rel = rel,
                     otherName = state.nameById[rel.otherId] ?: "Unknown",
                     readOnly = readOnly,
+                    // Group edges are deliberately not gated: the public
+                    // projection never queries them, so the server stores
+                    // public there as asked and disabling it would invent a
+                    // restriction that does not exist.
+                    offersPublic = state.raiseGate.offersPublic(
+                        savedValue = rel.visibility,
+                        gated = scope == REL_SCOPE_MEMBER,
+                    ),
                     onRemove = { viewModel.remove(rel.id) },
                     onVisibility = { v -> viewModel.setVisibility(rel.id, v) },
                 )
@@ -130,6 +139,7 @@ private fun RelationshipRow(
     rel: RelationshipFromViewpoint,
     otherName: String,
     readOnly: Boolean,
+    offersPublic: Boolean,
     onRemove: () -> Unit,
     onVisibility: (String) -> Unit,
 ) {
@@ -161,7 +171,16 @@ private fun RelationshipRow(
                 listOf("private", "friends", "public").forEach { level ->
                     androidx.compose.material3.DropdownMenuItem(
                         text = { Text(level.replaceFirstChar { it.uppercase() }) },
+                        enabled = offersPublic || level != "public",
                         onClick = { menuOpen = false; onVisibility(level) },
+                    )
+                }
+                if (!offersPublic) {
+                    Text(
+                        systems.lupine.sheaf.ui.sharing.PUBLISHING_OFF_NOTE,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                     )
                 }
             }

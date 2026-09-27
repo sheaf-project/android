@@ -23,6 +23,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.sharing.offersPublic
 import systems.lupine.sheaf.ui.relationships.REL_SCOPE_GROUP
 import systems.lupine.sheaf.ui.relationships.RelationshipsEditor
 import androidx.compose.ui.draw.alpha
@@ -314,14 +315,23 @@ fun GroupDetailScreen(
             )
 
             SectionHeader("Privacy")
+            val offersPublic = state.raiseGate.offersPublic(state.group?.privacy)
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 listOf("public", "friends", "private").forEachIndexed { index, level ->
                     SegmentedButton(
                         selected = form.privacy == level,
+                        enabled = offersPublic || level != "public",
                         onClick = { viewModel.updateForm { copy(privacy = level) } },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
                     ) { Text(level.replaceFirstChar { it.uppercase() }) }
                 }
+            }
+            if (!offersPublic) {
+                Text(
+                    systems.lupine.sheaf.ui.sharing.PUBLISHING_OFF_NOTE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Text(
                 state.pendingPrivacy?.let {

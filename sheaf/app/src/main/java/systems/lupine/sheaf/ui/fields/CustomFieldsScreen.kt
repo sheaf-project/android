@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.CustomFieldRead
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.sharing.offersPublic
 import androidx.compose.ui.draw.alpha
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -142,6 +143,9 @@ fun CustomFieldsScreen(
     if (showAddSheet) {
         AddFieldSheet(
             isSaving = state.isSaving,
+            // A new field has no stored level, so Public would be a raise from
+            // nothing, which the server refuses on create too.
+            offersPublic = state.raiseGate.offersPublic(null),
             onDismiss = { showAddSheet = false },
             onSave = { name, fieldType, privacy, choices ->
                 viewModel.createField(name, fieldType, privacy, choices)
@@ -156,6 +160,7 @@ fun CustomFieldsScreen(
         EditFieldDialog(
             field = field,
             isSaving = state.isSaving,
+            offersPublic = state.raiseGate.offersPublic(field.privacy),
             onDismiss = { editingField = null },
             onSave = { name, privacy, choices ->
                 viewModel.updateField(
@@ -340,6 +345,7 @@ private fun ChoicesEditor(
 @Composable
 private fun AddFieldSheet(
     isSaving: Boolean,
+    offersPublic: Boolean,
     onDismiss: () -> Unit,
     onSave: (name: String, fieldType: String, privacy: String, choices: List<String>?) -> Unit,
 ) {
@@ -415,6 +421,7 @@ private fun AddFieldSheet(
                     privacyOptions.forEachIndexed { index, option ->
                         SegmentedButton(
                             selected = privacy == option,
+                            enabled = offersPublic || option != "public",
                             onClick = { privacy = option },
                             shape = SegmentedButtonDefaults.itemShape(
                                 index = index,
@@ -424,6 +431,13 @@ private fun AddFieldSheet(
                             Text(option.replaceFirstChar { it.uppercase() })
                         }
                     }
+                }
+                if (!offersPublic) {
+                    Text(
+                        systems.lupine.sheaf.ui.sharing.PUBLISHING_OFF_NOTE,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
@@ -457,6 +471,7 @@ private fun AddFieldSheet(
 private fun EditFieldDialog(
     field: CustomFieldRead,
     isSaving: Boolean,
+    offersPublic: Boolean,
     onDismiss: () -> Unit,
     onSave: (name: String, privacy: String, choices: List<String>?) -> Unit,
 ) {
@@ -506,6 +521,7 @@ private fun EditFieldDialog(
                         privacyOptions.forEachIndexed { index, option ->
                             SegmentedButton(
                                 selected = privacy == option,
+                                enabled = offersPublic || option != "public",
                                 onClick = { privacy = option },
                                 shape = SegmentedButtonDefaults.itemShape(
                                     index = index,
@@ -515,6 +531,13 @@ private fun EditFieldDialog(
                                 Text(option.replaceFirstChar { it.uppercase() })
                             }
                         }
+                    }
+                    if (!offersPublic) {
+                        Text(
+                            systems.lupine.sheaf.ui.sharing.PUBLISHING_OFF_NOTE,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

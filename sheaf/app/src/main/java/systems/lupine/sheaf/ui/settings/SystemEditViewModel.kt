@@ -47,6 +47,10 @@ data class SystemEditUiState(
     val stepUpError: String? = null,
     val pendingPrivacy: String? = null,
     val privacyActivatesAt: String? = null,
+    // What the server currently holds, not what the form is showing: a raise
+    // to public is refused where publishing is off, but a record already
+    // stored as public must keep the option so it can be lowered again.
+    val savedPrivacy: String? = null,
 )
 
 @HiltViewModel
@@ -95,6 +99,7 @@ class SystemEditViewModel @Inject constructor(
                             isLoading = false,
                             pendingPrivacy = system.pendingPrivacy,
                             privacyActivatesAt = system.privacyActivatesAt,
+                            savedPrivacy = system.privacy,
                         )
                     }
                     _state.update { it.copy(raiseGate = api.loadRaiseGate()) }
@@ -155,6 +160,7 @@ class SystemEditViewModel @Inject constructor(
                             saveNeedsStepUp = false,
                             pendingPrivacy = updated.pendingPrivacy,
                             privacyActivatesAt = updated.privacyActivatesAt,
+                            savedPrivacy = updated.privacy,
                         )
                     }
                 }

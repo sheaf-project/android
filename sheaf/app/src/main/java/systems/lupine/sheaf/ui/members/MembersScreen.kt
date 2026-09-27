@@ -49,6 +49,7 @@ import kotlinx.coroutines.launch
 import systems.lupine.sheaf.data.model.ContentRevisionRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.sharing.offersPublic
 import systems.lupine.sheaf.ui.relationships.REL_SCOPE_MEMBER
 import systems.lupine.sheaf.ui.relationships.RelationshipsEditor
 import java.time.OffsetDateTime
@@ -706,14 +707,25 @@ fun MemberDetailScreen(
             }
 
             SectionHeader("Privacy")
+            // Public stays offered when it is already the stored value, since
+            // that is how it displays and how it gets lowered again.
+            val offersPublic = state.raiseGate.offersPublic(state.member?.privacy)
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 listOf("public", "friends", "private").forEachIndexed { index, level ->
                     SegmentedButton(
                         selected = form.privacy == level,
+                        enabled = offersPublic || level != "public",
                         onClick = { viewModel.updateForm { copy(privacy = level) } },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
                     ) { Text(level.replaceFirstChar { it.uppercase() }) }
                 }
+            }
+            if (!offersPublic) {
+                Text(
+                    systems.lupine.sheaf.ui.sharing.PUBLISHING_OFF_NOTE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             val staged = state.member?.takeIf { it.pendingPrivacy != null && form.privacy == it.pendingPrivacy }
             staged?.privacyActivatesAt?.let { at ->
