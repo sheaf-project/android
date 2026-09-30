@@ -32,6 +32,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   screens down and left the search field scrolled off above its own results.
   Searching also waits for a pause in typing now, instead of asking the server
   again on every keystroke.
+- **A banner image for your system.** Settings > Profile gains a banner
+  beside the avatar, the same wide image a member can have, with the same
+  cropper. Needs a server running 1.6.0 or later.
+
+- **Custom fields say who can see them.** Each custom field in the member
+  editor, on a member's profile, and in Settings now carries its privacy
+  level, so "wait, is that one public?" no longer means leaving the member to
+  go and check before typing something sensitive. Where a change to a level is
+  waiting out a System Safety grace period, it says what it will become and
+  when. Changing a level still happens in Settings.
+
 - **A share view can show everyone set to Public.** Instead of adding members
   one at a time, turn on "Show everyone set to Public" and the view follows
   each member's privacy setting from then on. The list you picked by hand is
@@ -55,6 +66,24 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   about them no longer cancels the wait by accident.
 
 ### Fixed
+
+- **Public is no longer offered where the instance cannot publish.** On an
+  instance with public profiles turned off, choosing Public for a member,
+  group, custom field, relationship or your system was a dead end that failed
+  with a permissions error. It is now shown but unavailable, with a line
+  saying why. Anything already public keeps the option, so it can still be
+  lowered.
+
+- **A notification channel that stops working now says so.** When deliveries
+  to a channel keep failing, the server switches it off after a day. The app
+  said nothing, and the recipient's copy read "Unsubscribed", which blamed a
+  person for a broken endpoint. Your channel list now names what stopped and
+  what to check. Needs a server running 1.6.0 or later.
+
+- **Mobile push is no longer offered where it cannot work.** Self-hosted
+  instances without push credentials let you fill in the whole form before
+  refusing it. The option is now unavailable up front, with the reason
+  available if you want it. Needs a server running 1.6.0 or later.
 
 - **Re-authentication now reaches the server when editing members, groups
   and system settings.** The password and code you typed were dropped before

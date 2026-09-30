@@ -53,4 +53,10 @@ data class ReceivingChannelView(
     // chose to leave. Defaults to false so older backend responses parse
     // the same as before.
     @Json(name = "paused_by_sender") val pausedBySender: Boolean = false,
+    // Set when the SERVER switched the channel off, which is a third cause of
+    // `disabled` alongside the owner pausing it and the recipient
+    // unsubscribing. Without it, a channel stopped for failing deliveries
+    // reads as "Unsubscribed", which blames a person for a broken endpoint.
+    // Only value so far is "delivery_failed". Absent before server 1.6.0.
+    @Json(name = "disabled_reason") val disabledReason: String? = null,
 )
