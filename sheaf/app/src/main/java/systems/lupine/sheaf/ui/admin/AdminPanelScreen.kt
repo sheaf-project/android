@@ -11,7 +11,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,14 +26,21 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import systems.lupine.sheaf.data.model.AdminUserUpdate
 import systems.lupine.sheaf.data.model.AnnouncementCreate
 import systems.lupine.sheaf.data.model.AnnouncementRead
 import systems.lupine.sheaf.data.model.AnnouncementUpdate
 import systems.lupine.sheaf.data.model.InviteCodeRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
+import systems.lupine.sheaf.ui.components.TimeInputRow
+import systems.lupine.sheaf.ui.components.datePickerDate
+import systems.lupine.sheaf.ui.components.datePickerMillis
 import systems.lupine.sheaf.ui.components.SectionHeader
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +48,7 @@ fun AdminPanelScreen(
     onNavigateUp: () -> Unit,
     onNavigateToAudit: () -> Unit = {},
     onNavigateToJobs: () -> Unit = {},
-    onNavigateToUserDetail: (String) -> Unit = {},
+    onNavigateToUsers: () -> Unit = {},
     viewModel: AdminPanelViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -51,13 +57,6 @@ fun AdminPanelScreen(
         LaunchedEffect(msg) {
             kotlinx.coroutines.delay(3000)
             viewModel.clearMaintenanceMessage()
-        }
-    }
-
-    state.recoveryMessage?.let { msg ->
-        LaunchedEffect(msg) {
-            kotlinx.coroutines.delay(3000)
-            viewModel.clearRecoveryMessage()
         }
     }
 
@@ -97,15 +96,6 @@ fun AdminPanelScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                 ) {
                     Text(msg, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
-                }
-            }
-
-            state.recoveryMessage?.let { msg ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                ) {
-                    Text(msg, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onTertiaryContainer)
                 }
             }
 
@@ -190,33 +180,22 @@ fun AdminPanelScreen(
             }
 
             // ── Users ─────────────────────────────────────────────────────────
+            // The list itself lives on its own screen: it is unbounded, and
+            // inline it buried everything below it.
             SectionHeader("Users", modifier = Modifier.padding(horizontal = 16.dp))
-            OutlinedTextField(
-                value = state.search,
-                onValueChange = { viewModel.setSearch(it) },
-                label = { Text("Search users") },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            state.users.forEach { user ->
-                UserListItem(
-                    user = user,
-                    onUpdate = { update -> viewModel.updateUser(user.id, update) },
-                    onResetPassword = { reason, newPw -> viewModel.resetPassword(user.id, reason, newPw) },
-                    onChangeEmail = { reason, newEmail -> viewModel.changeEmail(user.id, reason, newEmail) },
-                    onDisableTotp = { reason -> viewModel.disableTotp(user.id, reason) },
-                    onVerifyEmail = { reason -> viewModel.verifyEmail(user.id, reason) },
-                    onCancelDeletion = { reason -> viewModel.cancelDeletion(user.id, reason) },
-                    onSuspend = { reason, days -> viewModel.suspendUser(user.id, reason, days) },
-                    onUnsuspend = { reason -> viewModel.unsuspendUser(user.id, reason) },
-                    onBan = { reason -> viewModel.banUser(user.id, reason) },
-                    onUnban = { reason -> viewModel.unbanUser(user.id, reason) },
-                    onViewDetail = { onNavigateToUserDetail(user.id) },
+            OutlinedButton(
+                onClick = onNavigateToUsers,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    state.stats?.totalUsers
+                        ?.let { count -> "Search and manage accounts ($count)" }
+                        ?: "Search and manage accounts",
                 )
-                HorizontalDivider()
             }
+            Spacer(Modifier.height(8.dp))
 
             // ── Invite Codes ──────────────────────────────────────────────────
             var showCreateInviteDialog by remember { mutableStateOf(false) }
@@ -320,8 +299,14 @@ fun AdminPanelScreen(
                             severity = create.severity,
                             dismissible = create.dismissible,
                             active = create.active,
+                            visibleWhileLoggedOut = create.visibleWhileLoggedOut,
                             startsAt = create.startsAt,
                             expiresAt = create.expiresAt,
+                            // PATCH reads an omitted timestamp as "leave it
+                            // alone", so unticking a schedule that was set has
+                            // to say so explicitly or it silently stays.
+                            clearStartsAt = create.startsAt == null && editing.startsAt != null,
+                            clearExpiresAt = create.expiresAt == null && editing.expiresAt != null,
                         ))
                     },
                     onDismiss = { announcementToEdit = null; viewModel.clearAnnouncementError() },
@@ -436,396 +421,6 @@ private fun StepUpSection(
 }
 
 @Composable
-private fun UserListItem(
-    user: systems.lupine.sheaf.data.model.AdminUserRead,
-    onUpdate: (AdminUserUpdate) -> Unit,
-    onResetPassword: (String, String?) -> Unit,
-    onChangeEmail: (String, String) -> Unit,
-    onDisableTotp: (String) -> Unit,
-    onVerifyEmail: (String) -> Unit,
-    onCancelDeletion: (String) -> Unit,
-    onSuspend: (String, Int?) -> Unit,
-    onUnsuspend: (String) -> Unit,
-    onBan: (String) -> Unit,
-    onUnban: (String) -> Unit,
-    onViewDetail: () -> Unit,
-) {
-    var showDialog by remember { mutableStateOf(false) }
-    val suspended = user.accountStatus.equals("suspended", ignoreCase = true)
-    val banned = user.accountStatus.equals("banned", ignoreCase = true)
-
-    Surface(onClick = { showDialog = true }, modifier = Modifier.fillMaxWidth()) {
-        ListItem(
-            headlineContent = { Text(user.email, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            supportingContent = {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(user.tier, style = MaterialTheme.typography.bodySmall)
-                    Text("·", style = MaterialTheme.typography.bodySmall)
-                    Text(
-                        user.accountStatus,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (suspended || banned) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (user.isAdmin) {
-                        Text("·", style = MaterialTheme.typography.bodySmall)
-                        Text("admin", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
-                    }
-                }
-            },
-            trailingContent = {
-                IconButton(onClick = onViewDetail) {
-                    Icon(Icons.Outlined.Info, contentDescription = "Account detail")
-                }
-            },
-        )
-    }
-
-    if (showDialog) {
-        UserEditDialog(
-            user = user,
-            onDismiss = { showDialog = false },
-            onSave = { update -> onUpdate(update); showDialog = false },
-            onResetPassword = { reason, newPw -> onResetPassword(reason, newPw); showDialog = false },
-            onChangeEmail = { reason, newEmail -> onChangeEmail(reason, newEmail); showDialog = false },
-            onDisableTotp = { reason -> onDisableTotp(reason); showDialog = false },
-            onVerifyEmail = { reason -> onVerifyEmail(reason); showDialog = false },
-            onCancelDeletion = { reason -> onCancelDeletion(reason); showDialog = false },
-            onSuspend = { reason, days -> onSuspend(reason, days); showDialog = false },
-            onUnsuspend = { reason -> onUnsuspend(reason); showDialog = false },
-            onBan = { reason -> onBan(reason); showDialog = false },
-            onUnban = { reason -> onUnban(reason); showDialog = false },
-        )
-    }
-}
-
-@Composable
-private fun UserEditDialog(
-    user: systems.lupine.sheaf.data.model.AdminUserRead,
-    onDismiss: () -> Unit,
-    onSave: (AdminUserUpdate) -> Unit,
-    onResetPassword: (String, String?) -> Unit,
-    onChangeEmail: (String, String) -> Unit,
-    onDisableTotp: (String) -> Unit,
-    onVerifyEmail: (String) -> Unit,
-    onCancelDeletion: (String) -> Unit,
-    onSuspend: (String, Int?) -> Unit,
-    onUnsuspend: (String) -> Unit,
-    onBan: (String) -> Unit,
-    onUnban: (String) -> Unit,
-) {
-    var tier by remember { mutableStateOf(user.tier) }
-    var isAdmin by remember { mutableStateOf(user.isAdmin) }
-    var memberLimitText by remember { mutableStateOf(user.memberLimit?.toString() ?: "") }
-
-    var showResetPasswordDialog by remember { mutableStateOf(false) }
-    var showChangeEmailDialog by remember { mutableStateOf(false) }
-    var confirmDisableTotp by remember { mutableStateOf(false) }
-    var confirmVerifyEmail by remember { mutableStateOf(false) }
-    var confirmCancelDeletion by remember { mutableStateOf(false) }
-    var showSuspend by remember { mutableStateOf(false) }
-    var showUnsuspend by remember { mutableStateOf(false) }
-    var showBan by remember { mutableStateOf(false) }
-    var showUnban by remember { mutableStateOf(false) }
-
-    val suspended = user.accountStatus.equals("suspended", ignoreCase = true)
-    val banned = user.accountStatus.equals("banned", ignoreCase = true)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(user.email, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-            ) {
-                Text("Tier", style = MaterialTheme.typography.labelMedium)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    listOf("free", "plus", "self_hosted").forEachIndexed { index, t ->
-                        SegmentedButton(
-                            selected = tier == t,
-                            onClick = { tier = t },
-                            shape = SegmentedButtonDefaults.itemShape(index, 3),
-                        ) { Text(t.replace('_', ' '), style = MaterialTheme.typography.labelSmall) }
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isAdmin, onCheckedChange = { isAdmin = it })
-                    Text("Admin", style = MaterialTheme.typography.bodyMedium)
-                }
-                OutlinedTextField(
-                    value = memberLimitText,
-                    onValueChange = { if (it.all { c -> c.isDigit() }) memberLimitText = it },
-                    label = { Text("Member limit override") },
-                    placeholder = { Text("Leave empty for default") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                HorizontalDivider()
-                Text(
-                    "Recovery Tools",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedButton(
-                    onClick = { showResetPasswordDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Reset Password") }
-                OutlinedButton(
-                    onClick = { showChangeEmailDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Change Email") }
-                if (!user.emailVerified) {
-                    OutlinedButton(
-                        onClick = { confirmVerifyEmail = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Mark Email Verified") }
-                }
-                if (user.totpEnabled) {
-                    OutlinedButton(
-                        onClick = { confirmDisableTotp = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    ) { Text("Disable TOTP") }
-                }
-                if (user.accountStatus.contains("delet", ignoreCase = true)) {
-                    OutlinedButton(
-                        onClick = { confirmCancelDeletion = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Cancel Account Deletion") }
-                }
-
-                // Moderation is hidden for admin accounts: the backend rejects
-                // suspend/ban against admins, so don't offer a button that 403s.
-                if (!user.isAdmin) {
-                    HorizontalDivider()
-                    Text(
-                        "Moderation",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (suspended) {
-                        user.suspendedReason?.let {
-                            Text(
-                                "Suspended: $it",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = { showUnsuspend = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Lift Suspension") }
-                    } else if (!banned) {
-                        OutlinedButton(
-                            onClick = { showSuspend = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        ) { Text("Suspend") }
-                    }
-                    if (banned) {
-                        OutlinedButton(
-                            onClick = { showUnban = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Lift Ban") }
-                    } else {
-                        OutlinedButton(
-                            onClick = { showBan = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        ) { Text("Ban Permanently") }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onSave(AdminUserUpdate(
-                    tier = tier.takeIf { it != user.tier },
-                    isAdmin = isAdmin.takeIf { it != user.isAdmin },
-                    memberLimit = memberLimitText.toIntOrNull(),
-                    clearMemberLimit = if (memberLimitText.isBlank() && user.memberLimit != null) true else null,
-                ))
-            }) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-
-    if (showResetPasswordDialog) {
-        ResetPasswordDialog(
-            onConfirm = { reason, newPw -> onResetPassword(reason, newPw); showResetPasswordDialog = false },
-            onDismiss = { showResetPasswordDialog = false },
-        )
-    }
-
-    if (showChangeEmailDialog) {
-        ChangeEmailDialog(
-            onConfirm = { reason, newEmail -> onChangeEmail(reason, newEmail); showChangeEmailDialog = false },
-            onDismiss = { showChangeEmailDialog = false },
-        )
-    }
-
-    if (confirmDisableTotp) {
-        AdminReasonDialog(
-            title = "Disable TOTP?",
-            message = "Removes two-factor authentication from the account. The user must re-enroll to restore it.",
-            confirmLabel = "Disable",
-            destructive = true,
-            onConfirm = { reason, _ -> onDisableTotp(reason); confirmDisableTotp = false },
-            onDismiss = { confirmDisableTotp = false },
-        )
-    }
-
-    if (confirmVerifyEmail) {
-        AdminReasonDialog(
-            title = "Verify email?",
-            message = "Mark ${user.email} as verified without the user clicking a verification link.",
-            confirmLabel = "Verify",
-            onConfirm = { reason, _ -> onVerifyEmail(reason); confirmVerifyEmail = false },
-            onDismiss = { confirmVerifyEmail = false },
-        )
-    }
-
-    if (confirmCancelDeletion) {
-        AdminReasonDialog(
-            title = "Cancel deletion?",
-            message = "Restore ${user.email} and cancel the scheduled account deletion.",
-            confirmLabel = "Cancel deletion",
-            onConfirm = { reason, _ -> onCancelDeletion(reason); confirmCancelDeletion = false },
-            onDismiss = { confirmCancelDeletion = false },
-        )
-    }
-
-    if (showSuspend) {
-        AdminReasonDialog(
-            title = "Suspend account?",
-            message = "Soft-bans ${user.email} and revokes their sessions. Leave duration blank for an indefinite suspension.",
-            confirmLabel = "Suspend",
-            destructive = true,
-            includeDuration = true,
-            onConfirm = { reason, days -> onSuspend(reason, days); showSuspend = false },
-            onDismiss = { showSuspend = false },
-        )
-    }
-
-    if (showUnsuspend) {
-        AdminReasonDialog(
-            title = "Lift suspension?",
-            message = "Restores ${user.email} to active.",
-            confirmLabel = "Lift",
-            onConfirm = { reason, _ -> onUnsuspend(reason); showUnsuspend = false },
-            onDismiss = { showUnsuspend = false },
-        )
-    }
-
-    if (showBan) {
-        AdminReasonDialog(
-            title = "Ban permanently?",
-            message = "Permanently bans ${user.email} and revokes their sessions. This does not auto-expire.",
-            confirmLabel = "Ban",
-            destructive = true,
-            onConfirm = { reason, _ -> onBan(reason); showBan = false },
-            onDismiss = { showBan = false },
-        )
-    }
-
-    if (showUnban) {
-        AdminReasonDialog(
-            title = "Lift ban?",
-            message = "Restores ${user.email} to active.",
-            confirmLabel = "Lift",
-            onConfirm = { reason, _ -> onUnban(reason); showUnban = false },
-            onDismiss = { showUnban = false },
-        )
-    }
-}
-
-
-@Composable
-private fun ResetPasswordDialog(
-    onConfirm: (reason: String, newPassword: String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var reason by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Reset Password") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "Leave blank to generate a random password (the user will need to use \"Forgot Password\" to regain access).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it.take(500) },
-                    label = { Text("Reason (recorded in the audit log)") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = newPassword,
-                    onValueChange = { newPassword = it },
-                    label = { Text("New password (optional)") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(reason.trim(), newPassword.ifBlank { null }) },
-                enabled = reason.isNotBlank(),
-            ) { Text("Reset") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
-@Composable
-private fun ChangeEmailDialog(
-    onConfirm: (reason: String, newEmail: String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var reason by remember { mutableStateOf("") }
-    var newEmail by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Change Email") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it.take(500) },
-                    label = { Text("Reason (recorded in the audit log)") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = newEmail,
-                    onValueChange = { newEmail = it },
-                    label = { Text("New email address") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(reason.trim(), newEmail) },
-                enabled = newEmail.contains('@') && reason.isNotBlank(),
-            ) { Text("Change") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
-@Composable
 private fun InviteCodeListItem(invite: InviteCodeRead, onDelete: () -> Unit) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -876,7 +471,7 @@ private fun CreateInviteDialog(
 ) {
     var maxUsesText by remember { mutableStateOf("0") }
     var note by remember { mutableStateOf("") }
-    var expiresAt by remember { mutableStateOf("") }
+    var expiresAt by remember { mutableStateOf<Instant?>(null) }
 
     AlertDialog(
         onDismissRequest = { if (!isCreating) onDismiss() },
@@ -898,13 +493,12 @@ private fun CreateInviteDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                ScheduleField(
+                    label = "Expires",
+                    toggleLabel = "Set an expiry",
+                    offLabel = "Never expires",
                     value = expiresAt,
-                    onValueChange = { expiresAt = it },
-                    label = { Text("Expires at (optional)") },
-                    placeholder = { Text("2026-12-31T00:00:00Z") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    onChange = { expiresAt = it },
                 )
                 if (error != null) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -913,7 +507,7 @@ private fun CreateInviteDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(maxUsesText.toIntOrNull() ?: 0, note, expiresAt) },
+                onClick = { onCreate(maxUsesText.toIntOrNull() ?: 0, note, expiresAt?.toString()) },
                 enabled = !isCreating,
             ) {
                 if (isCreating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -938,10 +532,25 @@ private fun AnnouncementListItem(
         ListItem(
             headlineContent = { Text(announcement.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             supportingContent = {
+                // Same facts the web list badges, in the same order: an
+                // announcement that greets logged-out visitors should say so
+                // wherever it is listed.
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(announcement.severity, style = MaterialTheme.typography.bodySmall)
                     Text("·", style = MaterialTheme.typography.bodySmall)
                     Text(if (announcement.active) "active" else "inactive", style = MaterialTheme.typography.bodySmall)
+                    if (!announcement.dismissible) {
+                        Text("·", style = MaterialTheme.typography.bodySmall)
+                        Text("non-dismissible", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (announcement.visibleWhileLoggedOut) {
+                        Text("·", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "logged-out",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
                 }
             },
             trailingContent = {
@@ -981,8 +590,9 @@ private fun AnnouncementDialog(
     var severity by remember { mutableStateOf(initial?.severity ?: "info") }
     var dismissible by remember { mutableStateOf(initial?.dismissible ?: true) }
     var active by remember { mutableStateOf(initial?.active ?: true) }
-    var startsAt by remember { mutableStateOf(initial?.startsAt ?: "") }
-    var expiresAt by remember { mutableStateOf(initial?.expiresAt ?: "") }
+    var loggedOut by remember { mutableStateOf(initial?.visibleWhileLoggedOut ?: false) }
+    var startsAt by remember { mutableStateOf(parseAdminInstant(initial?.startsAt)) }
+    var expiresAt by remember { mutableStateOf(parseAdminInstant(initial?.expiresAt)) }
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
@@ -1023,22 +633,40 @@ private fun AnnouncementDialog(
                     Checkbox(checked = active, onCheckedChange = { active = it })
                     Text("Active", style = MaterialTheme.typography.bodyMedium)
                 }
-                OutlinedTextField(
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = loggedOut, onCheckedChange = { loggedOut = it })
+                    Column {
+                        Text("Visible while logged out", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Shows on the login page",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+                ScheduleField(
+                    label = "Starts",
+                    toggleLabel = "Schedule a start",
+                    offLabel = "Shows as soon as it's active",
                     value = startsAt,
-                    onValueChange = { startsAt = it },
-                    label = { Text("Starts at (optional)") },
-                    placeholder = { Text("2026-01-01T00:00:00Z") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    onChange = { startsAt = it },
                 )
-                OutlinedTextField(
+                ScheduleField(
+                    label = "Expires",
+                    toggleLabel = "Set an expiry",
+                    offLabel = "Shows until it's turned off",
                     value = expiresAt,
-                    onValueChange = { expiresAt = it },
-                    label = { Text("Expires at (optional)") },
-                    placeholder = { Text("2026-12-31T00:00:00Z") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    onChange = { expiresAt = it },
                 )
+                if (startsAt != null && expiresAt != null && !expiresAt!!.isAfter(startsAt)) {
+                    Text(
+                        "The expiry must be after the start.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 if (error != null) {
                     Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
@@ -1053,11 +681,13 @@ private fun AnnouncementDialog(
                         severity = severity,
                         dismissible = dismissible,
                         active = active,
-                        startsAt = startsAt.ifBlank { null },
-                        expiresAt = expiresAt.ifBlank { null },
+                        visibleWhileLoggedOut = loggedOut,
+                        startsAt = startsAt?.toString(),
+                        expiresAt = expiresAt?.toString(),
                     ))
                 },
-                enabled = !isSaving && title.isNotBlank() && body.isNotBlank(),
+                enabled = !isSaving && title.isNotBlank() && body.isNotBlank() &&
+                    (startsAt == null || expiresAt == null || expiresAt!!.isAfter(startsAt)),
             ) {
                 if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Text(if (initial == null) "Create" else "Save")
@@ -1068,6 +698,99 @@ private fun AnnouncementDialog(
         },
     )
 }
+
+/**
+ * An optional point in time, as a checkbox plus a date button and a time row.
+ *
+ * Replaces a free-text field that wanted a hand-typed `2026-12-31T00:00:00Z`:
+ * one typo and the server rejected the whole announcement, and getting it right
+ * meant doing the UTC conversion in your head. The value is carried as an
+ * [Instant] and shown in the device's zone, so what the picker says is what the
+ * announcement does locally.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScheduleField(
+    label: String,
+    toggleLabel: String,
+    offLabel: String,
+    value: Instant?,
+    onChange: (Instant?) -> Unit,
+) {
+    val zone = remember { ZoneId.systemDefault() }
+    val local = value?.atZone(zone)?.toLocalDateTime()
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker && local != null) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = datePickerMillis(local.toLocalDate())
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        onChange(
+                            LocalDateTime.of(datePickerDate(millis), local.toLocalTime())
+                                .atZone(zone).toInstant(),
+                        )
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
+        ) { DatePicker(state = pickerState) }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = value != null,
+                // Defaulting to "now" rather than a blank field: an announcement
+                // scheduled from here is nearly always minutes or hours out, and
+                // adjusting a filled-in time is less work than building one.
+                onCheckedChange = { checked ->
+                    onChange(
+                        if (checked) LocalDateTime.now(zone).withSecond(0).withNano(0)
+                            .atZone(zone).toInstant()
+                        else null,
+                    )
+                },
+            )
+            Text(
+                if (value == null) offLabel else toggleLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (value == null) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (local != null) {
+            OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(local.toLocalDate().format(DateTimeFormatter.ofPattern("MMM d, yyyy")))
+            }
+            TimeInputRow(
+                time = local.toLocalTime(),
+                onTimeChange = { time ->
+                    onChange(LocalDateTime.of(local.toLocalDate(), time).atZone(zone).toInstant())
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Read a timestamp the server sent back, or null if it is absent or unreadable.
+ *
+ * Both columns are `timestamptz`, so an offset is expected; the bare-[Instant]
+ * fallback covers a `Z` suffix, and anything else drops to null rather than
+ * throwing inside a composable.
+ */
+private fun parseAdminInstant(iso: String?): Instant? =
+    if (iso.isNullOrBlank()) null
+    else runCatching { OffsetDateTime.parse(iso).toInstant() }
+        .recoverCatching { Instant.parse(iso) }
+        .getOrNull()
 
 @Composable
 private fun MaintenanceButton(label: String, onClick: () -> Unit) {

@@ -68,6 +68,7 @@ fun SettingsScreen(
     onNavigateToAdminPanel: () -> Unit,
     onNavigateToSupport: () -> Unit,
     onNavigateToDebug: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -311,7 +312,7 @@ fun SettingsScreen(
                     append(" · ${BuildConfig.FLAVOR}")
                     if (BuildConfig.DEBUG) append(" · debug")
                 },
-                onClick = {},
+                onClick = onNavigateToAbout,
             )
 
             Spacer(Modifier.height(24.dp))

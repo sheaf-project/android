@@ -115,6 +115,8 @@ object Routes {
     const val ADMIN_PANEL    = "settings/admin"
     const val ADMIN_AUDIT    = "settings/admin/audit"
     const val ADMIN_JOBS     = "settings/admin/jobs"
+    const val ADMIN_USERS    = "settings/admin/users"
+    const val ABOUT          = "settings/about"
     const val ADMIN_USER_DETAIL = "settings/admin/user/{userId}"
     const val SYSTEM_SAFETY  = "settings/safety"
     const val SHARING        = "settings/sharing"
@@ -531,6 +533,7 @@ fun SheafApp(
                     onNavigateToAdminPanel    = { navController.navigate(Routes.ADMIN_PANEL) },
                     onNavigateToSupport       = { navController.navigate(Routes.SUPPORT) },
                     onNavigateToDebug         = { navController.navigate(Routes.DEBUG) },
+                    onNavigateToAbout         = { navController.navigate(Routes.ABOUT) },
                 )
             }
             composable(Routes.SETTINGS_ACCOUNT) {
@@ -769,6 +772,17 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
                     onNavigateToJobs = { navController.navigate(Routes.ADMIN_JOBS) },
+                    onNavigateToUsers = { navController.navigate(Routes.ADMIN_USERS) },
+                )
+            }
+            composable(Routes.ABOUT) {
+                systems.lupine.sheaf.ui.settings.AboutScreen(
+                    onNavigateUp = { navController.navigateUp() },
+                )
+            }
+            composable(Routes.ADMIN_USERS) {
+                systems.lupine.sheaf.ui.admin.AdminUsersScreen(
+                    onNavigateUp = { navController.navigateUp() },
                     onNavigateToUserDetail = { id -> navController.navigate("settings/admin/user/$id") },
                 )
             }

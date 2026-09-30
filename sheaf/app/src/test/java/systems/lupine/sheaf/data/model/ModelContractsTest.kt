@@ -3,6 +3,7 @@ package systems.lupine.sheaf.data.model
 import com.squareup.moshi.Moshi
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Wire-contract details that a refactor can quietly break without any compiler
@@ -194,5 +195,37 @@ class ModelContractsTest {
             """{"show_member_created_date":false}""",
             moshi.adapter(SystemUpdate::class.java).toJson(SystemUpdate(showMemberCreatedDate = false)),
         )
+    }
+
+    @Test fun `an announcement decodes its logged-out visibility`() {
+        val read = moshi.adapter(AnnouncementRead::class.java).fromJson(
+            """
+            {"id":"a1","title":"Maintenance","body":"Back soon","severity":"warning",
+             "dismissible":true,"active":true,"visible_while_logged_out":true,
+             "starts_at":"2026-01-01T00:00:00Z","expires_at":null,
+             "created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z",
+             "created_by":null}
+            """.trimIndent(),
+        )
+        assertEquals(true, read?.visibleWhileLoggedOut)
+    }
+
+    @Test fun `creating an announcement sends the flag under its wire name`() {
+        // snake_case again: without the @Json mapping the server sees an unknown
+        // key, applies its default of false, and the checkbox appears to do
+        // nothing at all.
+        val json = moshi.adapter(AnnouncementCreate::class.java)
+            .toJson(AnnouncementCreate(title = "T", body = "B", visibleWhileLoggedOut = true))
+        assertTrue(""""visible_while_logged_out":true""" in json, json)
+    }
+
+    @Test fun `clearing a schedule is explicit, not an omission`() {
+        // PATCH is exclude_unset, so a null starts_at means "leave it alone".
+        // Unticking a schedule that was set has to send clear_starts_at, or the
+        // old timestamp survives a save that looked like it removed it.
+        val json = moshi.adapter(AnnouncementUpdate::class.java)
+            .toJson(AnnouncementUpdate(title = "T", clearStartsAt = true))
+        assertTrue(""""clear_starts_at":true""" in json, json)
+        assertTrue("starts_at" !in json.replace("clear_starts_at", ""), json)
     }
 }
