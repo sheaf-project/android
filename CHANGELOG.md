@@ -56,6 +56,16 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Adding a past front entry no longer disturbs who is fronting now.** The
+  app created the entry as if it were a switch and then closed it, so between
+  those two steps it counted as the current front: whoever was really fronting
+  was ended, and their end was back-dated to the historical start. Where that
+  start was earlier than the live front began, the whole thing failed with
+  "Internal server error", which is why this only ever seemed to work when
+  nobody was fronting. Entries are now recorded in one step that leaves the
+  live roster alone. On a server too old to support that, the app takes the
+  older path without the part that ended the current front.
+
 - **Re-authentication now reaches the server when editing members, groups
   and system settings.** The password and code you typed were dropped before
   the request went out, so a change that needed them could never save.
