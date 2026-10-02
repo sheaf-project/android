@@ -348,14 +348,34 @@ class HistoryViewModel @Inject constructor(
                     FrontCreate(
                         memberIds = memberIds,
                         startedAt = startedAt,
+                        // Recording history, not switching. The server skips
+                        // the live-roster behaviours for a closed entry.
+                        endedAt = endedAt,
+                        // Load-bearing on a server that predates ended_at,
+                        // which ignores it and opens a front instead. Without
+                        // this, that front replaces the live one and back-dates
+                        // its end to the historical start: where that precedes
+                        // the live front's own start the database constraint
+                        // rejects it and the whole request 500s, and where it
+                        // does not, whoever was really fronting is silently
+                        // ended in the past. A server that does understand
+                        // ended_at ignores this, since a closed entry never
+                        // replaces anything.
+                        replaceFronts = if (endedAt != null) false else null,
                         customStatus = customStatus,
                     )
                 )
-                if (endedAt != null) api.updateFront(front.id, FrontUpdate(endedAt = endedAt))
+                // Detection rather than a version check: if the entry came back
+                // open despite an end being asked for, the server is old and
+                // dropped the field. Closing it now is safe because nothing was
+                // replaced on the way in.
+                if (endedAt != null && front.endedAt == null) {
+                    api.updateFront(front.id, FrontUpdate(endedAt = endedAt))
+                }
             }.onSuccess {
                 loadInitial()
             }.onFailure { e ->
-                _state.update { it.copy(error = e.toUserMessage()) }
+                _state.update { it.copy(error = e.toUserMessage("Couldn't add the front entry")) }
             }
         }
     }

@@ -628,6 +628,19 @@ data class FrontRead(
 data class FrontCreate(
     @Json(name = "member_ids") val memberIds: List<String>,
     @Json(name = "started_at") val startedAt: String? = null,
+    /**
+     * Set to record a front that already happened, rather than start one now.
+     *
+     * A closed entry can never be the current front, so a server that
+     * understands this field skips both live-roster behaviours for it: it does
+     * not auto-end the open fronts, and it does not refuse a member set that is
+     * already fronting. Omit it and the call starts a front exactly as before.
+     *
+     * A server that predates the field ignores it and creates an open front,
+     * which is why [replaceFronts] must be sent as false alongside it; see
+     * HistoryViewModel.addFrontEntry.
+     */
+    @Json(name = "ended_at") val endedAt: String? = null,
     // null = let the server fall back to system.replace_fronts_default.
     @Json(name = "replace_fronts") val replaceFronts: Boolean? = null,
     @Json(name = "custom_status") val customStatus: String? = null,
