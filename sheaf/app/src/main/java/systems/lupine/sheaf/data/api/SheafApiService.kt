@@ -725,6 +725,10 @@ interface SheafApiService {
 
     // ── Announcements ────────────────────────────────────────────────────────
 
+    /** What the channel-creation form may offer on this instance. */
+    @GET("/v1/notifications/server-config")
+    suspend fun getNotificationServerConfig(): NotificationServerConfig
+
     @GET("/v1/announcements")
     suspend fun getAnnouncements(): List<AnnouncementPublic>
 

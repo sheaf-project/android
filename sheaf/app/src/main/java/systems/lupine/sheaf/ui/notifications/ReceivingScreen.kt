@@ -140,14 +140,20 @@ private fun ReceivingRow(
     val disabled = channel.destinationState.equals("disabled", ignoreCase = true)
     val paused = channel.pausedBySender
     val muted = disabled || paused
-    // Status suffix on the destination line. Three distinct states:
+    // Status suffix on the destination line. Four distinct states:
     //  - paused-by-sender:  the *sender* turned the channel off; the
     //                       recipient can wait for it to come back
+    //  - delivery failures: the SERVER gave up after a day of failures. Its
+    //                       own label because falling back to the generic
+    //                       wording reads as somebody's choice, when what
+    //                       actually happened is that the destination died
     //  - disabled (other):  destination dead (e.g. token revoked); the
     //                       recipient probably needs to re-redeem
     //  - active:            no suffix
     val statusSuffix = when {
         paused -> " · paused by sender"
+        disabled && channel.disabledReason == "delivery_failed" ->
+            " · stopped: deliveries failing"
         disabled -> " · disabled"
         else -> ""
     }

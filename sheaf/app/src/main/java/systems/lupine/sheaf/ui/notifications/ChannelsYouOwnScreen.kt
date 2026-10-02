@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import systems.lupine.sheaf.data.model.NotificationChannelRead
 import systems.lupine.sheaf.ui.components.ErrorBanner
+import systems.lupine.sheaf.ui.components.WarningCard
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
 import androidx.compose.ui.draw.alpha
 import systems.lupine.sheaf.ui.components.PENDING_DELETE_ALPHA
@@ -107,6 +108,32 @@ fun ChannelsYouOwnScreen(
                 ) { CircularProgressIndicator() }
                 state.channels.isEmpty() -> EmptyState()
                 else -> {
+                    // Only the ones the server stopped. A channel the owner
+                    // paused needs no warning: they know, they did it. Named
+                    // rather than counted, because "one of your channels"
+                    // sends you hunting through the list.
+                    val stopped = state.channels.filter {
+                        it.destinationState.equals("disabled", ignoreCase = true) &&
+                            it.disabledReason == "delivery_failed"
+                    }
+                    if (stopped.isNotEmpty()) {
+                        WarningCard(
+                            title = if (stopped.size == 1) {
+                                "\"${stopped.first().name}\" stopped sending"
+                            } else {
+                                "${stopped.size} channels stopped sending"
+                            },
+                            text = if (stopped.size == 1) {
+                                "Deliveries kept failing for a day, so it was switched off. " +
+                                    "Check the destination is still reachable, then turn it back on."
+                            } else {
+                                "Deliveries to ${stopped.joinToString(", ") { "\"${it.name}\"" }} " +
+                                    "kept failing for a day, so they were switched off. Check each " +
+                                    "destination is still reachable, then turn them back on."
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
                     Text(
                         "Notification channels people can subscribe to for updates from your system.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -176,7 +203,7 @@ private fun ChannelRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    stateLabel(channel.destinationState),
+                    stateLabel(channel.destinationState, channel.disabledReason),
                     style = MaterialTheme.typography.bodySmall,
                     color = when {
                         isPending -> MaterialTheme.colorScheme.tertiary
@@ -275,9 +302,13 @@ private fun destinationIcon(type: String): ImageVector = when (type.lowercase())
     else -> Icons.Outlined.Cloud
 }
 
-private fun stateLabel(state: String): String = when (state.lowercase()) {
-    "pending_registration" -> "Pending — share the link to activate"
-    "active" -> "Active"
-    "disabled" -> "Disabled"
-    else -> state
-}
+private fun stateLabel(state: String, disabledReason: String? = null): String =
+    when (state.lowercase()) {
+        "pending_registration" -> "Pending — share the link to activate"
+        "active" -> "Active"
+        // The server gave up on this one. "Disabled" would read as a choice
+        // somebody made, which is the opposite of what happened.
+        "disabled" -> if (disabledReason == "delivery_failed") "Stopped: deliveries failing"
+                      else "Disabled"
+        else -> state
+    }

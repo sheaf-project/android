@@ -50,6 +50,7 @@ import systems.lupine.sheaf.BuildConfig
 import systems.lupine.sheaf.ui.auth.AuthViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.ui.components.*
+import systems.lupine.sheaf.ui.sharing.offersPublic
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -709,6 +710,15 @@ fun SystemEditScreen(
         ) {
             if (state.error != null) ErrorBanner(state.error!!)
 
+            // Banner, above the avatar: the same control a member's uses, and
+            // the same place it sits on the member editor.
+            systems.lupine.sheaf.ui.avatar.BannerPicker(
+                bannerUrl = form.bannerUrl,
+                isUploading = state.isUploadingBanner,
+                onPickedBytes = { bytes -> viewModel.uploadBannerBytes(bytes) },
+                onRemove = { viewModel.removeBanner() },
+            )
+
             // Avatar picker
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Box {
@@ -836,14 +846,23 @@ fun SystemEditScreen(
             )
 
             SectionHeader("Privacy")
+            val offersPublic = state.raiseGate.offersPublic(state.savedPrivacy)
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 listOf("public", "friends", "private").forEachIndexed { index, level ->
                     SegmentedButton(
                         selected = form.privacy == level,
+                        enabled = offersPublic || level != "public",
                         onClick = { viewModel.updateForm { copy(privacy = level) } },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
                     ) { Text(level.replaceFirstChar { it.uppercase() }) }
                 }
+            }
+            if (!offersPublic) {
+                Text(
+                    systems.lupine.sheaf.ui.sharing.PUBLISHING_OFF_NOTE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             state.pendingPrivacy?.let { staged ->
                 Text(

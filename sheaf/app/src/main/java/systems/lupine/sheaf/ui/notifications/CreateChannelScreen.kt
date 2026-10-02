@@ -1,6 +1,13 @@
 package systems.lupine.sheaf.ui.notifications
 
 import android.content.ClipData
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.LaunchedEffect
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -66,6 +73,12 @@ fun CreateChannelScreen(
     var name by remember { mutableStateOf("") }
     var recipientLabel by remember { mutableStateOf("") }
     var destinationType by remember { mutableStateOf("mobile_push") }
+    // Never leave the form sitting on an option the instance will refuse.
+    LaunchedEffect(state.mobilePushAvailable) {
+        if (!state.mobilePushAvailable && destinationType == "mobile_push") {
+            destinationType = "web_push"
+        }
+    }
     var triggerOnStart by remember { mutableStateOf(true) }
     var triggerOnStop by remember { mutableStateOf(false) }
     var triggerOnCofrontChange by remember { mutableStateOf(false) }
@@ -136,7 +149,15 @@ fun CreateChannelScreen(
                             "Delivered to every device on their account.",
                         selected = destinationType == "mobile_push",
                         onSelect = { destinationType = "mobile_push" },
+                        // Disabled rather than removed, as with a Public
+                        // privacy option an instance cannot serve: dropping it
+                        // would make the feature look absent, which is a
+                        // different wrong answer from the one being fixed.
+                        enabled = state.mobilePushAvailable,
                     )
+                    if (!state.mobilePushAvailable) {
+                        MobilePushUnavailableNote(state.mobilePushUnavailableReason)
+                    }
                     DestinationOption(
                         value = "web_push",
                         title = "Web push (browser)",
@@ -207,15 +228,22 @@ private fun DestinationOption(
     subtitle: String,
     selected: Boolean,
     onSelect: () -> Unit,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
-            .padding(vertical = 8.dp),
+            .selectable(
+                selected = selected,
+                enabled = enabled,
+                onClick = onSelect,
+                role = Role.RadioButton,
+            )
+            .padding(vertical = 8.dp)
+            .alpha(if (enabled) 1f else 0.5f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = null)
+        RadioButton(selected = selected, onClick = null, enabled = enabled)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
@@ -332,4 +360,41 @@ private fun ActivationUrlPanel(
         modifier = Modifier.fillMaxWidth(),
     ) { Text("Done") }
     Spacer(Modifier.height(24.dp))
+}
+
+/**
+ * Why the instance cannot offer mobile push, folded away until asked for.
+ *
+ * The reason is the server's own words, fetched rather than written here, so
+ * every client says the same thing. It is a paragraph because the short
+ * version ("not configured") is what sent people off to read Firebase
+ * documentation to no purpose: a push credential is paired to an app build,
+ * not to a server, so this is not a setting anybody can go and fill in.
+ */
+@Composable
+private fun MobilePushUnavailableNote(reason: String?) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(Modifier.padding(start = 52.dp, bottom = 8.dp)) {
+        TextButton(
+            onClick = { expanded = !expanded },
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            Text(
+                "Why is mobile push unavailable?",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Icon(
+                if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        if (expanded) {
+            Text(
+                reason ?: "Mobile push is not available on this instance.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }

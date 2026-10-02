@@ -140,6 +140,7 @@ class SystemUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<SystemUpdate>() {
             clears("description", value.description)
             clears("tag", value.tag)
             clears("avatar_url", value.avatarUrl)
+            clears("banner_url", value.bannerUrl)
             clears("color", value.color)
             clears("note", value.note)
             omitsWhenNull("password", value.password)

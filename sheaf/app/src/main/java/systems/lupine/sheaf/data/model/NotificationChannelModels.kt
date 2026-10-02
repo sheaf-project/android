@@ -78,6 +78,12 @@ data class NotificationChannelRead(
     // ChannelRead.paused_by_sender; defaults preserve compatibility with
     // older responses that didn't include the field.
     @Json(name = "paused_by_sender") val pausedBySender: Boolean = false,
+    // Set when the SERVER switched the channel off, which is a third cause of
+    // `disabled` alongside the owner pausing it and the recipient
+    // unsubscribing. Without it, a channel stopped for failing deliveries
+    // reads as "Unsubscribed", which blames a person for a broken endpoint.
+    // Only value so far is "delivery_failed". Absent before server 1.6.0.
+    @Json(name = "disabled_reason") val disabledReason: String? = null,
     @Json(name = "destination_config") val destinationConfig: Map<String, Any> = emptyMap(),
     @Json(name = "base_all_members") val baseAllMembers: Boolean = false,
     @Json(name = "base_include_private") val baseIncludePrivate: Boolean = false,
@@ -147,4 +153,25 @@ data class ReissueActivationResponse(
 data class TestDispatchResponse(
     @Json(name = "delivered") val delivered: Boolean,
     @Json(name = "error") val error: String? = null,
+)
+
+/**
+ * What the instance can actually offer the channel-creation form.
+ *
+ * `mobile_push.available` is false on an instance holding no push
+ * credentials, and the reason travels with it rather than being reworded per
+ * client: a push credential is paired to an app build, not to a server, so
+ * this is not a setting somebody forgot to fill in and the explanation has to
+ * say so. Absent before server 1.6.0, where the defaults leave mobile push
+ * offered exactly as it was.
+ */
+@JsonClass(generateAdapter = true)
+data class NotificationServerConfig(
+    @Json(name = "mobile_push") val mobilePush: MobilePushAvailability = MobilePushAvailability(),
+)
+
+@JsonClass(generateAdapter = true)
+data class MobilePushAvailability(
+    val available: Boolean = true,
+    @Json(name = "unavailable_reason") val unavailableReason: String? = null,
 )
