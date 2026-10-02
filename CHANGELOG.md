@@ -19,7 +19,7 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 - **Announcements can be scheduled with a date picker.** Admin only. The start
   and expiry wanted a hand-typed `2026-12-31T00:00:00Z`, where one typo meant
   the server rejected the whole announcement. Both are now a date picker and a
-  time field, as is the expiry on an invite code.
+  time picker, as is the expiry on an invite code.
 
 - **Announcements can be set to show on the login page.** Admin only. The
   server has supported this for a long time and the setting simply wasn't on
@@ -32,6 +32,26 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   screens down and left the search field scrolled off above its own results.
   Searching also waits for a pause in typing now, instead of asking the server
   again on every keystroke.
+- **Times are picked from a clock instead of typed.** Front history entries
+  and admin schedules had separate hour and minute boxes with an AM/PM
+  toggle, and tapping one brought up the full keyboard. The time is now a
+  button next to the date that opens the standard time picker, which follows
+  the phone's 12/24 hour setting.
+- **The front entry member list is shorter.** Adding or editing a front
+  entry listed every member before you could reach the times. It now shows
+  the first five plus anyone already picked, with "Show all" to expand.
+  Searching or filtering by group still shows every match.
+- **A banner image for your system.** Settings > Profile gains a banner
+  beside the avatar, the same wide image a member can have, with the same
+  cropper. Needs a server running 1.6.0 or later.
+
+- **Custom fields say who can see them.** Each custom field in the member
+  editor, on a member's profile, and in Settings now carries its privacy
+  level, so "wait, is that one public?" no longer means leaving the member to
+  go and check before typing something sensitive. Where a change to a level is
+  waiting out a System Safety grace period, it says what it will become and
+  when. Changing a level still happens in Settings.
+
 - **A share view can show everyone set to Public.** Instead of adding members
   one at a time, turn on "Show everyone set to Public" and the view follows
   each member's privacy setting from then on. The list you picked by hand is
@@ -65,6 +85,23 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   nobody was fronting. Entries are now recorded in one step that leaves the
   live roster alone. On a server too old to support that, the app takes the
   older path without the part that ended the current front.
+- **Public is no longer offered where the instance cannot publish.** On an
+  instance with public profiles turned off, choosing Public for a member,
+  group, custom field, relationship or your system was a dead end that failed
+  with a permissions error. It is now shown but unavailable, with a line
+  saying why. Anything already public keeps the option, so it can still be
+  lowered.
+
+- **A notification channel that stops working now says so.** When deliveries
+  to a channel keep failing, the server switches it off after a day. The app
+  said nothing, and the recipient's copy read "Unsubscribed", which blamed a
+  person for a broken endpoint. Your channel list now names what stopped and
+  what to check. Needs a server running 1.6.0 or later.
+
+- **Mobile push is no longer offered where it cannot work.** Self-hosted
+  instances without push credentials let you fill in the whole form before
+  refusing it. The option is now unavailable up front, with the reason
+  available if you want it. Needs a server running 1.6.0 or later.
 
 - **Re-authentication now reaches the server when editing members, groups
   and system settings.** The password and code you typed were dropped before

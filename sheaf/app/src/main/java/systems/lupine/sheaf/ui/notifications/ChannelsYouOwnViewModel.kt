@@ -377,6 +377,10 @@ data class CreateChannelUiState(
     val activationUrl: String? = null,
     val activationExpiresAt: String? = null,
     val error: String? = null,
+    // Defaults leave mobile push offered, which is both the common case and
+    // the right answer on a server too old to be asked.
+    val mobilePushAvailable: Boolean = true,
+    val mobilePushUnavailableReason: String? = null,
 )
 
 @HiltViewModel
@@ -386,6 +390,29 @@ class CreateChannelViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(CreateChannelUiState())
     val state: StateFlow<CreateChannelUiState> = _state.asStateFlow()
+
+    init { loadServerConfig() }
+
+    /**
+     * Ask the instance what it can offer before the form is filled in.
+     *
+     * A failure leaves the defaults alone: offering a type that then fails at
+     * submit is the bug being fixed here, but hiding one because a config
+     * request did not come back would be a worse version of it.
+     */
+    private fun loadServerConfig() {
+        viewModelScope.launch {
+            runCatching { api.getNotificationServerConfig() }
+                .onSuccess { config ->
+                    _state.update {
+                        it.copy(
+                            mobilePushAvailable = config.mobilePush.available,
+                            mobilePushUnavailableReason = config.mobilePush.unavailableReason,
+                        )
+                    }
+                }
+        }
+    }
 
     fun create(
         name: String,
