@@ -181,4 +181,29 @@ class PatchJsonAdaptersTest {
                 assertEquals(it.count { c -> c == '{' }, it.count { c -> c == '}' })
             }
     }
+
+    @Test fun `the front preferences go out under their wire names`() {
+        // Both are NOT NULL server-side, so they omit rather than clear, and
+        // both are snake_case: without the mapping the server sees an unknown
+        // key, keeps its value, and the switch appears to do nothing.
+        val on = system(SystemUpdate(replaceFrontsDefault = true))
+        assertTrue(""""replace_fronts_default":true""" in on, on)
+        val off = system(SystemUpdate(coalesceContiguousFronts = false))
+        assertTrue(""""coalesce_contiguous_fronts":false""" in off, off)
+    }
+
+    @Test fun `turning a front preference off is sent, not dropped`() {
+        // False is a value, not an absence. Toggling one off has to reach the
+        // wire or it silently stays on.
+        val json = system(SystemUpdate(replaceFrontsDefault = false))
+        assertTrue(""""replace_fronts_default":false""" in json, json)
+    }
+
+    @Test fun `a front preference left alone is omitted entirely`() {
+        // Saving one must not restate the other: an explicit null on either
+        // is rejected server-side, and restating a stale value would undo a
+        // change made from another client between load and save.
+        val json = system(SystemUpdate(coalesceContiguousFronts = true))
+        assertFalse("replace_fronts_default" in json, json)
+    }
 }

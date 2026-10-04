@@ -132,11 +132,13 @@ class SystemUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<SystemUpdate>() {
         writer.beginObject()
         PatchWriter(writer, anyAdapter).apply {
             // NOT NULL server-side: name, privacy, show_member_created_date
-            // (alongside date_format and the front defaults, which this client
-            // does not send).
+            // and both front preferences (alongside date_format, which this
+            // client does not send).
             omitsWhenNull("name", value.name)
             omitsWhenNull("privacy", value.privacy)
             omitsWhenNull("show_member_created_date", value.showMemberCreatedDate)
+            omitsWhenNull("replace_fronts_default", value.replaceFrontsDefault)
+            omitsWhenNull("coalesce_contiguous_fronts", value.coalesceContiguousFronts)
             clears("description", value.description)
             clears("tag", value.tag)
             clears("avatar_url", value.avatarUrl)
