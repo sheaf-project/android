@@ -52,6 +52,15 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   waiting out a System Safety grace period, it says what it will become and
   when. Changing a level still happens in Settings.
 
+- **The two account-wide front preferences are on the phone.** Settings >
+  Fronting gains a section for them. "End current fronts when starting a new
+  one" sets the default the switch sheet starts from, and is the value the
+  quick-switch rows above it have always referred to without being able to
+  change. "Coalesce contiguous fronting" decides whether a member's "fronting
+  since" counts from the earliest entry in a back-to-back chain or restarts
+  with each one. Both were web-only, so the second in particular changed how
+  the app behaved with nothing on screen to explain it.
+
 - **A share view can show everyone set to Public.** Instead of adding members
   one at a time, turn on "Show everyone set to Public" and the view follows
   each member's privacy setting from then on. The list you picked by hand is

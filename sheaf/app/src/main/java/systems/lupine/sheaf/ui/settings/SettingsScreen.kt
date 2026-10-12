@@ -228,7 +228,7 @@ fun SettingsScreen(
             SettingItem(
                 icon = Icons.Outlined.SwitchAccount,
                 title = "Fronting",
-                subtitle = "What a quick-switch tap does with open fronts",
+                subtitle = "Quick-switch behaviour, fronting timers",
                 onClick = onNavigateToFronting,
             )
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))

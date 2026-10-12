@@ -26,11 +26,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Switch
+import androidx.compose.ui.draw.alpha
+import systems.lupine.sheaf.ui.components.ErrorBanner
 import systems.lupine.sheaf.ui.components.SheafTopAppBar
 
 /**
- * Fronting behaviour for this device. Currently one setting: what a
- * quick-switch tap does about the fronts that are already open.
+ * Fronting behaviour, in two parts: what a quick-switch tap does on this
+ * device, and the two preferences the account carries everywhere.
+ *
+ * They share a screen because they answer the same question at different
+ * scopes, and the device override is only meaningful next to the account
+ * default it overrides. The headings keep the scopes apart.
  *
  * This is deliberately not filed under Appearance. It changes what a tap
  * *does* to your front history, not how anything looks.
@@ -42,6 +51,7 @@ fun FrontingSettingsScreen(
 ) {
     val override by viewModel.quickSwitchReplace.collectAsState()
     val accountDefault by viewModel.accountDefault.collectAsState()
+    val account by viewModel.account.collectAsState()
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -106,8 +116,82 @@ fun FrontingSettingsScreen(
                 selected = override == false,
                 onClick = { viewModel.setQuickSwitchReplace(false) },
             )
+
+            // Everything above is this device. Everything below is the account,
+            // and the heading says so: the first setting here is the same value
+            // the "follow the account default" row above is describing, and
+            // two controls that look alike but reach different places need the
+            // difference stated rather than inferred.
+            Text(
+                "For your whole account",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 4.dp),
+            )
+            Text(
+                "These apply everywhere you use Sheaf, not just on this device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            HorizontalDivider(modifier = Modifier.padding(top = 12.dp))
+
+            account.error?.let { message ->
+                ErrorBanner(message, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            }
+
+            SwitchRow(
+                title = "End current fronts when starting a new one",
+                subtitle = "The default for the \"end all current fronts\" choice when you switch. " +
+                    "You can still override it per switch.",
+                checked = account.replaceFrontsDefault,
+                enabled = !account.isSaving,
+                onCheckedChange = { viewModel.setReplaceFrontsDefault(it) },
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = 20.dp))
+            SwitchRow(
+                title = "Coalesce contiguous fronting",
+                subtitle = "Show \"fronting since\" per member instead of per entry. In a chain of " +
+                    "back-to-back entries, say solo then co-fronting, their timer counts from the " +
+                    "earliest one rather than restarting each time.",
+                checked = account.coalesceContiguousFronts,
+                enabled = !account.isSaving,
+                onCheckedChange = { viewModel.setCoalesceContiguousFronts(it) },
+            )
+
+            Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+/**
+ * An account setting as a switch.
+ *
+ * [checked] is nullable because "we have not been told yet" is a real state:
+ * the row is disabled until the answer arrives, rather than showing a
+ * confident off that somebody would turn on twice.
+ */
+@Composable
+private fun SwitchRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean?,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    val known = checked != null
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(subtitle) },
+        trailingContent = {
+            Switch(
+                checked = checked == true,
+                enabled = enabled && known,
+                onCheckedChange = onCheckedChange,
+            )
+        },
+        modifier = Modifier.alpha(if (known) 1f else 0.5f),
+    )
 }
 
 @Composable

@@ -280,6 +280,11 @@ data class SystemRead(
     // Default to true if the field is missing (older cached payloads); matches
     // the backend default for replace_fronts_default and web's `?? true` fallback.
     @Json(name = "replace_fronts_default") val replaceFrontsDefault: Boolean = true,
+    // Whether a member's "fronting since" follows a chain of back-to-back
+    // entries rather than resetting on each one. Defaulted rather than
+    // required for the same reason as the line above: older cached payloads
+    // won't carry it, and true matches the backend default.
+    @Json(name = "coalesce_contiguous_fronts") val coalesceContiguousFronts: Boolean = true,
     // Free-form scratchpad. Lightweight counterpart to journals: no versioning,
     // no destructive-auth on edits. Max 5000 chars server-side.
     val note: String? = null,
@@ -317,6 +322,8 @@ data class SystemUpdate(
     val privacy: String? = null,
     val note: String? = null,
     @Json(name = "show_member_created_date") val showMemberCreatedDate: Boolean? = null,
+    @Json(name = "replace_fronts_default") val replaceFrontsDefault: Boolean? = null,
+    @Json(name = "coalesce_contiguous_fronts") val coalesceContiguousFronts: Boolean? = null,
     // Only consulted when raising privacy to public is deferred.
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
