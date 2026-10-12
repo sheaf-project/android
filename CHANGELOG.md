@@ -85,6 +85,13 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Adding an ongoing front entry explains itself instead of failing.** An
+  entry left open starts a front, which ends the ones already running. If you
+  back-dated it to before someone currently fronting began, that was impossible
+  and the server answered "Internal server error". The sheet now says who it
+  clashes with and when they started, and suggests a later start or giving the
+  entry an end time to record it as history.
+
 - **Adding a past front entry no longer disturbs who is fronting now.** The
   app created the entry as if it were a switch and then closed it, so between
   those two steps it counted as the current front: whoever was really fronting
