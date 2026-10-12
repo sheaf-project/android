@@ -34,6 +34,10 @@ data class HistoryUiState(
     val deleteError: String? = null,
     val groups: List<GroupRead> = emptyList(),
     val memberGroups: Map<String, Set<String>> = emptyMap(),
+    // Who is fronting right now, and whether starting a front would end them.
+    // Both only for validating a new open entry; see loadOpenFrontContext.
+    val openFronts: List<FrontRead> = emptyList(),
+    val replaceFrontsDefault: Boolean = true,
     // Pagination config.
     val view: HistoryView = HistoryView.Infinite,
     val pageSize: Int = DEFAULT_PAGE_SIZE,
@@ -52,6 +56,31 @@ data class HistoryUiState(
 }
 
 val PAGE_SIZE_OPTIONS = listOf(25, 50, 100, 200)
+
+/**
+ * The open fronts that a new front starting at [startedAt] could not legally
+ * end, because they had not begun yet.
+ *
+ * Starting a front ends every open one *at the new start*. An open front that
+ * began after that moment would get an end before its own beginning, which
+ * `ck_fronts_ended_after_started` refuses, taking the whole request down with
+ * it. Empty means the start is safe.
+ *
+ * Equal timestamps are fine: a front that began at exactly this instant ends
+ * at exactly this instant, which is a zero-length entry rather than a
+ * backwards one, and the constraint allows it.
+ *
+ * A front with an unparseable `started_at` is left out rather than treated as
+ * a clash: the server is the authority on its own rows, and guessing here
+ * would block a legitimate entry over a timestamp this client could not read.
+ */
+fun openFrontsStartingAfter(
+    startedAt: java.time.Instant,
+    openFronts: List<FrontRead>,
+): List<FrontRead> = openFronts.filter { front ->
+    val began = runCatching { java.time.Instant.parse(front.startedAt) }.getOrNull()
+    began != null && began.isAfter(startedAt)
+}
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
@@ -411,6 +440,33 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun clearError() { _state.update { it.copy(error = null) } }
+
+    /**
+     * What a new *open* entry would do to the fronts already running.
+     *
+     * Only the add sheet needs this, and only for the "still ongoing" case:
+     * an open entry is a switch, so the server ends every open front at the
+     * new start. Back-date that start past when one of them began and its end
+     * lands before its own beginning, which the database refuses and the
+     * request 500s on. Checking it here turns that into a sentence.
+     *
+     * Asked for rather than read out of the loaded page: the history list is
+     * paginated, so an open front is only *probably* on it, and a validation
+     * that is only probably right is worse than none.
+     */
+    fun loadOpenFrontContext() {
+        viewModelScope.launch {
+            val replaceDefault = runCatching { cache.getSystem()?.replaceFrontsDefault }
+                .getOrNull() ?: true
+            val open = runCatching { api.getCurrentFronts() }.getOrNull()
+            _state.update {
+                it.copy(
+                    openFronts = open ?: it.openFronts,
+                    replaceFrontsDefault = replaceDefault,
+                )
+            }
+        }
+    }
 
     fun loadGroupsForFilter() {
         if (_state.value.groups.isNotEmpty()) return

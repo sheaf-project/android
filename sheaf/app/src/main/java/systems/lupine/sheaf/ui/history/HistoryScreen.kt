@@ -162,11 +162,18 @@ fun HistoryScreen(
     }
 
     if (showAddSheet) {
+        // Fresh every time the sheet opens: who is fronting can change between
+        // openings, and a stale answer either blocks a valid entry or waves
+        // through the one that 500s.
+        LaunchedEffect(Unit) { viewModel.loadOpenFrontContext() }
         FrontEntrySheet(
             allMembers = state.allMembers,
             initialFront = null,
             groups = state.groups,
             memberGroups = state.memberGroups,
+            openFronts = state.openFronts,
+            replaceFrontsDefault = state.replaceFrontsDefault,
+            members = state.members,
             onDismiss = { showAddSheet = false },
             onConfirm = { memberIds, startedAt, endedAt, customStatus ->
                 viewModel.addFrontEntry(memberIds, startedAt, endedAt, customStatus)
@@ -181,6 +188,10 @@ fun HistoryScreen(
             initialFront = front,
             groups = state.groups,
             memberGroups = state.memberGroups,
+            // Editing never replaces anything, so the check does not apply.
+            openFronts = emptyList(),
+            replaceFrontsDefault = state.replaceFrontsDefault,
+            members = state.members,
             onDismiss = { frontToEdit = null },
             onConfirm = { memberIds, startedAt, endedAt, customStatus ->
                 viewModel.updateFrontEntry(front.id, memberIds, startedAt, endedAt, customStatus)
@@ -704,6 +715,10 @@ private fun FrontEntrySheet(
     initialFront: FrontRead?,
     groups: List<systems.lupine.sheaf.data.model.GroupRead>,
     memberGroups: Map<String, Set<String>>,
+    // Only consulted for a new entry left open; see the check below.
+    openFronts: List<FrontRead>,
+    replaceFrontsDefault: Boolean,
+    members: Map<String, MemberRead>,
     onDismiss: () -> Unit,
     onConfirm: (memberIds: List<String>, startedAt: String, endedAt: String?, customStatus: String?) -> Unit,
 ) {
@@ -907,6 +922,44 @@ private fun FrontEntrySheet(
                 )
             }
 
+            // A new entry left open is a switch, not history: the server ends
+            // every open front at this start. Back-date it past when one of
+            // them began and that end would land before its own beginning,
+            // which the database refuses and the whole request 500s on. Only
+            // for a new open entry: editing never replaces anything, a closed
+            // entry is recorded without touching the live roster, and with
+            // replace off nothing gets ended in the first place.
+            val clashes = remember(isEditing, stillOngoing, replaceFrontsDefault, openFronts, startInstant) {
+                if (isEditing || !stillOngoing || !replaceFrontsDefault) emptyList()
+                else openFrontsStartingAfter(startInstant, openFronts)
+            }
+            if (clashes.isNotEmpty()) {
+                val who = clashes
+                    .flatMap { it.memberIds }
+                    .distinct()
+                    .mapNotNull { members[it]?.displayNameOrName }
+                    .ifEmpty { listOf("whoever is fronting") }
+                val earliest = clashes
+                    .mapNotNull { runCatching { Instant.parse(it.startedAt) }.getOrNull() }
+                    .minOrNull()
+                Text(
+                    buildString {
+                        append("An entry left open starts a front, which ends the ones already ")
+                        append("running. ")
+                        append(who.joinToString(", "))
+                        append(if (who.size == 1) " has been fronting" else " have been fronting")
+                        earliest?.let {
+                            append(" since ${formatTimestamp(it.toString(), LocalDisplayTimeZone.current)}")
+                        }
+                        append(", which is after this start, so it can't be ended there. ")
+                        append("Pick a later start, or give this entry an end time to record it ")
+                        append("as history instead.")
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
             Button(
                 onClick = {
                     val statusOut = customStatusDraft.trim().ifEmpty { null }
@@ -917,7 +970,7 @@ private fun FrontEntrySheet(
                         statusOut,
                     )
                 },
-                enabled = selectedIds.isNotEmpty() && !endBeforeStart,
+                enabled = selectedIds.isNotEmpty() && !endBeforeStart && clashes.isEmpty(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (isEditing) "Save Changes" else "Add Entry") }
         }
