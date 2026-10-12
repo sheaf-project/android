@@ -4,7 +4,7 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
-## [Unreleased]
+## [1.5.0] - 2026-10-12
 
 ### Added
 
@@ -25,22 +25,6 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   server has supported this for a long time and the setting simply wasn't on
   the phone, so it could only be set from the web client.
 
-### Changed
-
-- **The admin account list is its own screen.** It rendered every account
-  inline, which pushed invite codes, announcements and maintenance several
-  screens down and left the search field scrolled off above its own results.
-  Searching also waits for a pause in typing now, instead of asking the server
-  again on every keystroke.
-- **Times are picked from a clock instead of typed.** Front history entries
-  and admin schedules had separate hour and minute boxes with an AM/PM
-  toggle, and tapping one brought up the full keyboard. The time is now a
-  button next to the date that opens the standard time picker, which follows
-  the phone's 12/24 hour setting.
-- **The front entry member list is shorter.** Adding or editing a front
-  entry listed every member before you could reach the times. It now shows
-  the first five plus anyone already picked, with "Show all" to expand.
-  Searching or filtering by group still shows every match.
 - **A banner image for your system.** Settings > Profile gains a banner
   beside the avatar, the same wide image a member can have, with the same
   cropper. Needs a server running 1.6.0 or later.
@@ -76,7 +60,31 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   anything is imported, the preview lists every part of your export that
   can't be read yet. Needs a server running 1.6.0 or later.
 
+- **Pin journal entries.** The pin button at the top of an entry keeps it in a
+  Pinned section above the rest of the journal list. With the Journal entries
+  toggle in System Safety on, unpinning asks you to re-authenticate and waits
+  out the grace period, and the entry shows when the unpin will go through.
+  You can cancel it from System Safety like any other queued action. Needs a
+  server running 1.6.0 or later.
+
 ### Changed
+
+- **The admin account list is its own screen.** It rendered every account
+  inline, which pushed invite codes, announcements and maintenance several
+  screens down and left the search field scrolled off above its own results.
+  Searching also waits for a pause in typing now, instead of asking the server
+  again on every keystroke.
+
+- **Times are picked from a clock instead of typed.** Front history entries
+  and admin schedules had separate hour and minute boxes with an AM/PM
+  toggle, and tapping one brought up the full keyboard. The time is now a
+  button next to the date that opens the standard time picker, which follows
+  the phone's 12/24 hour setting.
+
+- **The front entry member list is shorter.** Adding or editing a front
+  entry listed every member before you could reach the times. It now shows
+  the first five plus anyone already picked, with "Show all" to expand.
+  Searching or filtering by group still shows every match.
 
 - **Raising a member to Public now shows when it takes effect.** With a
   System Safety grace period set, the member editor says when a member will
@@ -84,13 +92,6 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   about them no longer cancels the wait by accident.
 
 ### Fixed
-
-- **Adding an ongoing front entry explains itself instead of failing.** An
-  entry left open starts a front, which ends the ones already running. If you
-  back-dated it to before someone currently fronting began, that was impossible
-  and the server answered "Internal server error". The sheet now says who it
-  clashes with and when they started, and suggests a later start or giving the
-  entry an end time to record it as history.
 
 - **Adding a past front entry no longer disturbs who is fronting now.** The
   app created the entry as if it were a switch and then closed it, so between
@@ -101,6 +102,20 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   nobody was fronting. Entries are now recorded in one step that leaves the
   live roster alone. On a server too old to support that, the app takes the
   older path without the part that ended the current front.
+
+- **Adding an ongoing front entry explains itself instead of failing.** An
+  entry left open starts a front, which ends the ones already running. If you
+  back-dated it to before someone currently fronting began, that was impossible
+  and the server answered "Internal server error". The sheet now says who it
+  clashes with and when they started, and suggests a later start or giving the
+  entry an end time to record it as history.
+
+- **Re-authentication now reaches the server when editing members, groups
+  and system settings.** The password and code you typed were dropped before
+  the request went out, so a change that needed them could never save.
+  "Never shareable" and "Keep fronting private" on a member now save too, and
+  so does changing a group's privacy.
+
 - **Public is no longer offered where the instance cannot publish.** On an
   instance with public profiles turned off, choosing Public for a member,
   group, custom field, relationship or your system was a dead end that failed
@@ -119,23 +134,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   refusing it. The option is now unavailable up front, with the reason
   available if you want it. Needs a server running 1.6.0 or later.
 
-- **Re-authentication now reaches the server when editing members, groups
-  and system settings.** The password and code you typed were dropped before
-  the request went out, so a change that needed them could never save.
-  "Never shareable" and "Keep fronting private" on a member now save too, and
-  so does changing a group's privacy.
-- **Pin journal entries.** The pin button at the top of an entry keeps it in a
-  Pinned section above the rest of the journal list. With the Journal entries
-  toggle in System Safety on, unpinning asks you to re-authenticate and waits
-  out the grace period, and the entry shows when the unpin will go through.
-  You can cancel it from System Safety like any other queued action. Needs a
-  server running 1.6.0 or later.
-
-### Fixed
-
 - **Scrolling further down the journal list loads older entries.** Loading
   more asked the server for the first page again, so the list never got past
   its first 50 entries.
+
+- **Long custom field names are readable again.** A field whose name shared
+  its row with the privacy tag and three buttons was squeezed into a column one
+  character wide, spelling itself vertically down the Custom Fields screen.
+  Reported from the field.
+
+- **The quick-switch carousel no longer touches the navigation bar.** On Home
+  the chips sat directly on top of it.
 
 ## [1.4.1] - 2026-09-20
 
