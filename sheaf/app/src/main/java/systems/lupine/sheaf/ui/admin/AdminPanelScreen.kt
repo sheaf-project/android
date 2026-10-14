@@ -42,6 +42,20 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+/**
+ * The platforms an announcement can be aimed at, in the server's order.
+ *
+ * Mirrors `AnnouncementPlatform` server-side. A name the server does not know
+ * is a 422 on write, deliberately, so this list is the only place the strings
+ * are written down on this client.
+ */
+private val ANNOUNCEMENT_PLATFORMS = listOf(
+    "web" to "Web",
+    "android" to "Android",
+    "ios" to "iOS",
+    "watch" to "Watch",
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminPanelScreen(
@@ -300,6 +314,11 @@ fun AdminPanelScreen(
                             dismissible = create.dismissible,
                             active = create.active,
                             visibleWhileLoggedOut = create.visibleWhileLoggedOut,
+                            // Always sent, never omitted: an empty list is how
+                            // a targeted announcement goes back to everyone,
+                            // and omitting it would silently keep the old
+                            // targeting after the boxes were unticked.
+                            platforms = create.platforms,
                             startsAt = create.startsAt,
                             expiresAt = create.expiresAt,
                             // PATCH reads an omitted timestamp as "leave it
@@ -551,6 +570,19 @@ private fun AnnouncementListItem(
                             color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
+                    // Untargeted is the common case and says nothing, matching
+                    // the web list: a badge on every row would be noise.
+                    if (announcement.platforms.isNotEmpty()) {
+                        Text("·", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            announcement.platforms.joinToString(", ") { platform ->
+                                ANNOUNCEMENT_PLATFORMS.firstOrNull { it.first == platform }
+                                    ?.second ?: platform
+                            } + " only",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
                 }
             },
             trailingContent = {
@@ -591,6 +623,9 @@ private fun AnnouncementDialog(
     var dismissible by remember { mutableStateOf(initial?.dismissible ?: true) }
     var active by remember { mutableStateOf(initial?.active ?: true) }
     var loggedOut by remember { mutableStateOf(initial?.visibleWhileLoggedOut ?: false) }
+    // Order-insensitive: the server folds duplicates and case on the way in,
+    // and "which clients" is a set rather than a sequence.
+    var platforms by remember { mutableStateOf(initial?.platforms.orEmpty().toSet()) }
     var startsAt by remember { mutableStateOf(parseAdminInstant(initial?.startsAt)) }
     var expiresAt by remember { mutableStateOf(parseAdminInstant(initial?.expiresAt)) }
 
@@ -646,6 +681,31 @@ private fun AnnouncementDialog(
                 }
 
                 HorizontalDivider()
+                Text("Show on", style = MaterialTheme.typography.labelMedium)
+                // None ticked is the default and means everyone, so the line
+                // below says which it is rather than leaving an empty row to
+                // be read as "nobody".
+                ANNOUNCEMENT_PLATFORMS.forEach { (value, label) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = value in platforms,
+                            onCheckedChange = { on ->
+                                platforms = if (on) platforms + value else platforms - value
+                            },
+                        )
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Text(
+                    if (platforms.isEmpty()) "Everyone sees this."
+                    else "Only " + ANNOUNCEMENT_PLATFORMS
+                        .filter { it.first in platforms }
+                        .joinToString(", ") { it.second } + " see this.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                HorizontalDivider()
                 ScheduleField(
                     label = "Starts",
                     toggleLabel = "Schedule a start",
@@ -682,6 +742,7 @@ private fun AnnouncementDialog(
                         dismissible = dismissible,
                         active = active,
                         visibleWhileLoggedOut = loggedOut,
+                        platforms = platforms.toList(),
                         startsAt = startsAt?.toString(),
                         expiresAt = expiresAt?.toString(),
                     ))

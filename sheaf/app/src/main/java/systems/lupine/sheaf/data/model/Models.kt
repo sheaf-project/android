@@ -1367,6 +1367,9 @@ data class AnnouncementPublic(
     val body: String,
     val severity: String,
     val dismissible: Boolean,
+    // Empty means every client. Absent on servers older than platform
+    // targeting, where every announcement was for everyone.
+    val platforms: List<String> = emptyList(),
     @Json(name = "starts_at") val startsAt: String?,
     @Json(name = "expires_at") val expiresAt: String?,
     @Json(name = "created_at") val createdAt: String,
@@ -1381,6 +1384,7 @@ data class AnnouncementRead(
     val dismissible: Boolean,
     val active: Boolean,
     @Json(name = "visible_while_logged_out") val visibleWhileLoggedOut: Boolean = false,
+    val platforms: List<String> = emptyList(),
     @Json(name = "starts_at") val startsAt: String?,
     @Json(name = "expires_at") val expiresAt: String?,
     @Json(name = "created_at") val createdAt: String,
@@ -1396,6 +1400,9 @@ data class AnnouncementCreate(
     val dismissible: Boolean = true,
     val active: Boolean = true,
     @Json(name = "visible_while_logged_out") val visibleWhileLoggedOut: Boolean = false,
+    // Empty means every client, which is the default and what every
+    // announcement meant before targeting existed.
+    val platforms: List<String> = emptyList(),
     @Json(name = "starts_at") val startsAt: String? = null,
     @Json(name = "expires_at") val expiresAt: String? = null,
 )
@@ -1408,6 +1415,9 @@ data class AnnouncementUpdate(
     val dismissible: Boolean? = null,
     val active: Boolean? = null,
     @Json(name = "visible_while_logged_out") val visibleWhileLoggedOut: Boolean? = null,
+    // Send an empty list to go back to every client; null omits the key, which
+    // the server reads as "leave it alone".
+    val platforms: List<String>? = null,
     @Json(name = "starts_at") val startsAt: String? = null,
     @Json(name = "expires_at") val expiresAt: String? = null,
     @Json(name = "clear_starts_at") val clearStartsAt: Boolean = false,
