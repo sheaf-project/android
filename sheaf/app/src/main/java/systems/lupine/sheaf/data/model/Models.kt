@@ -804,15 +804,43 @@ data class TagDeletePending(
 
 // ── Custom Fields ─────────────────────────────────────────────────────────────
 
+/** The two ends of a slider, and optionally its middle. Each up to 50 chars. */
+@JsonClass(generateAdapter = true)
+data class SliderLabels(
+    val left: String? = null,
+    val center: String? = null,
+    val right: String? = null,
+)
+
 /**
  * Per-field-type options. For SELECT / MULTISELECT, [choices] carries
  * the predefined values the user can pick from; null = freeform tag
- * mode (any string accepted server-side). Other field types don't
- * carry options today.
+ * mode (any string accepted server-side).
+ *
+ * The rest belong to SLIDER, which the server always stores in full canonical
+ * shape, so every key below comes back populated on a read. On a write the
+ * rules are the opposite of the PATCH bodies next door: the server rebuilds a
+ * slider's options from scratch rather than merging, so a key left out means
+ * "the default for that key", not "leave it alone". Moshi omitting nulls is
+ * therefore exactly right here, and it is what clears a label, a unit or a
+ * gradient. Do not reach for a hand-written adapter: it would send explicit
+ * nulls, which say the same thing, less clearly.
+ *
+ * [mode] is "labeled" (fixed 0..100, read as a percentage) or "numeric"
+ * ([min]/[max] are the field's own, [step] may be null for any value, [unit]
+ * is shown after the number). [gradient] is null or 2 to 8 #RRGGBB colours
+ * painted left to right across the track.
  */
 @JsonClass(generateAdapter = true)
 data class CustomFieldOptions(
     val choices: List<String>? = null,
+    val mode: String? = null,
+    val min: Double? = null,
+    val max: Double? = null,
+    val step: Double? = null,
+    val unit: String? = null,
+    val labels: SliderLabels? = null,
+    val gradient: List<String>? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -868,6 +896,7 @@ data class CustomFieldUpdate(
 //   boolean -> Boolean
 //   select  -> String (must be in choices when choices are set)
 //   multiselect -> List<String> (each must be in choices when set)
+//   slider  -> Number, inside [options.min, options.max], never a string
 //
 // Members the viewer isn't permitted to see fields for return an
 // empty list; the per-field privacy gate is enforced server-side.
