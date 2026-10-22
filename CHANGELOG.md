@@ -15,6 +15,19 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   announcement aimed at Android reaches it. Needs a server that supports
   targeting; on an older one everything carries on as it was.
 
+### Fixed
+
+- **Image avatars now appear on the watch.** A member with an uploaded avatar
+  showed nothing at all on the watch where their picture should be: no image,
+  and not even the initials circle, on Currently Fronting, on Switch Front, and
+  on every tile. Members using an emoji or initials were unaffected, and the
+  same avatars were fine on the phone. The server returns an avatar as a path
+  rather than a full address, and the watch was asking for that path as if it
+  were one, which failed quietly in both places it happens. The watch now
+  works out the full address the way the phone does, including for instances
+  that serve files from a separate host, and an avatar that still fails to load
+  falls back to the initials circle rather than leaving a hole.
+
 ## [1.5.0] - 2026-10-12
 
 ### Added

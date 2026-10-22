@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -17,6 +21,19 @@ import androidx.wear.compose.material.Text
 import coil.compose.AsyncImage
 import systems.lupine.sheaf.wear.data.WearMember
 
+/**
+ * A member's avatar: their image when there is one, otherwise their emoji or
+ * initials on their colour.
+ *
+ * The URL is resolved by the Coil interceptor installed in
+ * [systems.lupine.sheaf.wear.WearApp], since the API hands back
+ * server-relative paths.
+ *
+ * An image that fails anyway falls back to the circle rather than leaving a
+ * hole. That is what made the unresolved-URL bug so quiet: a member with an
+ * image avatar rendered as nothing at all, on a watch face where an empty slot
+ * next to a name reads as a layout fault rather than a missing picture.
+ */
 @Composable
 fun MemberAvatar(
     member: WearMember,
@@ -27,7 +44,11 @@ fun MemberAvatar(
         ?: MaterialTheme.colors.primary
     val onColor = if (color.luminance() > 0.5f) Color.Black else Color.White
 
-    if (!member.avatarUrl.isNullOrBlank()) {
+    // Keyed on the URL so a member whose avatar changes gets a fresh attempt
+    // rather than inheriting the last one's failure.
+    var failed by remember(member.avatarUrl) { mutableStateOf(false) }
+
+    if (!member.avatarUrl.isNullOrBlank() && !failed) {
         AsyncImage(
             model = member.avatarUrl,
             contentDescription = member.displayNameOrName,
@@ -35,6 +56,7 @@ fun MemberAvatar(
                 .size(size)
                 .clip(CircleShape),
             contentScale = ContentScale.Crop,
+            onError = { failed = true },
         )
     } else {
         Box(

@@ -61,6 +61,17 @@ internal data class TokenPair(
     @Json(name = "refresh_token") val refreshToken: String,
 )
 
+/**
+ * The public auth config, of which the watch needs exactly one field: where
+ * this instance serves files from. Everything else on that payload is the
+ * phone's business (registration mode, support links, captcha), so it is not
+ * modelled here; unknown keys are skipped.
+ */
+@JsonClass(generateAdapter = true)
+internal data class WearAuthConfig(
+    @Json(name = "file_cdn_base") val fileCdnBase: String? = null,
+)
+
 // Request bodies. Top-level (not nested inside WearApiClient) so Moshi codegen
 // can generate adapters for them — KSP won't generate adapters for private
 // nested classes.
