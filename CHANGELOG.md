@@ -8,6 +8,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Slider custom fields.** A field can now be a slider, matching the type the
+  server and the web app gained: either a labelled one from 0 to 100 between
+  two words of your choosing ("Drained" to "Wired", read as a percentage), or a
+  number with its own range, step and unit ("172.5 cm"). Either can paint a
+  colour gradient across the track, picked from nine named ones or built from
+  your own colours with the colour picker the app already uses for members and
+  tags. Settings gets the whole setup with a live preview; the member editor
+  gets a draggable track with the reading beside it and a tap to clear; a
+  member's profile shows the reading. The reading is the same string the server
+  puts on a public profile, so a slider reads the same everywhere.
+
 - **Announcements can be aimed at particular clients.** Admin only. An
   announcement can now be shown only on Web, Android, iOS or the watch, with a
   "Show on" section in the editor and a marker in the list; leaving it unticked
@@ -27,6 +38,13 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   works out the full address the way the phone does, including for instances
   that serve files from a separate host, and an avatar that still fails to load
   falls back to the initials circle rather than leaving a hole.
+- **A field type this build has not heard of no longer reads as an error.** A
+  custom field whose type the server knows and the app does not showed "Unknown
+  field type" in red where its value should be, so the value a member had put
+  there was hidden by a message that looked like a fault. It now shows the value
+  as text with a note to update the app, which is what the API asks clients to
+  do, and is why a slider field on an older build will have looked broken rather
+  than merely unsupported.
 
 ## [1.5.0] - 2026-10-12
 

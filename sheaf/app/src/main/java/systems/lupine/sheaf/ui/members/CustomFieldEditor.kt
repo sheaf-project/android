@@ -43,9 +43,13 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import systems.lupine.sheaf.data.model.CustomFieldRead
 import systems.lupine.sheaf.ui.components.PrivacyTag
+import systems.lupine.sheaf.ui.components.SliderInput
 import systems.lupine.sheaf.ui.components.StagedPrivacyNote
 import systems.lupine.sheaf.ui.components.datePickerDate
 import systems.lupine.sheaf.ui.components.datePickerMillis
+import systems.lupine.sheaf.ui.components.formatSliderValue
+import systems.lupine.sheaf.ui.components.sliderSpec
+import systems.lupine.sheaf.ui.components.sliderValueOrNull
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -56,7 +60,7 @@ import java.time.format.DateTimeFormatter
  * typed [Any?] on the wire so this dispatcher picks the right input
  * widget from [CustomFieldRead.fieldType] + [CustomFieldRead.options].
  *
- * Eight variants:
+ * Nine variants:
  *  - text       : single-line free text
  *  - number     : numeric keyboard, accepts the empty string for clear
  *  - date       : picker dialog, stores ISO yyyy-MM-dd
@@ -65,9 +69,18 @@ import java.time.format.DateTimeFormatter
  *  - select freeform        : single-line free text
  *  - multiselect with choices : FilterChip group
  *  - multiselect freeform   : chip input + add-by-text affordance
+ *  - slider     : draggable track with the reading beside it
  *
  * Empty / blank string -> null. Server treats null as "clear this
  * field" so toggling a value out then saving removes it cleanly.
+ *
+ * Anything else is a type the server has and this build does not. The API
+ * contract for that case (docs/CLIENT_DESIGN.md) is to treat the field as
+ * text and show the value's string form without offering an editor, which is
+ * what [UnknownTypeDisplay] does. Refusing to render it, or guessing at an
+ * editor, would be worse than showing it plainly: one hides a value the
+ * member put there, the other writes a string into a field the server
+ * validates as something else.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -100,14 +113,38 @@ internal fun CustomFieldEditor(
             } else {
                 MultiselectChoicesEditor(label = field.name, choices = choices, value = value.coerceToStringList(), onChange = onChange)
             }
-        else -> Text(
-            "Unknown field type: ${field.fieldType}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+        "slider" -> SliderInput(
+            label = field.name,
+            value = sliderValueOrNull(value),
+            spec = sliderSpec(field.options),
+            onChange = onChange,
         )
+        else -> UnknownTypeDisplay(label = field.name, value = value)
     }
         PrivacyTag(field.privacy)
         StagedPrivacyNote(field.pendingPrivacy, field.privacyActivatesAt)
+    }
+}
+
+/**
+ * A field whose type this build does not know: its value, shown as text and
+ * not editable. The note says why the input is missing, so it reads as "this
+ * app is behind" rather than as a broken field.
+ */
+@Composable
+private fun UnknownTypeDisplay(label: String, value: Any?) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            value?.toString()?.takeIf { it.isNotBlank() } ?: "Not set",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            "Update the app to edit this field.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -422,6 +459,11 @@ internal fun customFieldValueDisplay(field: CustomFieldRead, value: Any?): Strin
             .joinToString(", ")
             .ifEmpty { "—" }
         "number" -> (value as? Number)?.toString() ?: value.toString()
+        // The reading, not the raw number: "62%" or "172.5 cm", the same
+        // string the server puts on a public profile. A value that is not a
+        // number falls back to its own string form, as an unknown type does.
+        "slider" -> formatSliderValue(value, sliderSpec(field.options))
+            .ifBlank { value.toString() }
         else -> value.toString().ifBlank { "—" }
     }
 }
