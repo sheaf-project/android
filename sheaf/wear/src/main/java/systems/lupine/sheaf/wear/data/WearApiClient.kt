@@ -50,6 +50,9 @@ class WearApiClient(private val auth: WearAuthManager) {
     // their own WearApiClient over the same on-disk credential store, so a
     // per-instance mutex would not serialize their refreshes.
 
+    /** The instance this watch is signed in to, for resolving file URLs. */
+    val baseUrl: String get() = auth.baseUrl
+
     private fun url(path: String) = "${auth.baseUrl.trimEnd('/')}$path"
 
     // Executes the built request, auto-retries once after a 401 by refreshing the token.
@@ -163,6 +166,23 @@ class WearApiClient(private val auth: WearAuthManager) {
         val type = Types.newParameterizedType(List::class.java, WearMember::class.java)
         return moshi.adapter<List<WearMember>>(type).fromJson(body)!!
     }
+
+    /**
+     * Where this instance serves files from, or null for the API host.
+     *
+     * Unauthenticated, like the login screen's read of the same endpoint, so
+     * it works before a token exists and cannot 401 in the middle of a
+     * refresh. Returns null rather than throwing on anything unexpected: not
+     * knowing about a CDN costs nothing on an instance without one, and must
+     * not be the reason a whole refresh fails.
+     */
+    suspend fun getFileCdnBase(): String? = runCatching {
+        val body = execute {
+            Request.Builder().url(url("/v1/auth/config")).build()
+        }
+        moshi.adapter(WearAuthConfig::class.java).fromJson(body)?.fileCdnBase
+            ?.trim()?.ifBlank { null }
+    }.getOrNull()
 
     suspend fun getCurrentFronts(): List<WearFront> {
         val body = execute {

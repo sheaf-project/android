@@ -13,6 +13,7 @@ import androidx.wear.protolayout.ResourceBuilders
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import systems.lupine.sheaf.wear.data.WearMember
+import systems.lupine.sheaf.wear.data.resolveFileUrl
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
@@ -51,7 +52,12 @@ internal fun tileAvatarFile(context: Context, memberId: String): File =
  * watch's network has settled) doesn't degrade a good avatar to initials.
  * The next refresh re-tries the fetch.
  */
-internal fun renderTileAvatars(context: Context, members: List<WearMember>) {
+internal fun renderTileAvatars(
+    context: Context,
+    members: List<WearMember>,
+    baseUrl: String? = null,
+    cdnBase: String? = null,
+) {
     val dir = tileAvatarDir(context)
     val live = members.map { "${it.id}.png" }.toSet()
     dir.listFiles()?.forEach { if (it.name !in live) it.delete() }
@@ -66,7 +72,7 @@ internal fun renderTileAvatars(context: Context, members: List<WearMember>) {
     for (m in members) {
         val file = tileAvatarFile(context, m.id)
         val hasUrl = !m.avatarUrl.isNullOrBlank()
-        val fetched = if (hasUrl) fetchAvatarBitmap(m, http) else null
+        val fetched = if (hasUrl) fetchAvatarBitmap(m, http, baseUrl, cdnBase) else null
         val bm = when {
             fetched != null -> cropCircle(scaleSquare(fetched, AVATAR_PX))
             // URL avatar that failed to fetch but is already cached: keep
@@ -85,9 +91,21 @@ internal fun renderTileAvatars(context: Context, members: List<WearMember>) {
     }
 }
 
-/** Download and decode a member's avatar bitmap, or null on any failure. */
-private fun fetchAvatarBitmap(member: WearMember, http: OkHttpClient): Bitmap? {
-    val url = member.avatarUrl?.takeIf { it.isNotBlank() } ?: return null
+/**
+ * Download and decode a member's avatar bitmap, or null on any failure.
+ *
+ * The URL is resolved first. The API hands back a server-relative path, and
+ * `Request.Builder().url("/v1/files/...")` throws on one, which the
+ * `runCatching` below then swallowed: every image avatar on every tile came
+ * back null, and the tile quietly drew the initials fallback instead.
+ */
+private fun fetchAvatarBitmap(
+    member: WearMember,
+    http: OkHttpClient,
+    baseUrl: String?,
+    cdnBase: String?,
+): Bitmap? {
+    val url = resolveFileUrl(member.avatarUrl, baseUrl, cdnBase) ?: return null
     return runCatching {
         http.newCall(Request.Builder().url(url).build()).execute().use { resp ->
             if (!resp.isSuccessful) return@runCatching null
