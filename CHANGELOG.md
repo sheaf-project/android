@@ -28,16 +28,26 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
-- **Image avatars now appear on the watch.** A member with an uploaded avatar
-  showed nothing at all on the watch where their picture should be: no image,
-  and not even the initials circle, on Currently Fronting, on Switch Front, and
-  on every tile. Members using an emoji or initials were unaffected, and the
-  same avatars were fine on the phone. The server returns an avatar as a path
-  rather than a full address, and the watch was asking for that path as if it
-  were one, which failed quietly in both places it happens. The watch now
-  works out the full address the way the phone does, including for instances
-  that serve files from a separate host, and an avatar that still fails to load
-  falls back to the initials circle rather than leaving a hole.
+- **Image avatars now appear on the watch, on instances that serve files
+  themselves.** A member with an uploaded avatar showed nothing where their
+  picture should be: no image, and not even the initials circle, on Currently
+  Fronting, on Switch Front, and on every tile. Emoji and initials avatars were
+  unaffected, and the same avatars were fine on the phone.
+
+  Whether this happened depended on where the instance keeps its files, which
+  is why it was never visible on an instance backed by separate file hosting.
+  An instance that serves files through its own API hands back an avatar as a
+  path rather than a full address, and the watch asked for that path as though
+  it already were one, which failed silently in both of the places the watch
+  fetches images. An instance with a separate file host hands back a full
+  address, which the watch happened to cope with because there was nothing to
+  work out. Serving files directly is the default, so self-hosted instances
+  were the ones affected.
+
+  The watch now works out the full address the way the phone does, honouring a
+  separate file host when one is configured, and an avatar that still fails to
+  load falls back to the initials circle rather than leaving an empty slot.
+
 - **A field type this build has not heard of no longer reads as an error.** A
   custom field whose type the server knows and the app does not showed "Unknown
   field type" in red where its value should be, so the value a member had put
