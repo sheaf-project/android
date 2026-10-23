@@ -22,7 +22,7 @@ class ErrorMessagesTest {
     @Test
     fun `unknown host maps to connectivity message`() {
         assertEquals(
-            "Can't reach the server — check your internet connection",
+            "Can't reach the server - check your internet connection",
             UnknownHostException("nope").toUserMessage(),
         )
     }
@@ -30,7 +30,7 @@ class ErrorMessagesTest {
     @Test
     fun `connect exception maps to connectivity message`() {
         assertEquals(
-            "Unable to connect — check your internet connection",
+            "Unable to connect - check your internet connection",
             ConnectException("refused").toUserMessage(),
         )
     }
@@ -38,7 +38,7 @@ class ErrorMessagesTest {
     @Test
     fun `socket timeout maps to retry message`() {
         assertEquals(
-            "Connection timed out — please try again",
+            "Connection timed out - please try again",
             SocketTimeoutException().toUserMessage(),
         )
     }
@@ -46,7 +46,7 @@ class ErrorMessagesTest {
     @Test
     fun `generic IO exception maps to network error`() {
         assertEquals(
-            "Network error — check your connection and try again",
+            "Network error - check your connection and try again",
             IOException("disk full or whatever").toUserMessage(),
         )
     }
@@ -102,7 +102,7 @@ class ErrorMessagesTest {
     @Test
     fun `unmapped exception falls back to default`() {
         assertEquals(
-            "Something went wrong — please try again",
+            "Something went wrong - please try again",
             IllegalStateException("boom").toUserMessage(),
         )
     }

@@ -1,7 +1,7 @@
 package systems.lupine.sheaf.ui.sharing
 
-import com.squareup.moshi.Moshi
 import retrofit2.HttpException
+import systems.lupine.sheaf.util.errorDetail
 import systems.lupine.sheaf.util.toUserMessage
 
 /**
@@ -53,37 +53,32 @@ fun Throwable.toShareError(fallback: String): ShareError {
         code() == 403 && detail != null && "turned off on this instance" in detail ->
             ShareError.PublishingUnavailable(detail)
         code() == 403 -> ShareError.BadCredentials(detail ?: "Incorrect password or authenticator code")
-        else -> ShareError.Other(detail ?: httpFallback(fallback))
+        // Not one of the states above, so it is an ordinary failure being
+        // reported as a message, and it goes through the same formatter as
+        // every other one. preferDetail keeps what this branch already did
+        // (these endpoints answer with prose worth reading) while letting the
+        // technical register add the status, which it could not before: the
+        // preference used to do nothing on any screen that classified its
+        // errors through here, so the same setting said different things
+        // depending on which call had failed.
+        //
+        // The classified states above keep their own wording. They are states
+        // with their own UI, not messages, and a status code in the step-up
+        // sheet's "incorrect password" line would read as a fault rather than
+        // as a prompt.
+        else -> ShareError.Other(toUserMessage(fallback, preferDetail = true))
     }
 }
 
-// Moshi rather than org.json: the classification is the interesting part of
-// this file and org.json is an Android framework stub off-device, so parsing
-// with it would make these branches untestable on the JVM.
-private val errorBodyAdapter by lazy {
-    Moshi.Builder().build().adapter<Map<String, Any?>>(
-        com.squareup.moshi.Types.newParameterizedType(
-            Map::class.java,
-            String::class.java,
-            Any::class.java,
-        ),
-    )
-}
+// The detail reader moved to util/ApiErrorDetail.kt, which peeks the body
+// instead of consuming it. That retires the race this file used to work
+// around: toUserMessage now reads the detail too, for the technical-errors
+// preference, and two readers on one exception is the normal case rather than
+// something to avoid.
 
-// The body is a one-shot stream, so read it once here rather than letting
-// toUserMessage race us for it.
-private fun HttpException.errorDetail(): String? = runCatching {
-    val body = response()?.errorBody()?.string().orEmpty()
-    if (body.isBlank()) return@runCatching null
-    (errorBodyAdapter.fromJson(body)?.get("detail") as? String)?.takeIf { it.isNotBlank() }
-}.getOrNull()
-
-private fun HttpException.httpFallback(fallback: String): String = when (code()) {
-    401 -> "Session expired, please log in again"
-    404 -> "Not found"
-    429 -> "Too many requests, please wait a moment"
-    else -> fallback
-}
+// The per-status wording this file used to carry has gone: toUserMessage
+// already maps every one of those codes, and keeping a second table meant the
+// same status could read two ways depending on which screen asked.
 
 fun ShareError.message(fallback: String): String = when (this) {
     is ShareError.StepUpRequired -> fallback

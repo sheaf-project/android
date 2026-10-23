@@ -1,6 +1,7 @@
 package systems.lupine.sheaf.ui.settings
 
 import android.content.ClipData
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,6 +56,7 @@ fun AboutScreen(
 ) {
     val serverVersion by viewModel.serverVersion.collectAsState()
     val baseUrl by viewModel.baseUrl.collectAsState()
+    val showTechnicalErrors by viewModel.showTechnicalErrors.collectAsState()
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -120,7 +123,58 @@ fun AboutScreen(
                 version.buildTime?.takeIf { it.isNotBlank() }?.let { DetailRow("Built", it) }
                 version.mode?.takeIf { it.isNotBlank() }?.let { DetailRow("Mode", it) }
             }
+
+            // Filed here rather than under its own settings category, which is
+            // where the web app keeps it. This screen is already the one
+            // somebody opens to put a build and a server into a bug report,
+            // and the setting changes what a bug report can say.
+            //
+            // Not the Debug Menu, despite the name fitting: that row is behind
+            // BuildConfig.DEBUG, and the people who need this are on release
+            // builds, reporting something that went wrong on their own phone.
+            SectionHeader("Error reporting", modifier = Modifier.padding(horizontal = 16.dp))
+            TechnicalErrorsRow(
+                checked = showTechnicalErrors,
+                onCheckedChange = viewModel::setShowTechnicalErrors,
+            )
         }
+    }
+}
+
+/**
+ * The "show me what actually went wrong" switch.
+ *
+ * Off by default, and worth keeping that way for most people: a status code in
+ * a toast is noise to somebody who cannot act on it. On, it is the difference
+ * between "Something went wrong" and a line that says which call failed and
+ * what the server said about it.
+ */
+@Composable
+private fun TechnicalErrorsRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text("Show technical error details", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "When something goes wrong, show the status code and the server's exact " +
+                    "message instead of a short summary. Useful for reporting a problem; " +
+                    "noisy day to day.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
