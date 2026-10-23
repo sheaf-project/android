@@ -8,6 +8,20 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Show technical error details.** Settings, About gains an Error reporting
+  switch, off by default. On, a failed request says which status came back and
+  what the server actually said, instead of a short summary: "[404] Field not
+  found" rather than "Not found", and a network failure names the exception
+  behind it. It sits on About because that is the screen you already open to
+  copy a version and a commit into a bug report. The web app has had the same
+  setting for a while, and turning it on here is remembered for your other
+  Android devices; the two clients keep their own answer, since a status code
+  in a toast is least wanted on a phone.
+
+  The setting also applies when the server cannot be reached at all, which is
+  when it is most often wanted: it is kept on the device, not only on the
+  account, so it does not depend on the request that is failing.
+
 - **Slider custom fields.** A field can now be a slider, matching the type the
   server and the web app gained: either a labelled one from 0 to 100 between
   two words of your choosing ("Drained" to "Wired", read as a percentage), or a
@@ -27,6 +41,14 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   targeting; on an older one everything carries on as it was.
 
 ### Fixed
+
+- **Sharing and custom fields no longer explain failures their own way.** The
+  screens that tell three kinds of refusal apart, so they can ask for a
+  password or say publishing is off, carried a second set of wordings for
+  everything else. So the same status could read differently depending on
+  which call had failed, and the new error-details setting did nothing on
+  those screens. They now share one formatter, keeping the server's own prose
+  where it is the useful part.
 
 - **Image avatars now appear on the watch, on instances that serve files
   themselves.** A member with an uploaded avatar showed nothing where their
