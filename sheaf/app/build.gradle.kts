@@ -185,6 +185,12 @@ dependencies {
     // Biometric / device credential auth (app lock)
     implementation(libs.androidx.biometric)
 
+    // Passkeys. The core library talks to the platform credential manager on
+    // Android 14+; below that it needs the Play Services provider, which is
+    // proprietary, so only .play gets it and .open needs Android 14 for passkeys.
+    implementation(libs.androidx.credentials)
+    "playImplementation"(libs.androidx.credentials.play.services.auth)
+
     // EXIF parsing — used by the avatar cropper so portrait photos
     // (which JPEG-encode with a rotation flag rather than rotated
     // pixels) come into the cropper right-side-up.

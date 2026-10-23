@@ -67,6 +67,29 @@ interface SheafApiService {
     @POST("/v1/auth/cancel-deletion")
     suspend fun cancelAccountDeletion()
 
+    // ── Passkeys ──────────────────────────────────────────────────────────────
+
+    @GET("/v1/auth/passkeys")
+    suspend fun listPasskeys(): List<PasskeyRead>
+
+    @POST("/v1/auth/passkeys/register/begin")
+    suspend fun beginPasskeyRegistration(@Body body: PasskeyRegisterBegin): PasskeyOptions
+
+    @POST("/v1/auth/passkeys/register/complete")
+    suspend fun completePasskeyRegistration(@Body body: PasskeyRegisterComplete): PasskeyRead
+
+    @PATCH("/v1/auth/passkeys/{id}")
+    suspend fun renamePasskey(@Path("id") id: String, @Body body: PasskeyUpdate): PasskeyRead
+
+    @DELETE("/v1/auth/passkeys/{id}")
+    suspend fun deletePasskey(@Path("id") id: String)
+
+    @POST("/v1/auth/passkeys/sign-in/begin")
+    suspend fun beginPasskeySignIn(): PasskeyOptions
+
+    @POST("/v1/auth/passkeys/sign-in/complete")
+    suspend fun completePasskeySignIn(@Body body: PasskeySignInComplete): TokenResponse
+
     // ── API Keys ──────────────────────────────────────────────────────────────
 
     @GET("/v1/auth/keys")

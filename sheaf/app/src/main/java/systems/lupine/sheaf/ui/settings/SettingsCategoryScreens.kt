@@ -912,6 +912,7 @@ fun AccountSettingsScreen(
     onNavigateUp: () -> Unit,
     onNavigateToApiKeys: () -> Unit,
     onNavigateToSessions: () -> Unit,
+    onNavigateToPasskeys: () -> Unit,
     onNavigateToAdminActivity: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -966,6 +967,15 @@ fun AccountSettingsScreen(
                 title = "Set Up 2FA",
                 subtitle = null,
                 onClick = { viewModel.startTotpSetup(); showTotpSheet = true },
+            )
+        }
+        if (state.passkeysAvailable) {
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingItem(
+                icon = Icons.Outlined.Fingerprint,
+                title = "Passkeys",
+                subtitle = "Sign in without typing your password",
+                onClick = onNavigateToPasskeys,
             )
         }
         HorizontalDivider(modifier = Modifier.padding(start = 56.dp))

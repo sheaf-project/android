@@ -80,6 +80,7 @@ import systems.lupine.sheaf.ui.importflow.importSources
 import systems.lupine.sheaf.ui.importflow.ImportSourcePickerScreen
 import systems.lupine.sheaf.ui.fields.CustomFieldsScreen
 import systems.lupine.sheaf.ui.apikeys.ApiKeysScreen
+import systems.lupine.sheaf.ui.passkeys.PasskeysScreen
 import systems.lupine.sheaf.ui.sessions.SessionsScreen
 import systems.lupine.sheaf.ui.admin.AdminPanelScreen
 import systems.lupine.sheaf.ui.settings.SettingsScreen
@@ -112,6 +113,7 @@ object Routes {
     const val CUSTOM_FIELDS  = "settings/fields"
     const val API_KEYS       = "settings/keys"
     const val SESSIONS       = "settings/sessions"
+    const val PASSKEYS       = "settings/passkeys"
     const val ADMIN_PANEL    = "settings/admin"
     const val ADMIN_AUDIT    = "settings/admin/audit"
     const val ADMIN_JOBS     = "settings/admin/jobs"
@@ -541,6 +543,7 @@ fun SheafApp(
                     onNavigateUp = { navController.navigateUp() },
                     onNavigateToApiKeys = { navController.navigate(Routes.API_KEYS) },
                     onNavigateToSessions = { navController.navigate(Routes.SESSIONS) },
+                    onNavigateToPasskeys = { navController.navigate(Routes.PASSKEYS) },
                     onNavigateToAdminActivity = { navController.navigate(Routes.SETTINGS_ADMIN_ACTIVITY) },
                 )
             }
@@ -766,6 +769,9 @@ fun SheafApp(
             }
             composable(Routes.SESSIONS) {
                 SessionsScreen(onNavigateUp = { navController.navigateUp() })
+            }
+            composable(Routes.PASSKEYS) {
+                PasskeysScreen(onNavigateUp = { navController.navigateUp() })
             }
             composable(Routes.ADMIN_PANEL) {
                 AdminPanelScreen(
