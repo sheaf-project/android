@@ -3,6 +3,7 @@ package systems.lupine.sheaf.data.model
 import com.squareup.moshi.Moshi
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -227,5 +228,48 @@ class ModelContractsTest {
             .toJson(AnnouncementUpdate(title = "T", clearStartsAt = true))
         assertTrue(""""clear_starts_at":true""" in json, json)
         assertTrue("starts_at" !in json.replace("clear_starts_at", ""), json)
+    }
+
+    @Test fun `an announcement carries the platforms it is aimed at`() {
+        val read = moshi.adapter(AnnouncementRead::class.java).fromJson(
+            """
+            {"id":"a1","title":"Android only","body":"B","severity":"info",
+             "dismissible":true,"active":true,"visible_while_logged_out":false,
+             "platforms":["android"],"starts_at":null,"expires_at":null,
+             "created_at":"2026-10-13T00:00:00Z","updated_at":"2026-10-13T00:00:00Z",
+             "created_by":null}
+            """.trimIndent(),
+        )
+        assertEquals(listOf("android"), read?.platforms)
+    }
+
+    @Test fun `an announcement from a server without targeting is for everyone`() {
+        // Empty is the server's own default and is what every announcement
+        // meant before targeting existed, so an absent key must not read as
+        // "aimed at nothing".
+        val read = moshi.adapter(AnnouncementRead::class.java).fromJson(
+            """
+            {"id":"a1","title":"T","body":"B","severity":"info","dismissible":true,
+             "active":true,"starts_at":null,"expires_at":null,
+             "created_at":"2026-10-13T00:00:00Z","updated_at":"2026-10-13T00:00:00Z",
+             "created_by":null}
+            """.trimIndent(),
+        )
+        assertEquals(emptyList(), read?.platforms)
+    }
+
+    @Test fun `clearing the targeting is sent, not omitted`() {
+        // The server reads an omitted platforms as "leave it alone", so
+        // unticking every box has to put an empty list on the wire or the old
+        // targeting quietly survives a save that looked like it removed it.
+        val json = moshi.adapter(AnnouncementUpdate::class.java)
+            .toJson(AnnouncementUpdate(title = "T", platforms = emptyList()))
+        assertTrue(""""platforms":[]""" in json, json)
+    }
+
+    @Test fun `an untouched targeting is left out of the patch`() {
+        val json = moshi.adapter(AnnouncementUpdate::class.java)
+            .toJson(AnnouncementUpdate(title = "T"))
+        assertFalse("platforms" in json, json)
     }
 }

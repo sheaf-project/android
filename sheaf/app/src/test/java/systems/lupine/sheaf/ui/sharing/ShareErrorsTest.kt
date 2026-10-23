@@ -84,6 +84,51 @@ class ShareErrorsTest {
     }
 
     @Test
+    fun `an unclassified failure still says what the server said`() {
+        // These endpoints answer with prose worth reading, so the detail is
+        // the message whether or not the technical register is on.
+        systems.lupine.sheaf.util.TechnicalErrors.withEnabled(false) {
+            val err = error(404, "Field not found").toShareError("fallback")
+            assertIs<ShareError.Other>(err)
+            assertEquals("Field not found", err.message)
+        }
+    }
+
+    @Test
+    fun `the technical register reaches this screen too`() {
+        // It used to stop at the classifier: every surface that routed its
+        // errors through here ignored the preference, so the same setting
+        // said different things depending on which call had failed.
+        systems.lupine.sheaf.util.TechnicalErrors.withEnabled(true) {
+            val err = error(404, "Field not found").toShareError("fallback")
+            assertIs<ShareError.Other>(err)
+            assertEquals("[404] Field not found", err.message)
+        }
+    }
+
+    @Test
+    fun `a classified state keeps its own wording in either register`() {
+        // The step-up sheet prompts for a credential; a status code in front
+        // of "incorrect password" would read as a fault rather than a prompt.
+        for (technical in listOf(false, true)) {
+            systems.lupine.sheaf.util.TechnicalErrors.withEnabled(technical) {
+                val err = error(403, "Incorrect password").toShareError("fallback")
+                assertIs<ShareError.BadCredentials>(err)
+                assertEquals("Incorrect password", err.message)
+            }
+        }
+    }
+
+    @Test
+    fun `an unclassified failure with no detail falls back to the status wording`() {
+        systems.lupine.sheaf.util.TechnicalErrors.withEnabled(false) {
+            val err = error(404, null).toShareError("fallback")
+            assertIs<ShareError.Other>(err)
+            assertEquals("Not found", err.message)
+        }
+    }
+
+    @Test
     fun `raise detection only fires on the way up`() {
         kotlin.test.assertTrue(isRaiseToPublic("private", "public"))
         kotlin.test.assertTrue(isRaiseToPublic("friends", "public"))

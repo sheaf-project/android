@@ -752,8 +752,22 @@ interface SheafApiService {
     @GET("/v1/notifications/server-config")
     suspend fun getNotificationServerConfig(): NotificationServerConfig
 
+    /**
+     * Active announcements for this client.
+     *
+     * [platform] names what this client is. Announcements aimed at no platform
+     * always come back; one aimed at a platform comes back only when that
+     * platform is named, so naming nothing would quietly hide anything
+     * targeted at Android. Defaulted here rather than at the call site so a
+     * future caller cannot forget it.
+     *
+     * A server that predates platform targeting ignores the parameter and
+     * returns everything, which is what it meant before.
+     */
     @GET("/v1/announcements")
-    suspend fun getAnnouncements(): List<AnnouncementPublic>
+    suspend fun getAnnouncements(
+        @Query("platform") platform: String = ANNOUNCEMENT_PLATFORM,
+    ): List<AnnouncementPublic>
 
     @GET("/v1/admin/announcements")
     suspend fun listAllAnnouncements(): List<AnnouncementRead>
@@ -1127,6 +1141,17 @@ interface SheafApiService {
     @POST("/v1/messages/mark-seen")
     suspend fun markBoardSeen(@Body body: MarkSeenRequest)
 }
+
+/**
+ * What this client calls itself when asking for announcements.
+ *
+ * The same name the app already sends as its client header, and one of the
+ * four the server knows (`web`, `android`, `ios`, `watch`). The phone is not
+ * the watch: the Wear app is its own client and would name itself, so an
+ * announcement aimed at the watch is not something this build should collect
+ * on its behalf.
+ */
+const val ANNOUNCEMENT_PLATFORM: String = "android"
 
 /** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
 suspend fun SheafApiService.deleteMemberOrQueue(

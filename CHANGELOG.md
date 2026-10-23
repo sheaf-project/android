@@ -8,6 +8,80 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Show technical error details.** Settings, About gains an Error reporting
+  switch, off by default. On, a failed request says which status came back and
+  what the server actually said, instead of a short summary: "[404] Field not
+  found" rather than "Not found", and a network failure names the exception
+  behind it. It sits on About because that is the screen you already open to
+  copy a version and a commit into a bug report. The web app has had the same
+  setting for a while, and turning it on here is remembered for your other
+  Android devices; the two clients keep their own answer, since a status code
+  in a toast is least wanted on a phone.
+
+  The setting also applies when the server cannot be reached at all, which is
+  when it is most often wanted: it is kept on the device, not only on the
+  account, so it does not depend on the request that is failing.
+
+- **Slider custom fields.** A field can now be a slider, matching the type the
+  server and the web app gained: either a labelled one from 0 to 100 between
+  two words of your choosing ("Drained" to "Wired", read as a percentage), or a
+  number with its own range, step and unit ("172.5 cm"). Either can paint a
+  colour gradient across the track, picked from nine named ones or built from
+  your own colours with the colour picker the app already uses for members and
+  tags. Settings gets the whole setup with a live preview; the member editor
+  gets a draggable track with the reading beside it and a tap to clear; a
+  member's profile shows the reading. The reading is the same string the server
+  puts on a public profile, so a slider reads the same everywhere.
+
+- **Announcements can be aimed at particular clients.** Admin only. An
+  announcement can now be shown only on Web, Android, iOS or the watch, with a
+  "Show on" section in the editor and a marker in the list; leaving it unticked
+  shows it to everyone, as before. The app also names itself when asking, so an
+  announcement aimed at Android reaches it. Needs a server that supports
+  targeting; on an older one everything carries on as it was.
+
+### Fixed
+
+- **Sharing and custom fields no longer explain failures their own way.** The
+  screens that tell three kinds of refusal apart, so they can ask for a
+  password or say publishing is off, carried a second set of wordings for
+  everything else. So the same status could read differently depending on
+  which call had failed, and the new error-details setting did nothing on
+  those screens. They now share one formatter, keeping the server's own prose
+  where it is the useful part.
+
+- **Image avatars now appear on the watch, on instances that serve files
+  themselves.** A member with an uploaded avatar showed nothing where their
+  picture should be: no image, and not even the initials circle, on Currently
+  Fronting, on Switch Front, and on every tile. Emoji and initials avatars were
+  unaffected, and the same avatars were fine on the phone.
+
+  Whether this happened depended on where the instance keeps its files, which
+  is why it was never visible on an instance backed by separate file hosting.
+  An instance that serves files through its own API hands back an avatar as a
+  path rather than a full address, and the watch asked for that path as though
+  it already were one, which failed silently in both of the places the watch
+  fetches images. An instance with a separate file host hands back a full
+  address, which the watch happened to cope with because there was nothing to
+  work out. Serving files directly is the default, so self-hosted instances
+  were the ones affected.
+
+  The watch now works out the full address the way the phone does, honouring a
+  separate file host when one is configured, and an avatar that still fails to
+  load falls back to the initials circle rather than leaving an empty slot.
+
+- **A field type this build has not heard of no longer reads as an error.** A
+  custom field whose type the server knows and the app does not showed "Unknown
+  field type" in red where its value should be, so the value a member had put
+  there was hidden by a message that looked like a fault. It now shows the value
+  as text with a note to update the app, which is what the API asks clients to
+  do, and is why a slider field on an older build will have looked broken rather
+  than merely unsupported.
+
+## [1.5.0] - 2026-10-12
+
+### Added
+
 - **About has a screen of its own.** The settings row squeezed the version,
   commit, build time and flavour onto one line, so on a narrow screen the
   commit was cut off and the only way to read it was to turn the phone
@@ -25,22 +99,6 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   server has supported this for a long time and the setting simply wasn't on
   the phone, so it could only be set from the web client.
 
-### Changed
-
-- **The admin account list is its own screen.** It rendered every account
-  inline, which pushed invite codes, announcements and maintenance several
-  screens down and left the search field scrolled off above its own results.
-  Searching also waits for a pause in typing now, instead of asking the server
-  again on every keystroke.
-- **Times are picked from a clock instead of typed.** Front history entries
-  and admin schedules had separate hour and minute boxes with an AM/PM
-  toggle, and tapping one brought up the full keyboard. The time is now a
-  button next to the date that opens the standard time picker, which follows
-  the phone's 12/24 hour setting.
-- **The front entry member list is shorter.** Adding or editing a front
-  entry listed every member before you could reach the times. It now shows
-  the first five plus anyone already picked, with "Show all" to expand.
-  Searching or filtering by group still shows every match.
 - **A banner image for your system.** Settings > Profile gains a banner
   beside the avatar, the same wide image a member can have, with the same
   cropper. Needs a server running 1.6.0 or later.
@@ -76,7 +134,31 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   anything is imported, the preview lists every part of your export that
   can't be read yet. Needs a server running 1.6.0 or later.
 
+- **Pin journal entries.** The pin button at the top of an entry keeps it in a
+  Pinned section above the rest of the journal list. With the Journal entries
+  toggle in System Safety on, unpinning asks you to re-authenticate and waits
+  out the grace period, and the entry shows when the unpin will go through.
+  You can cancel it from System Safety like any other queued action. Needs a
+  server running 1.6.0 or later.
+
 ### Changed
+
+- **The admin account list is its own screen.** It rendered every account
+  inline, which pushed invite codes, announcements and maintenance several
+  screens down and left the search field scrolled off above its own results.
+  Searching also waits for a pause in typing now, instead of asking the server
+  again on every keystroke.
+
+- **Times are picked from a clock instead of typed.** Front history entries
+  and admin schedules had separate hour and minute boxes with an AM/PM
+  toggle, and tapping one brought up the full keyboard. The time is now a
+  button next to the date that opens the standard time picker, which follows
+  the phone's 12/24 hour setting.
+
+- **The front entry member list is shorter.** Adding or editing a front
+  entry listed every member before you could reach the times. It now shows
+  the first five plus anyone already picked, with "Show all" to expand.
+  Searching or filtering by group still shows every match.
 
 - **Raising a member to Public now shows when it takes effect.** With a
   System Safety grace period set, the member editor says when a member will
@@ -84,13 +166,6 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   about them no longer cancels the wait by accident.
 
 ### Fixed
-
-- **Adding an ongoing front entry explains itself instead of failing.** An
-  entry left open starts a front, which ends the ones already running. If you
-  back-dated it to before someone currently fronting began, that was impossible
-  and the server answered "Internal server error". The sheet now says who it
-  clashes with and when they started, and suggests a later start or giving the
-  entry an end time to record it as history.
 
 - **Adding a past front entry no longer disturbs who is fronting now.** The
   app created the entry as if it were a switch and then closed it, so between
@@ -101,6 +176,20 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   nobody was fronting. Entries are now recorded in one step that leaves the
   live roster alone. On a server too old to support that, the app takes the
   older path without the part that ended the current front.
+
+- **Adding an ongoing front entry explains itself instead of failing.** An
+  entry left open starts a front, which ends the ones already running. If you
+  back-dated it to before someone currently fronting began, that was impossible
+  and the server answered "Internal server error". The sheet now says who it
+  clashes with and when they started, and suggests a later start or giving the
+  entry an end time to record it as history.
+
+- **Re-authentication now reaches the server when editing members, groups
+  and system settings.** The password and code you typed were dropped before
+  the request went out, so a change that needed them could never save.
+  "Never shareable" and "Keep fronting private" on a member now save too, and
+  so does changing a group's privacy.
+
 - **Public is no longer offered where the instance cannot publish.** On an
   instance with public profiles turned off, choosing Public for a member,
   group, custom field, relationship or your system was a dead end that failed
@@ -119,23 +208,17 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
   refusing it. The option is now unavailable up front, with the reason
   available if you want it. Needs a server running 1.6.0 or later.
 
-- **Re-authentication now reaches the server when editing members, groups
-  and system settings.** The password and code you typed were dropped before
-  the request went out, so a change that needed them could never save.
-  "Never shareable" and "Keep fronting private" on a member now save too, and
-  so does changing a group's privacy.
-- **Pin journal entries.** The pin button at the top of an entry keeps it in a
-  Pinned section above the rest of the journal list. With the Journal entries
-  toggle in System Safety on, unpinning asks you to re-authenticate and waits
-  out the grace period, and the entry shows when the unpin will go through.
-  You can cancel it from System Safety like any other queued action. Needs a
-  server running 1.6.0 or later.
-
-### Fixed
-
 - **Scrolling further down the journal list loads older entries.** Loading
   more asked the server for the first page again, so the list never got past
   its first 50 entries.
+
+- **Long custom field names are readable again.** A field whose name shared
+  its row with the privacy tag and three buttons was squeezed into a column one
+  character wide, spelling itself vertically down the Custom Fields screen.
+  Reported from the field.
+
+- **The quick-switch carousel no longer touches the navigation bar.** On Home
+  the chips sat directly on top of it.
 
 ## [1.4.1] - 2026-09-20
 

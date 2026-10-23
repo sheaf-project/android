@@ -100,6 +100,13 @@ class WearStore(
             }
         }
         try {
+            // Where this instance serves files from, refreshed before anything
+            // that draws an avatar. An operator can add, change or drop a CDN
+            // at any time, and the watch would otherwise keep asking the old
+            // host until it was re-paired. Best-effort by construction: the
+            // call swallows its own failures and an instance without a CDN
+            // simply answers null.
+            WearSettingsStore(context).fileCdnBase = apiClient.getFileCdnBase()
             members.value = apiClient.getMembers()
             currentFronts.value = apiClient.getCurrentFronts()
             groups.value = apiClient.getGroups()
@@ -147,8 +154,17 @@ class WearStore(
         // shows arbitrary members regardless of whether they're fronting,
         // so we cache the lot. Run on Dispatchers.IO since this can hit
         // the network for URL avatars.
+        //
+        // The tile pipeline builds its own OkHttp requests rather than going
+        // through Coil, so it does not get the loader's URL resolution and has
+        // to be handed the two bases itself.
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            systems.lupine.sheaf.wear.tile.renderTileAvatars(context, members.value)
+            systems.lupine.sheaf.wear.tile.renderTileAvatars(
+                context = context,
+                members = members.value,
+                baseUrl = apiClient.baseUrl,
+                cdnBase = WearSettingsStore(context).fileCdnBase,
+            )
         }
     }
 

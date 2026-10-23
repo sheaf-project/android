@@ -53,6 +53,11 @@ class PreferencesRepository @Inject constructor(
         val KEY_CF_CLIENT_SECRET = stringPreferencesKey("cf_client_secret")
         val KEY_FILE_CDN_BASE = stringPreferencesKey("file_cdn_base")
         val KEY_APP_LOCK = booleanPreferencesKey("app_lock")
+        // "Show technical error details". Kept on the device as well as in the
+        // account's client settings, because the one time it matters most is
+        // when the server cannot be reached, and a preference that has to be
+        // fetched is a preference that is off exactly when it is wanted.
+        val KEY_TECHNICAL_ERRORS = booleanPreferencesKey("show_technical_errors")
         // Mirrors the backend's sheaf_trusted_device cookie. We store it
         // verbatim plus its expiry-millis so the CookieJar can drop it once
         // expired without a server round-trip.
@@ -138,6 +143,10 @@ class PreferencesRepository @Inject constructor(
     val cfClientId: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_ID] }
     val cfClientSecret: Flow<String?> = context.dataStore.data.map { it[KEY_CF_CLIENT_SECRET] }
     val appLockEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_APP_LOCK] ?: false }
+
+    /** Off by default: most people do not want a status code in a toast. */
+    val showTechnicalErrors: Flow<Boolean> =
+        context.dataStore.data.map { it[KEY_TECHNICAL_ERRORS] ?: false }
     val historyView: Flow<String> = context.dataStore.data.map { it[KEY_HISTORY_VIEW] ?: "infinite" }
     val historyPageSize: Flow<Int> = context.dataStore.data.map { it[KEY_HISTORY_PAGE_SIZE] ?: 50 }
     val accountTimezone: Flow<String?> = context.dataStore.data.map { it[KEY_ACCOUNT_TIMEZONE] }
@@ -255,6 +264,19 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveAppLock(enabled: Boolean) {
         context.dataStore.edit { it[KEY_APP_LOCK] = enabled }
+    }
+
+    /**
+     * Store the preference and update the copy error formatting reads.
+     *
+     * Both, always, and in that order: the flow is the durable value and
+     * [TechnicalErrors] is what `toUserMessage` can actually see. Writing only
+     * the first would leave the next error formatted by the old setting until
+     * something restarted the process.
+     */
+    suspend fun saveShowTechnicalErrors(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_TECHNICAL_ERRORS] = enabled }
+        systems.lupine.sheaf.util.TechnicalErrors.set(enabled)
     }
 
     suspend fun saveHistoryView(view: String) {

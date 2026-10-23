@@ -327,6 +327,16 @@ class HomeViewModel @Inject constructor(
                     }
                 }
                 launch {
+                    // Adopt the account's "show technical error details"
+                    // choice, if it has one. Done on the load that already
+                    // fetches this blob, so it costs no extra round-trip, and
+                    // early enough that the first error of the session is
+                    // formatted the way the user asked for.
+                    systems.lupine.sheaf.util.TechnicalErrors
+                        .fromClientSettings(clientSettingsD.await().getOrNull()?.settings)
+                        ?.let { prefs.saveShowTechnicalErrors(it) }
+                }
+                launch {
                     val announcements = announcementsD.await().getOrNull()
                     // Server-side "don't show again" set. Merge (union) with
                     // the local set so an optimistic dismissal isn't lost if

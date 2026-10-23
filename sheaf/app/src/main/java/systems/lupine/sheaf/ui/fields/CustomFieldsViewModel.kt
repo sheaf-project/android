@@ -12,6 +12,8 @@ import systems.lupine.sheaf.data.model.CustomFieldOptions
 import systems.lupine.sheaf.data.model.CustomFieldRead
 import systems.lupine.sheaf.data.model.CustomFieldReorder
 import systems.lupine.sheaf.data.model.CustomFieldUpdate
+import systems.lupine.sheaf.ui.components.SliderSpec
+import systems.lupine.sheaf.ui.components.toOptions
 import retrofit2.HttpException
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,6 +41,8 @@ data class PendingFieldEdit(
     val privacy: String,
     val choices: List<String>?,
     val fieldType: String?,
+    /** Set for a slider, so a step-up replay carries its shape too. */
+    val slider: SliderSpec? = null,
 )
 
 /**
@@ -60,6 +64,32 @@ internal fun reorderedFieldIds(
     moved[index] = fields[to].id
     moved[to] = fields[index].id
     return moved
+}
+
+/**
+ * The options dict to send, given what the editor collected and the field's
+ * type. Rules mirror what the server will accept: only SELECT/MULTISELECT and
+ * SLIDER carry options, a null or empty choices list signals "freeform tag
+ * mode" (options omitted), and every other type must send nothing at all or
+ * the server answers 422.
+ *
+ * Returning null leaves the key out of the PATCH entirely, which the server
+ * reads as "leave the stored options alone". That is the right answer for a
+ * type that has none, and it is also what keeps a slider's shape intact when
+ * something other than this screen is doing the saving.
+ */
+internal fun fieldOptions(
+    fieldType: String?,
+    choices: List<String>?,
+    slider: SliderSpec?,
+): CustomFieldOptions? = when (fieldType) {
+    "select", "multiselect" -> choices
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { CustomFieldOptions(choices = it) }
+    "slider" -> slider?.toOptions()
+    else -> null
 }
 
 @HiltViewModel
@@ -119,6 +149,7 @@ class CustomFieldsViewModel @Inject constructor(
         fieldType: String,
         privacy: String,
         choices: List<String>? = null,
+        slider: SliderSpec? = null,
     ) {
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, error = null) }
@@ -126,7 +157,7 @@ class CustomFieldsViewModel @Inject constructor(
                 api.createField(CustomFieldCreate(
                     name = name,
                     fieldType = fieldType,
-                    options = choices.toOptionsOrNull(fieldType),
+                    options = fieldOptions(fieldType, choices, slider),
                     order = _state.value.fields.size,
                     privacy = privacy,
                 ))
@@ -144,9 +175,10 @@ class CustomFieldsViewModel @Inject constructor(
         privacy: String,
         choices: List<String>? = null,
         fieldType: String? = null,
+        slider: SliderSpec? = null,
     ) {
         val current = _state.value.fields.find { it.id == id }?.privacy
-        val edit = PendingFieldEdit(id, name, privacy, choices, fieldType)
+        val edit = PendingFieldEdit(id, name, privacy, choices, fieldType, slider)
         if (systems.lupine.sheaf.ui.sharing.isRaiseToPublic(current, privacy) &&
             _state.value.raiseGate.stepUpNeeded
         ) {
@@ -173,10 +205,7 @@ class CustomFieldsViewModel @Inject constructor(
                     CustomFieldUpdate(
                         name = edit.name,
                         privacy = edit.privacy,
-                        // Carry options only for SELECT/MULTISELECT.
-                        // Non-choice field types: backend rejects a
-                        // non-null options dict with 422.
-                        options = edit.choices.toOptionsOrNull(edit.fieldType),
+                        options = fieldOptions(edit.fieldType, edit.choices, edit.slider),
                         password = password?.ifBlank { null },
                         totpCode = totpCode?.ifBlank { null },
                     ),
@@ -210,19 +239,6 @@ class CustomFieldsViewModel @Inject constructor(
                     }
                 }
         }
-    }
-
-    /**
-     * Build the options dict to send, given the user-edited list of
-     * choices and the field's type. Rules mirror what backend will
-     * accept: only SELECT/MULTISELECT carry options, and a null
-     * choices list signals "freeform tag mode" (server omits options).
-     */
-    private fun List<String>?.toOptionsOrNull(fieldType: String?): CustomFieldOptions? {
-        if (fieldType != "select" && fieldType != "multiselect") return null
-        val cleaned = this?.map { it.trim() }?.filter { it.isNotEmpty() } ?: return null
-        if (cleaned.isEmpty()) return null
-        return CustomFieldOptions(choices = cleaned)
     }
 
     fun deleteField(id: String) {
