@@ -8,6 +8,20 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Two-factor authentication can be turned on again.** "Set Up 2FA" failed
+  every time, because the server has required the account password to start
+  enrolment since 0.5.0 and the app never sent one, so there was no way to add a
+  second factor from the phone at all. Setup now asks for the password first,
+  and says so if it is wrong instead of opening a sheet with no secret in it.
+
+- **Active Sessions knows which session is yours, and "Revoke All Other
+  Sessions" works.** The list marked every session as another device, including
+  the one you were looking at it from, and the revoke-all button quietly did
+  nothing at all: it asked the server to work out the current session from a
+  cookie this app does not send, which the server answered by refusing the whole
+  request. Your own session is now labelled and left alone, and the others are
+  signed out one by one.
+
 - **"Delete unused files" no longer deletes files that are in use.** It worked
   out which uploads were unused by looking at your system avatar and your
   members' avatars, and nothing else, so banners, any image inside a bio or a

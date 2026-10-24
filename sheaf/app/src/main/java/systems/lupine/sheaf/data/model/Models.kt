@@ -184,6 +184,19 @@ data class SecondarySessionRequest(
     @Json(name = "client_name") val clientName: String? = null,
 )
 
+/**
+ * Starting TOTP enrolment needs the account password.
+ *
+ * The server has required it since 0.5.0, so that a session-only attacker
+ * cannot enrol their own second factor and lock the owner out of changing their
+ * own password or email. This client sent no body at all, so turning 2FA on
+ * answered 422 every time and was simply impossible.
+ */
+@JsonClass(generateAdapter = true)
+data class TOTPSetupRequest(
+    val password: String,
+)
+
 @JsonClass(generateAdapter = true)
 data class TOTPVerify(
     val code: String,

@@ -117,6 +117,7 @@ fun OnboardingScreen(
     if (showTotpSheet) {
         TotpSetupSheet(
             state = state,
+            onSubmitPassword = { password -> settingsViewModel.submitTotpPassword(password) },
             onAdvanceToVerify = { settingsViewModel.advanceTotpToVerify() },
             onVerify = { code -> settingsViewModel.verifyTotp(code) },
             onAdvanceToDone = { settingsViewModel.advanceTotpToDone() },

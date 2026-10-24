@@ -46,9 +46,15 @@ class TokenAuthenticator @Inject constructor(
         if (!originMatches(response.request.url, baseForGuard)) return null
 
         val path = response.request.url.encodedPath
+        // /auth/totp/setup answers 401 for a wrong password, not an expired
+        // token. Refreshing and retrying there burns a one-shot refresh
+        // rotation and sends the same wrong password a second time, and the
+        // server counts each attempt towards the password lockout, so a couple
+        // of typos could lock the account.
         if (path.endsWith("/auth/refresh") ||
             path.endsWith("/auth/delete-account") ||
             path.endsWith("/delete-confirmation") ||
+            path.endsWith("/auth/totp/setup") ||
             path.endsWith("/notifications/redeem")) return null
 
         val storedAccessToken = runBlocking { prefs.accessToken.firstOrNull() }
