@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
@@ -58,6 +60,7 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf("login") }
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
     val isLoading = uiState is AuthUiState.Loading
 
     var logoTapCount by remember { mutableIntStateOf(0) }
@@ -169,6 +172,11 @@ fun LoginScreen(
                         focusManager.clearFocus()
                         if (mode == "login") viewModel.login(email, password)
                         else viewModel.register(email, password, inviteCode)
+                    },
+                    showPasskey = mode == "login" && authConfig?.passkeysAvailable == true,
+                    onPasskey = {
+                        focusManager.clearFocus()
+                        viewModel.signInWithPasskey(context)
                     },
                 )
                 "totp" -> TotpStep(
@@ -331,6 +339,8 @@ private fun AuthStep(
     isSolvingCaptcha: Boolean,
     error: String?,
     onSubmit: () -> Unit,
+    showPasskey: Boolean,
+    onPasskey: () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -392,6 +402,17 @@ private fun AuthStep(
                     if (isSolvingCaptcha) Text("Verifying…")
                 }
             } else Text(if (mode == "login") "Sign In" else "Create Account")
+        }
+        if (showPasskey) {
+            OutlinedButton(
+                onClick = onPasskey,
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+            ) {
+                Icon(Icons.Default.Key, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Sign in with a passkey")
+            }
         }
     }
 }

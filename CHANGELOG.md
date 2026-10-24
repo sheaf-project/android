@@ -8,6 +8,20 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Added
 
+- **Sign in with a passkey.** On servers that offer passkeys (1.7.0 or later,
+  with the operator having turned them on), the sign-in screen gains a "Sign in
+  with a passkey" button: one tap, your fingerprint, face or screen lock, and no
+  email to type. Settings, Account gains a Passkeys screen to add one (your
+  password, plus your two-factor code if you have one), rename it, or remove it,
+  which never asks for anything. Your password keeps working, and deleting a
+  member or publishing your profile still asks for it, because whoever is holding
+  the phone can unlock a passkey. A key made under an old address of the server
+  is marked as no longer working. The Play build supports passkeys from Android
+  9; the GitHub and IzzyOnDroid build needs Android 14, because older versions
+  only get passkeys through a Google Play Services component that build leaves
+  out. Self-hosters: the app can only use passkeys on an instance that lists it
+  in `PASSKEY_ANDROID_APPS`, and says so when that is the problem.
+
 - **Show technical error details.** Settings, About gains an Error reporting
   switch, off by default. On, a failed request says which status came back and
   what the server actually said, instead of a short summary: "[404] Field not
