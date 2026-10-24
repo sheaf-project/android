@@ -204,8 +204,11 @@ class ChannelDetailViewModel @Inject constructor(
             debounceSeconds = draft.debounceSeconds,
             aggregationWindowSeconds = draft.aggregationWindowSeconds,
             // quietHours / groupRules / memberRules only sent when the
-            // user actively toggled them — otherwise we pass null and
-            // Moshi omits them from the wire JSON.
+            // user actively toggled them. For the two rule sets a null is
+            // enough to mean "untouched", since the adapter omits them. Quiet
+            // hours needs the flag as well: null there is also how the window
+            // is cleared, so the body has to say which of the two it means.
+            quietHoursSet = draft.quietHoursSet,
             quietHours = if (draft.quietHoursSet) draft.quietHours else null,
             groupRules = if (draft.groupRulesSet) draft.groupRules else null,
             memberRules = if (draft.memberRulesSet) draft.memberRules else null,

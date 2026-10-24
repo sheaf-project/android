@@ -514,6 +514,9 @@ class MemberDetailViewModel @Inject constructor(
                     )).also { createdMemberId = it.id }
                 } else {
                     val update = MemberUpdate(
+                        // The whole form, so a null here is the user emptying
+                        // the box rather than this screen not knowing.
+                        clearsUnsetFields = true,
                         name        = f.name.trim(),
                         displayName = f.displayName.takeIf { it.isNotBlank() },
                         // Null clears it. That used to need an empty string,

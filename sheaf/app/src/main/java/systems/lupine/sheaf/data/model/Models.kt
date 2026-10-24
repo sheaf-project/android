@@ -327,6 +327,8 @@ data class SystemUpdate(
     // Only consulted when raising privacy to public is deferred.
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
+    /** See [MemberUpdate.clearsUnsetFields]: default false is the safe answer. */
+    @Json(ignore = true) val clearsUnsetFields: Boolean = false,
 )
 
 // ── System Safety ─────────────────────────────────────────────────────────────
@@ -602,6 +604,18 @@ data class MemberUpdate(
     // Only consulted when the edit is a deferred exposure. Never stored.
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
+    /**
+     * Whether an optional field left null means "clear it" or "leave it alone".
+     *
+     * Only a caller that owns the WHOLE form can mean the first: it populates
+     * every clearable field from its own state, so a null there really is the
+     * user emptying the box. A caller patching one setting populates nothing
+     * else, and clearing on its behalf wipes whatever the user had.
+     *
+     * Default false so that is the safe answer, and a screen that only sends
+     * part of the body cannot destroy the rest of it by omission.
+     */
+    @Json(ignore = true) val clearsUnsetFields: Boolean = false,
 )
 
 // ── Fronts ────────────────────────────────────────────────────────────────────
@@ -753,6 +767,8 @@ data class GroupUpdate(
     // Popped server-side before persistence, never a group column.
     val password: String? = null,
     @Json(name = "totp_code") val totpCode: String? = null,
+    /** See [MemberUpdate.clearsUnsetFields]: default false is the safe answer. */
+    @Json(ignore = true) val clearsUnsetFields: Boolean = false,
 )
 
 @JsonClass(generateAdapter = true)

@@ -42,6 +42,20 @@ uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
 ### Fixed
 
+- **Changing a fronting preference no longer wipes your system profile.**
+  Flipping either switch under Settings, Fronting sent the new value along with
+  an instruction to clear your system's description, tag, colour, note, avatar
+  and banner. Those fields are emptied by sending nothing for them, and that
+  screen sends nothing for anything except the switch you touched, so the save
+  cleared them every time. Present since the preferences arrived in 1.5.0. If
+  you lost a description or a tag this way it cannot be recovered from the app;
+  the values are gone from the server too.
+
+- **Turning quiet hours off on a notification channel now turns them off.**
+  Unticking the box reported success and left the window in place, because the
+  app never actually told the server the field had changed. The same fix stops
+  an unrelated channel edit from clearing a window you wanted to keep.
+
 - **Sharing and custom fields no longer explain failures their own way.** The
   screens that tell three kinds of refusal apart, so they can ask for a
   password or say publishing is off, carried a second set of wordings for
