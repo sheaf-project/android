@@ -15,6 +15,7 @@ import systems.lupine.sheaf.data.model.PasskeyUpdate
 import systems.lupine.sheaf.data.model.RawJson
 import systems.lupine.sheaf.passkey.PasskeyAuthenticator
 import systems.lupine.sheaf.passkey.PasskeyException
+import systems.lupine.sheaf.util.errorDetail
 import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
@@ -97,19 +98,17 @@ class PasskeysViewModel @Inject constructor(
 
     private fun addMessage(e: Throwable): String {
         if (e is PasskeyException) return e.message!!
-        if (e !is HttpException) return e.toUserMessage("Couldn't add the passkey")
-        val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull().orEmpty()
-        return when (e.code()) {
-            401 -> when {
-                "Invalid password" in body -> "Incorrect password"
-                "TOTP code required" in body -> "Enter your two-factor code"
+        // A 401 here is the step-up prompt answering, so it keeps prompt wording.
+        // Everything else (expired challenge, duplicate key, lockout) carries a
+        // server detail that already says what to do next.
+        if (e is HttpException && e.code() == 401) {
+            return when (e.errorDetail()) {
+                "Invalid password" -> "Incorrect password"
+                "TOTP code required" -> "Enter your two-factor code"
                 else -> "Invalid two-factor code"
             }
-            400 -> "That passkey setup expired. Try again"
-            409 -> "That passkey is already registered"
-            423 -> "Too many failed attempts. Try again later"
-            else -> e.toUserMessage("Couldn't add the passkey")
         }
+        return e.toUserMessage("Couldn't add the passkey", preferDetail = true)
     }
 
     fun clearAddError() { _state.update { it.copy(addError = null) } }

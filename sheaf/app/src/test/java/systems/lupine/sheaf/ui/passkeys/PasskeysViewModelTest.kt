@@ -124,4 +124,18 @@ class PasskeysViewModelTest {
         assertEquals("Incorrect password", vm.state.value.addError)
         assertEquals(0, vm.state.value.addCompleted)
     }
+
+    @Test fun `a key already on another account says so in the server's words`() = runTest {
+        val service = api()
+        coEvery { service.completePasskeyRegistration(any()) } throws
+            httpError(409, "That passkey is already registered on an account.")
+        val device = mockk<PasskeyAuthenticator> { coEvery { create(any(), any()) } returns "{}" }
+        val vm = PasskeysViewModel(service, device)
+        advanceUntilIdle()
+
+        vm.addPasskey(activity, "pw", "123456", "")
+        advanceUntilIdle()
+
+        assertEquals("That passkey is already registered on an account.", vm.state.value.addError)
+    }
 }

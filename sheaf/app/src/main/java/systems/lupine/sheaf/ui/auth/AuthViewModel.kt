@@ -216,15 +216,11 @@ class AuthViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     authInterceptor.pendingToken = null
-                    val message = when {
-                        e is PasskeyException -> e.message!!
-                        e is HttpException && e.code() == 401 ->
-                            "Passkey sign-in failed. Try again, or sign in with your password"
-                        e is HttpException && e.code() == 400 -> "That sign-in expired. Try again"
-                        e is HttpException && e.code() == 423 ->
-                            "This account is temporarily locked. Try again later"
-                        else -> e.toUserMessage("Passkey sign-in failed")
-                    }
+                    // Every refusal on this path (bad credential, expired
+                    // challenge, lockout, suspension) comes with a detail
+                    // written for the person signing in.
+                    val message = if (e is PasskeyException) e.message!!
+                        else e.toUserMessage("Passkey sign-in failed", preferDetail = true)
                     _uiState.value = AuthUiState.Error(message)
                 }
         }
