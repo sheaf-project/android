@@ -132,6 +132,8 @@ class SystemEditViewModel @Inject constructor(
             _state.update { it.copy(isSaving = true, error = null, stepUpError = null) }
             runCatching {
                 api.updateOwnSystem(SystemUpdate(
+                    // The whole profile form, so an empty box really is a clear.
+                    clearsUnsetFields = true,
                     name = f.name.takeIf { it.isNotBlank() },
                     description = f.description.takeIf { it.isNotBlank() },
                     // Send empty string as-is so the backend's "empty clears"

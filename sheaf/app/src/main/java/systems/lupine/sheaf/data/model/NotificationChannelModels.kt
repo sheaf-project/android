@@ -113,9 +113,14 @@ data class NotificationChannelRead(
  *
  * Note: backend rejects explicit null on most fields (only quiet_hours
  * accepts null = clear). The UI keeps the ones it isn't editing out of
- * the request entirely by leaving them as `null` here, which Moshi omits
- * by default. Whenever the user toggles a control, the corresponding
- * field is set to a non-null value.
+ * the request entirely by leaving them as `null` here. Whenever the user
+ * toggles a control, the corresponding field is set to a non-null value.
+ *
+ * Serialised by [NotificationChannelUpdateJsonAdapter], not by Moshi's
+ * generated one. Moshi drops nulls, which cannot express the clear: this
+ * class once relied on "null = clear quiet hours" while the field was never
+ * reaching the server at all, so unticking the window reported success and
+ * changed nothing.
  */
 @JsonClass(generateAdapter = true)
 data class NotificationChannelUpdate(
@@ -134,6 +139,18 @@ data class NotificationChannelUpdate(
     @Json(name = "quiet_hours") val quietHours: QuietHoursSpec? = null,
     @Json(name = "group_rules") val groupRules: List<GroupRuleSpec>? = null,
     @Json(name = "member_rules") val memberRules: List<MemberRuleSpec>? = null,
+    /**
+     * Whether [quietHours] is an answer rather than an absence. Not serialised:
+     * it decides whether `quiet_hours` appears in the body at all.
+     *
+     * Needed because null means two different things here. The user turning
+     * the window off is a clear, and has to be sent; the user editing the
+     * channel's name while the window is untouched is an omission, and must
+     * not be. Without this they are the same value, and whichever meaning the
+     * adapter picked would break the other: dropping the null leaves quiet
+     * hours on forever, writing it always wipes them on any unrelated save.
+     */
+    @Json(ignore = true) val quietHoursSet: Boolean = false,
 )
 
 @JsonClass(generateAdapter = true)

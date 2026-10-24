@@ -9,6 +9,7 @@ import systems.lupine.sheaf.data.api.CustomFieldValueSetJsonAdapter
 import systems.lupine.sheaf.data.api.SystemUpdateJsonAdapter
 import systems.lupine.sheaf.data.api.GroupUpdateJsonAdapter
 import systems.lupine.sheaf.data.api.MemberUpdateJsonAdapter
+import systems.lupine.sheaf.data.api.NotificationChannelUpdateJsonAdapter
 import systems.lupine.sheaf.data.api.FrontUpdateJsonAdapter
 import systems.lupine.sheaf.data.model.FrontUpdate
 import systems.lupine.sheaf.data.api.RawJsonAdapter
@@ -57,6 +58,7 @@ object NetworkModule {
         .add(MemberUpdateJsonAdapter.FACTORY)
         .add(GroupUpdateJsonAdapter.FACTORY)
         .add(SystemUpdateJsonAdapter.FACTORY)
+        .add(NotificationChannelUpdateJsonAdapter.FACTORY)
         .addLast(KotlinJsonAdapterFactory())
         .build()
 

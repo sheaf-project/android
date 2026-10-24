@@ -298,6 +298,7 @@ class GroupDetailViewModel @Inject constructor(
                     ))
                 } else {
                     api.updateGroup(groupId!!, GroupUpdate(
+                        clearsUnsetFields = true,
                         name        = f.name.trim(),
                         description = f.description.takeIf { it.isNotBlank() },
                         color       = f.color.takeIf { it.isNotBlank() },

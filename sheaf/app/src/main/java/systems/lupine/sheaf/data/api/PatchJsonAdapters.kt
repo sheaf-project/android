@@ -7,6 +7,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import systems.lupine.sheaf.data.model.GroupUpdate
 import systems.lupine.sheaf.data.model.MemberUpdate
+import systems.lupine.sheaf.data.model.NotificationChannelUpdate
 import systems.lupine.sheaf.data.model.SystemUpdate
 
 /**
@@ -37,9 +38,25 @@ import systems.lupine.sheaf.data.model.SystemUpdate
 internal class PatchWriter(
     private val writer: JsonWriter,
     private val anyAdapter: JsonAdapter<Any>,
+    /**
+     * Whether a null in a clearable field means "clear it".
+     *
+     * False for a body that carries only part of the form, where a null means
+     * the caller simply did not populate that field. Writing it anyway would
+     * clear something the user never touched, which is how toggling a front
+     * preference wiped the system's description, tag, colour, note, avatar and
+     * banner: that screen sends one boolean and nothing else.
+     */
+    private val clearsUnsetFields: Boolean = true,
 ) {
-    /** Server clears the column on an explicit null, so always write it. */
+    /**
+     * Server clears the column on an explicit null.
+     *
+     * A set value is always written. A null is written only when this body is
+     * the whole form, because only then does null mean the user emptied it.
+     */
     fun clears(name: String, value: Any?) {
+        if (value == null && !clearsUnsetFields) return
         val previous = writer.serializeNulls
         writer.serializeNulls = true
         writer.name(name)
@@ -64,7 +81,7 @@ class MemberUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<MemberUpdate>() {
     override fun toJson(writer: JsonWriter, value: MemberUpdate?) {
         if (value == null) { writer.nullValue(); return }
         writer.beginObject()
-        PatchWriter(writer, anyAdapter).apply {
+        PatchWriter(writer, anyAdapter, value.clearsUnsetFields).apply {
             // NOT NULL server-side: name, privacy.
             omitsWhenNull("name", value.name)
             omitsWhenNull("privacy", value.privacy)
@@ -101,7 +118,7 @@ class GroupUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<GroupUpdate>() {
     override fun toJson(writer: JsonWriter, value: GroupUpdate?) {
         if (value == null) { writer.nullValue(); return }
         writer.beginObject()
-        PatchWriter(writer, anyAdapter).apply {
+        PatchWriter(writer, anyAdapter, value.clearsUnsetFields).apply {
             omitsWhenNull("name", value.name)
             omitsWhenNull("privacy", value.privacy)
             clears("description", value.description)
@@ -124,13 +141,68 @@ class GroupUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<GroupUpdate>() {
     }
 }
 
+class NotificationChannelUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<NotificationChannelUpdate>() {
+    private val anyAdapter: JsonAdapter<Any> by lazy { moshi.adapter(Any::class.java) }
+
+    override fun toJson(writer: JsonWriter, value: NotificationChannelUpdate?) {
+        if (value == null) { writer.nullValue(); return }
+        writer.beginObject()
+        PatchWriter(writer, anyAdapter).apply {
+            // quiet_hours is the one genuinely nullable field on a channel, and
+            // the server keys on whether it was in the request rather than on
+            // its value. Moshi dropped the null, so unticking "Quiet hours"
+            // sent an empty body, the server left the column alone, and the
+            // window came back on the next refresh.
+            //
+            // Written only when the user actually touched it. This body is a
+            // partial patch, unlike the member and group ones, so an
+            // unconditional null here would clear the window on every unrelated
+            // channel save.
+            if (value.quietHoursSet) clears("quiet_hours", value.quietHours)
+            // webhook_secret, group_rules and member_rules are absent from the
+            // server's _reject_explicit_null list, so a null would be accepted
+            // rather than refused. That makes omitting them load-bearing: these
+            // are sent only when the user edited them, and an explicit null
+            // would wipe a secret or replace every rule with nothing.
+            omitsWhenNull("webhook_secret", value.webhookSecret)
+            omitsWhenNull("group_rules", value.groupRules)
+            omitsWhenNull("member_rules", value.memberRules)
+            omitsWhenNull("name", value.name)
+            omitsWhenNull("destination_config", value.destinationConfig)
+            omitsWhenNull("base_all_members", value.baseAllMembers)
+            omitsWhenNull("base_include_private", value.baseIncludePrivate)
+            omitsWhenNull("trigger_on_start", value.triggerOnStart)
+            omitsWhenNull("trigger_on_stop", value.triggerOnStop)
+            omitsWhenNull("trigger_on_cofront_change", value.triggerOnCofrontChange)
+            omitsWhenNull("cofront_redaction", value.cofrontRedaction)
+            omitsWhenNull("payload_sensitivity", value.payloadSensitivity)
+            omitsWhenNull("debounce_seconds", value.debounceSeconds)
+            omitsWhenNull("aggregation_window_seconds", value.aggregationWindowSeconds)
+        }
+        writer.endObject()
+    }
+
+    override fun fromJson(reader: JsonReader) = requestOnly("NotificationChannelUpdate")
+
+    companion object {
+        /** Needs the Moshi instance, so it registers as a factory. */
+        val FACTORY = Factory { type, _, moshi ->
+            if (Types.getRawType(type) == NotificationChannelUpdate::class.java) {
+                NotificationChannelUpdateJsonAdapter(moshi)
+            } else {
+                null
+            }
+        }
+    }
+}
+
 class SystemUpdateJsonAdapter(moshi: Moshi) : JsonAdapter<SystemUpdate>() {
     private val anyAdapter: JsonAdapter<Any> by lazy { moshi.adapter(Any::class.java) }
 
     override fun toJson(writer: JsonWriter, value: SystemUpdate?) {
         if (value == null) { writer.nullValue(); return }
         writer.beginObject()
-        PatchWriter(writer, anyAdapter).apply {
+        PatchWriter(writer, anyAdapter, value.clearsUnsetFields).apply {
             // NOT NULL server-side: name, privacy, show_member_created_date
             // and both front preferences (alongside date_format, which this
             // client does not send).
