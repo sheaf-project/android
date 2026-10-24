@@ -535,6 +535,22 @@ interface SheafApiService {
     @GET("/v1/files/list")
     suspend fun listFiles(): List<FileRead>
 
+    /**
+     * Which files the server considers unused, without deleting anything.
+     *
+     * Asked rather than worked out locally: the server checks avatars, banners,
+     * bios, journal entries and revision history, and a client that reimplements
+     * that list gets it wrong the moment the server learns a new place to
+     * reference a file.
+     *
+     * Deliberately the dry run rather than `POST /v1/files/cleanup`. The real
+     * cleanup deletes server-side in one shot and skips System Safety's image
+     * category; deleting the files one by one from here keeps that safeguard,
+     * which is the one thing this client was already doing right.
+     */
+    @POST("/v1/files/cleanup/dry-run")
+    suspend fun previewFileCleanup(): FileCleanupPreview
+
     @HTTP(method = "DELETE", path = "/v1/files/{id}", hasBody = true)
     suspend fun deleteFile(
         @Path("id") id: String,

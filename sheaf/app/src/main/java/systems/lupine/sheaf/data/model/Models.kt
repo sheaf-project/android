@@ -992,6 +992,25 @@ data class FileUsage(
     @Json(name = "file_count") val fileCount: Int,
 )
 
+/**
+ * What `POST /v1/files/cleanup/dry-run` would delete.
+ *
+ * The server owns this question. Working it out on the client means knowing
+ * every place a file can be referenced, and this app knew about two of them:
+ * it counted avatars and nothing else, so banners, every image embedded in a
+ * bio or a journal entry, and everything held by revision history came back as
+ * unused.
+ *
+ * [keys] is absent when nothing is orphaned, hence the default.
+ */
+@JsonClass(generateAdapter = true)
+data class FileCleanupPreview(
+    val orphaned: Int = 0,
+    @Json(name = "freed_bytes") val freedBytes: Long = 0,
+    @Json(name = "dry_run") val dryRun: Boolean = true,
+    val keys: List<String> = emptyList(),
+)
+
 @JsonClass(generateAdapter = true)
 data class FileRead(
     val id: String,
