@@ -52,4 +52,22 @@ class TokenAuthenticatorTest {
         assertNull(result)
         verify(exactly = 0) { prefs.refreshToken }
     }
+
+    @Test fun `a 401 that means "wrong password" is never retried`() {
+        // These answer 401 for a credential the user typed, not for an expired
+        // token. Retrying burns a one-shot refresh rotation and sends the same
+        // wrong credential again, and the server counts each attempt towards
+        // the password lockout, so a couple of typos could lock the account.
+        val passwordPaths = listOf(
+            "/v1/auth/refresh",
+            "/v1/auth/delete-account",
+            "/v1/auth/totp/setup",
+            "/v1/notifications/redeem",
+        )
+        for (path in passwordPaths) {
+            val result = authenticator.authenticate(null, response401("https://app.sheaf.sh$path"))
+            assertNull(result, "$path should not be retried")
+        }
+        verify(exactly = 0) { prefs.refreshToken }
+    }
 }

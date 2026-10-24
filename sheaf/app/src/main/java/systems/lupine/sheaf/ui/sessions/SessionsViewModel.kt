@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.model.SessionRead
 import systems.lupine.sheaf.data.model.SessionUpdate
-import systems.lupine.sheaf.data.model.TokenRefresh
 import systems.lupine.sheaf.data.repository.PreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import systems.lupine.sheaf.util.extractSessionId
+import systems.lupine.sheaf.util.sessionHandle
 import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
@@ -21,6 +21,17 @@ data class SessionsUiState(
     val error: String? = null,
     val isRevoking: Boolean = false,
 )
+
+/**
+ * The sessions "revoke all others" should end: everything the server did not
+ * mark as the caller's own.
+ *
+ * Filtered here rather than leaning on the server's refusal to revoke the
+ * current session, so the request is never sent in the first place. Revoking
+ * the current one would sign the user out of the phone they are holding.
+ */
+internal fun sessionsToRevoke(sessions: List<SessionRead>): List<SessionRead> =
+    sessions.filterNot { it.isCurrent }
 
 @HiltViewModel
 class SessionsViewModel @Inject constructor(
@@ -38,12 +49,15 @@ class SessionsViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             // The server's /v1/auth/sessions identifies the current session by
             // cookie, which our bearer-token client doesn't carry, so it always
-            // returns is_current=false. Fall back to the JWT's `sid` claim.
-            val sid = extractSessionId(prefs.accessToken.firstOrNull())
+            // returns is_current=false. Fall back to the JWT's `sid` claim,
+            // hashed into the handle the list addresses sessions by: the raw id
+            // is the cookie credential and is never returned, so comparing the
+            // two directly matched nothing and left every row marked "other".
+            val handle = extractSessionId(prefs.accessToken.firstOrNull())?.let { sessionHandle(it) }
             runCatching { api.listSessions() }
                 .onSuccess { sessions ->
-                    val tagged = if (sid != null) {
-                        sessions.map { it.copy(isCurrent = it.id == sid) }
+                    val tagged = if (handle != null) {
+                        sessions.map { it.copy(isCurrent = it.id == handle) }
                     } else sessions
                     _state.update { it.copy(isLoading = false, sessions = tagged) }
                 }
@@ -76,17 +90,47 @@ class SessionsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Revoke every session except this one, one at a time.
+     *
+     * Not `POST /auth/sessions/revoke-others`, which this used to call and
+     * which can never work from here: it identifies the caller's session from
+     * the `sheaf_session` cookie, and this client authenticates with a bearer
+     * token and deliberately keeps only the trusted-device cookie. Every
+     * attempt came back 400 "No current session", so the button has never
+     * revoked anything.
+     *
+     * Revoking each handle individually is the same outcome by a route that
+     * works with a bearer token. Which one is ours is already known: the server
+     * cannot tell either, for the same cookie reason, so [load] re-tags
+     * `isCurrent` from the access token's own `sid` claim.
+     */
     fun revokeOtherSessions() {
         viewModelScope.launch {
             _state.update { it.copy(isRevoking = true, error = null) }
-            val refreshToken = prefs.refreshToken.firstOrNull()
-            if (refreshToken == null) {
-                _state.update { it.copy(isRevoking = false, error = "Not signed in") }
+            val others = sessionsToRevoke(_state.value.sessions)
+            if (others.isEmpty()) {
+                _state.update { it.copy(isRevoking = false) }
                 return@launch
             }
-            runCatching { api.revokeOtherSessions(TokenRefresh(refreshToken)) }
-                .onSuccess { load() }
-                .onFailure { e -> _state.update { it.copy(isRevoking = false, error = e.toUserMessage("Failed to revoke sessions")) } }
+            // Not atomic, so a failure part way leaves the rest revoked. That
+            // is the right way round for this action: the point is to shut
+            // other sessions out, and a partial result is still progress. The
+            // reload shows exactly which survived.
+            val failures = others.count { session ->
+                runCatching { api.revokeSession(session.id) }.isFailure
+            }
+            // After the reload, not before: load() clears `error`, so setting
+            // it first would report a partial failure to nobody.
+            load()
+            if (failures > 0) {
+                _state.update {
+                    it.copy(
+                        error = "Couldn't revoke $failures of ${others.size} sessions. " +
+                            "The rest were signed out.",
+                    )
+                }
+            }
         }
     }
 

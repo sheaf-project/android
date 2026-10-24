@@ -1041,6 +1041,7 @@ fun AccountSettingsScreen(
     if (showTotpSheet) {
         TotpSetupSheet(
             state = state,
+            onSubmitPassword = { password -> viewModel.submitTotpPassword(password) },
             onAdvanceToVerify = { viewModel.advanceTotpToVerify() },
             onVerify = { code -> viewModel.verifyTotp(code) },
             onAdvanceToDone = { viewModel.advanceTotpToDone() },

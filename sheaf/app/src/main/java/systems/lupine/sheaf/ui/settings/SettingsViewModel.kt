@@ -25,7 +25,7 @@ import retrofit2.HttpException
 import systems.lupine.sheaf.util.toUserMessage
 import javax.inject.Inject
 
-enum class TotpStep { LOADING, SECRET, VERIFY, RECOVERY_CODES, DONE }
+enum class TotpStep { PASSWORD, LOADING, SECRET, VERIFY, RECOVERY_CODES, DONE }
 
 /** Step-up auth and grace-period state for the orphan-files cleanup action. */
 data class OrphanFilesDeleteSafety(
@@ -44,7 +44,7 @@ data class SettingsUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     // TOTP
-    val totpStep: TotpStep = TotpStep.LOADING,
+    val totpStep: TotpStep = TotpStep.PASSWORD,
     val totpSetupResponse: TOTPSetupResponse? = null,
     val totpError: String? = null,
     val totpIsVerifying: Boolean = false,
@@ -347,15 +347,40 @@ class SettingsViewModel @Inject constructor(
 
     // ── TOTP ──────────────────────────────────────────────────────────────────
 
+    /**
+     * Open the sheet on the password step. No request yet: the server will not
+     * mint a secret without the password, so there is nothing to ask for until
+     * it has been typed.
+     */
     fun startTotpSetup() {
-        _state.update { it.copy(totpStep = TotpStep.LOADING, totpError = null, totpSetupResponse = null) }
+        _state.update {
+            it.copy(totpStep = TotpStep.PASSWORD, totpError = null, totpSetupResponse = null)
+        }
+    }
+
+    /**
+     * Exchange the password for a secret.
+     *
+     * A wrong password comes back 401, which stays on this step with the
+     * message rather than failing forward into a sheet showing no secret. That
+     * was the old behaviour for every failure, including the 422 this client
+     * used to get for sending no password at all.
+     */
+    fun submitTotpPassword(password: String) {
+        if (password.isBlank()) return
+        _state.update { it.copy(totpStep = TotpStep.LOADING, totpError = null) }
         viewModelScope.launch {
-            runCatching { api.setupTotp() }
+            runCatching { api.setupTotp(systems.lupine.sheaf.data.model.TOTPSetupRequest(password)) }
                 .onSuccess { resp ->
                     _state.update { it.copy(totpSetupResponse = resp, totpStep = TotpStep.SECRET) }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(totpError = e.toUserMessage(), totpStep = TotpStep.SECRET) }
+                    val message = if (e is HttpException && e.code() == 401) {
+                        "That password is not right."
+                    } else {
+                        e.toUserMessage("Couldn't start two-factor setup")
+                    }
+                    _state.update { it.copy(totpError = message, totpStep = TotpStep.PASSWORD) }
                 }
         }
     }

@@ -327,6 +327,7 @@ fun SettingsScreen(
 @Composable
 internal fun TotpSetupSheet(
     state: SettingsUiState,
+    onSubmitPassword: (String) -> Unit,
     onAdvanceToVerify: () -> Unit,
     onVerify: (String) -> Unit,
     onAdvanceToDone: () -> Unit,
@@ -336,6 +337,7 @@ internal fun TotpSetupSheet(
     val scope = rememberCoroutineScope()
     var code by remember { mutableStateOf("") }
     var copiedSecret by remember { mutableStateOf(false) }
+    var totpPassword by remember { mutableStateOf("") }
     var copiedCodes by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -352,6 +354,35 @@ internal fun TotpSetupSheet(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (state.totpStep) {
+                // The server will not mint a secret without the account
+                // password, so this is where enrolment starts.
+                TotpStep.PASSWORD -> {
+                    Text("Set Up 2FA", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Confirm your password to start. This stops someone who has got hold " +
+                            "of your signed-in phone from adding their own second factor.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    state.totpError?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                    OutlinedTextField(
+                        value = totpPassword,
+                        onValueChange = { totpPassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Button(
+                        onClick = { onSubmitPassword(totpPassword) },
+                        enabled = totpPassword.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Continue") }
+                }
+
                 TotpStep.LOADING -> {
                     Text("Set Up 2FA", style = MaterialTheme.typography.titleLarge)
                     CircularProgressIndicator()

@@ -32,7 +32,7 @@ interface SheafApiService {
     suspend fun logout()
 
     @POST("/v1/auth/totp/setup")
-    suspend fun setupTotp(): TOTPSetupResponse
+    suspend fun setupTotp(@Body body: TOTPSetupRequest): TOTPSetupResponse
 
     @POST("/v1/auth/totp/verify")
     suspend fun verifyTotp(@Body body: TOTPVerify)
@@ -112,8 +112,10 @@ interface SheafApiService {
     @DELETE("/v1/auth/sessions/{id}")
     suspend fun revokeSession(@Path("id") id: String)
 
-    @POST("/v1/auth/sessions/revoke-others")
-    suspend fun revokeOtherSessions(@Body body: TokenRefresh)
+    // POST /v1/auth/sessions/revoke-others is deliberately not declared here.
+    // It reads the caller's session from the `sheaf_session` cookie, which this
+    // client never sends, so it can only ever answer 400 "No current session".
+    // SessionsViewModel revokes each handle individually instead.
 
     /**
      * Mint a child session + independent refresh token for a paired

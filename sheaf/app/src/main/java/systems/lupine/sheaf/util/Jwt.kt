@@ -24,3 +24,24 @@ fun extractSessionId(jwt: String?): String? {
     if (jwt.isNullOrBlank()) return null
     return decodeJwtPayload(jwt)?.optString("sid")?.takeIf { it.isNotBlank() }
 }
+
+/**
+ * The opaque handle `/v1/auth/sessions` lists a session under.
+ *
+ * The raw session id is itself the `sheaf_session` cookie credential, so no
+ * read surface returns it; every one returns `sha256(id)` truncated to 32 hex
+ * characters instead, and the mutation endpoints resolve that back.
+ *
+ * Needed because the two values were being compared directly to find the
+ * current session, which can never match: one is the digest of the other. The
+ * session list therefore showed no "this device" at all, and anything that
+ * tried to leave the current session alone was working from a flag that was
+ * false for every row.
+ *
+ * Mirrors `sheaf/auth/sessions.py:session_handle`.
+ */
+fun sessionHandle(sessionId: String): String =
+    java.security.MessageDigest.getInstance("SHA-256")
+        .digest(sessionId.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+        .take(32)
