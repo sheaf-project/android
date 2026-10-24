@@ -4,6 +4,19 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **"Delete unused files" no longer deletes files that are in use.** It worked
+  out which uploads were unused by looking at your system avatar and your
+  members' avatars, and nothing else, so banners, any image inside a bio or a
+  journal entry, and anything your edit history still holds were all listed as
+  unused and deleted on confirmation. The app now asks the server, which checks
+  all of those places, and still deletes one file at a time so System Safety's
+  image safeguard applies. If you lost an image this way it cannot be recovered
+  from the app.
+
 ## [1.6.0] - 2026-10-23
 
 ### Added

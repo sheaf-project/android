@@ -80,6 +80,23 @@ data class SettingsUiState(
 
 private const val CLIENT_ID = "android"
 
+/**
+ * The listed files the server named as unused.
+ *
+ * Matched on [FileRead.key], which is what the server reports, and not on the
+ * serve URL: the URL depends on how the instance hands files out, so a CDN or
+ * signed-URL instance would match nothing and quietly report that everything
+ * is unused.
+ *
+ * The rows come from the listing rather than being built from the keys so each
+ * keeps its size and date, and so it can be deleted through the per-file path
+ * that honours System Safety.
+ */
+internal fun orphanFiles(files: List<FileRead>, orphanKeys: List<String>): List<FileRead> {
+    val keys = orphanKeys.toSet()
+    return files.filter { it.key in keys }
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val api: SheafApiService,
@@ -508,14 +525,12 @@ class SettingsViewModel @Inject constructor(
         _state.update { it.copy(isCheckingFiles = true, fileError = null, orphanedFiles = null) }
         viewModelScope.launch {
             runCatching {
-                val files = api.listFiles()
-                val members = api.listMembers()
-                val system = api.getOwnSystem()
-                val usedUrls = buildSet {
-                    system.avatarUrl?.let { add(it) }
-                    members.forEach { m -> m.avatarUrl?.let { add(it) } }
-                }
-                files.filter { it.url !in usedUrls }
+                // The server decides what is unused. This used to be worked out
+                // here from the system avatar and member avatars alone, which
+                // meant banners, images embedded in bios and journal entries,
+                // and anything revision history still holds were all reported
+                // as unused, and the button then deleted them.
+                orphanFiles(api.listFiles(), api.previewFileCleanup().keys)
             }.onSuccess { orphans ->
                 _state.update { it.copy(isCheckingFiles = false, orphanedFiles = orphans) }
             }.onFailure { e ->
