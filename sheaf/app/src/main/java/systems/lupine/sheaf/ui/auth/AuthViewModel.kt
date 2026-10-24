@@ -8,6 +8,8 @@ import systems.lupine.sheaf.data.api.SheafApiService
 import systems.lupine.sheaf.data.api.sameConfiguredOrigin
 import kotlinx.coroutines.flow.firstOrNull
 import systems.lupine.sheaf.data.model.AuthConfig
+import systems.lupine.sheaf.data.model.PasskeySignInComplete
+import systems.lupine.sheaf.data.model.RawJson
 import systems.lupine.sheaf.data.model.TokenResponse
 import systems.lupine.sheaf.data.model.UserLogin
 import systems.lupine.sheaf.data.model.UserRegister
@@ -17,6 +19,8 @@ import systems.lupine.sheaf.ui.components.resolveDisplayZoneId
 import java.time.ZoneId
 import systems.lupine.sheaf.data.repository.WatchSessionRepository
 import systems.lupine.sheaf.datalayer.PhoneDataLayerService
+import systems.lupine.sheaf.passkey.PasskeyAuthenticator
+import systems.lupine.sheaf.passkey.PasskeyException
 import systems.lupine.sheaf.push.PushDeviceRegistrar
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -55,6 +59,7 @@ class AuthViewModel @Inject constructor(
     private val watchSession: WatchSessionRepository,
     private val pushRegistrar: PushDeviceRegistrar,
     private val accountDataWiper: AccountDataWiper,
+    private val passkeys: PasskeyAuthenticator,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -184,6 +189,38 @@ class AuthViewModel @Inject constructor(
                         "Invalid email or password"
                     else
                         e.toUserMessage("Login failed")
+                    _uiState.value = AuthUiState.Error(message)
+                }
+        }
+    }
+
+    /** [activity] hosts the system passkey sheet; it is not kept. */
+    fun signInWithPasskey(activity: Context) {
+        viewModelScope.launch {
+            val captcha = if (authConfig.value?.captchaOnLogin == true) {
+                _uiState.value = AuthUiState.SolvingCaptcha
+                solveCaptcha() ?: run {
+                    _uiState.value = AuthUiState.Error("Couldn't complete captcha, please try again")
+                    return@launch
+                }
+            } else null
+            _uiState.value = AuthUiState.Loading
+            runCatching {
+                val options = api.beginPasskeySignIn().options
+                val credential = passkeys.get(activity, options.json) ?: return@runCatching null
+                api.completePasskeySignIn(PasskeySignInComplete(RawJson(credential), captcha))
+            }
+                .onSuccess { tokens ->
+                    if (tokens == null) _uiState.value = AuthUiState.Idle
+                    else handleLoginSuccess(tokens)
+                }
+                .onFailure { e ->
+                    authInterceptor.pendingToken = null
+                    // Every refusal on this path (bad credential, expired
+                    // challenge, lockout, suspension) comes with a detail
+                    // written for the person signing in.
+                    val message = if (e is PasskeyException) e.message!!
+                        else e.toUserMessage("Passkey sign-in failed", preferDetail = true)
                     _uiState.value = AuthUiState.Error(message)
                 }
         }

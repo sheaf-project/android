@@ -27,6 +27,8 @@ data class AuthConfig(
     @Json(name = "status_url") val statusUrl: String? = null,
     @Json(name = "terms_url") val termsUrl: String? = null,
     @Json(name = "privacy_url") val privacyUrl: String? = null,
+    // False on servers older than 1.7 too, since the field is simply absent.
+    @Json(name = "passkeys_available") val passkeysAvailable: Boolean = false,
 )
 
 /**
@@ -112,6 +114,52 @@ data class TokenResponse(
     @Json(name = "access_token") val accessToken: String,
     @Json(name = "refresh_token") val refreshToken: String,
     @Json(name = "token_type") val tokenType: String = "bearer",
+)
+
+// ── Passkeys ─────────────────────────────────────────────────────────────────
+
+/** A JSON value carried verbatim. Serialised by [systems.lupine.sheaf.data.api.RawJsonAdapter]. */
+data class RawJson(val json: String)
+
+@JsonClass(generateAdapter = true)
+data class PasskeyRead(
+    val id: String,
+    val nickname: String? = null,
+    @Json(name = "rp_id") val rpId: String,
+    // False for a key created under a previous address of the instance.
+    val usable: Boolean = true,
+    @Json(name = "backup_eligible") val backupEligible: Boolean = false,
+    @Json(name = "created_at") val createdAt: String,
+    @Json(name = "last_used_at") val lastUsedAt: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PasskeyRegisterBegin(
+    val password: String,
+    @Json(name = "totp_code") val totpCode: String? = null,
+)
+
+/** The creation or request options, handed to Credential Manager as they are. */
+@JsonClass(generateAdapter = true)
+data class PasskeyOptions(
+    val options: RawJson,
+)
+
+@JsonClass(generateAdapter = true)
+data class PasskeyRegisterComplete(
+    val credential: RawJson,
+    val nickname: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PasskeyUpdate(
+    val nickname: String?,
+)
+
+@JsonClass(generateAdapter = true)
+data class PasskeySignInComplete(
+    val credential: RawJson,
+    val captcha: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

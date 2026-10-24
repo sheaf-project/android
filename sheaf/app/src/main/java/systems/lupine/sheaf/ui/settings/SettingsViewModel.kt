@@ -75,6 +75,7 @@ data class SettingsUiState(
     val watchRepairing: Boolean = false,
     val watchRepairError: String? = null,
     val watchRepairCompleted: Boolean = false,
+    val passkeysAvailable: Boolean = false,
 )
 
 private const val CLIENT_ID = "android"
@@ -126,6 +127,8 @@ class SettingsViewModel @Inject constructor(
                 user to system
             }.onSuccess { (user, system) ->
                 _state.update { it.copy(user = user, system = system, isLoading = false) }
+                runCatching { api.getAuthConfig() }
+                    .onSuccess { config -> _state.update { it.copy(passkeysAvailable = config.passkeysAvailable) } }
                 // Only pull theme + palette down when sync is on. With
                 // sync off, the local DataStore values are the device's
                 // explicit pin and we shouldn't surprise the user by
