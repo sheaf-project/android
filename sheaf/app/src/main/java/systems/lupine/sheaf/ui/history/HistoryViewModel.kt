@@ -3,6 +3,7 @@ package systems.lupine.sheaf.ui.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import systems.lupine.sheaf.data.api.SheafApiService
+import systems.lupine.sheaf.data.api.deleteFrontOrQueue
 import systems.lupine.sheaf.data.db.LocalCache
 import systems.lupine.sheaf.data.model.FrontCreate
 import systems.lupine.sheaf.data.model.FrontRead
@@ -11,6 +12,9 @@ import systems.lupine.sheaf.data.model.GroupRead
 import systems.lupine.sheaf.data.model.MemberRead
 import systems.lupine.sheaf.data.network.NetworkMonitor
 import systems.lupine.sheaf.data.repository.PreferencesRepository
+import systems.lupine.sheaf.ui.sharing.ShareError
+import systems.lupine.sheaf.ui.sharing.message
+import systems.lupine.sheaf.ui.sharing.toShareError
 import systems.lupine.sheaf.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
@@ -22,6 +26,23 @@ import javax.inject.Inject
 
 enum class HistoryView { Infinite, Paged }
 
+/**
+ * The System Safety settings a deletion has to satisfy.
+ *
+ * The auth tier guards EVERY deletion, whether or not Fronts is a ticked
+ * category, so it is read on load and the credentials are asked for before the
+ * request rather than after a refusal. [appliesToFronts] only decides whether
+ * the deletion is then held for the grace period.
+ */
+data class FrontDeleteSafety(
+    val authTier: String = "none",
+    val totpEnabled: Boolean = false,
+    val appliesToFronts: Boolean = false,
+    val gracePeriodDays: Int = 0,
+) {
+    val needsCredentials: Boolean get() = authTier != "none"
+}
+
 data class HistoryUiState(
     val fronts: List<FrontRead> = emptyList(),
     val members: Map<String, MemberRead> = emptyMap(),
@@ -32,6 +53,13 @@ data class HistoryUiState(
     val hasMore: Boolean = true,
     val error: String? = null,
     val deleteError: String? = null,
+    /** What System Safety will ask for, and how long it holds a deletion. */
+    val deleteSafety: FrontDeleteSafety = FrontDeleteSafety(),
+    /** The entry waiting on credentials, replayed verbatim once they arrive. */
+    val stepUpDeleteId: String? = null,
+    val stepUpError: String? = null,
+    /** Said after a deletion the server queued rather than carried out. */
+    val deleteQueuedMessage: String? = null,
     val groups: List<GroupRead> = emptyList(),
     val memberGroups: Map<String, Set<String>> = emptyMap(),
     // Who is fronting right now, and whether starting a front would end them.
@@ -82,6 +110,62 @@ fun openFrontsStartingAfter(
     began != null && began.isAfter(startedAt)
 }
 
+/**
+ * Compare two timestamps at the precision the edit sheet can actually show.
+ *
+ * The time pickers offer hours and minutes, so the seconds on a stored
+ * timestamp are not something the user can see or change. Treating a
+ * same-minute value as unchanged is what keeps them: the field is left out of
+ * the patch entirely and the server keeps what it already had.
+ */
+private fun sameMinute(a: String?, b: String?): Boolean {
+    if (a == null || b == null) return a == b
+    val left = runCatching { java.time.Instant.parse(a) }.getOrNull() ?: return false
+    val right = runCatching { java.time.Instant.parse(b) }.getOrNull() ?: return false
+    return left.truncatedTo(java.time.temporal.ChronoUnit.MINUTES) ==
+        right.truncatedTo(java.time.temporal.ChronoUnit.MINUTES)
+}
+
+/**
+ * What an edit actually changed, as a patch carrying only those fields.
+ *
+ * The sheet used to submit every field on every save, with both timestamps
+ * rebuilt from pickers that had already dropped their seconds. So changing
+ * only a status rewrote both times to the minute, which shows up as a spurious
+ * edit in the web history and, worse, breaks contiguous-front coalescing:
+ * chains are walked by strict equality between one entry's end and the next
+ * one's start, so rounding one side detaches the chain and resets that
+ * member's "fronting since".
+ *
+ * Omitting a field is also how seconds survive. The server reads an absent
+ * field as "leave it alone", so an untouched time keeps its original value
+ * exactly, sub-second part and all.
+ */
+internal fun frontEditPatch(
+    original: FrontRead,
+    memberIds: List<String>,
+    startedAt: String,
+    endedAt: String?,
+    customStatus: String?,
+): FrontUpdate {
+    val membersChanged = memberIds.toSet() != original.memberIds.toSet()
+    val endStateChanged = when {
+        endedAt == null -> original.endedAt != null
+        else -> original.endedAt == null || !sameMinute(endedAt, original.endedAt)
+    }
+    val statusChanged = customStatus != original.customStatus
+    return FrontUpdate(
+        memberIds = memberIds.takeIf { membersChanged },
+        startedAt = startedAt.takeIf { !sameMinute(it, original.startedAt) },
+        endedAt = endedAt.takeIf { endStateChanged },
+        // Only when the entry really had an end and now has none, so an edit
+        // that never touched the end cannot reopen a closed entry.
+        clearEndedAt = endStateChanged && endedAt == null,
+        customStatus = customStatus.takeIf { statusChanged },
+        clearCustomStatus = statusChanged && customStatus == null,
+    )
+}
+
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val api: SheafApiService,
@@ -112,6 +196,29 @@ class HistoryViewModel @Inject constructor(
                 )
             }
             loadInitial()
+        }
+        loadDeleteSafety()
+    }
+
+    /**
+     * What a deletion will be asked for, fetched up front.
+     *
+     * Best-effort: not knowing means the delete goes out bare, and the server's
+     * own refusal still routes to the credentials sheet. Knowing just means the
+     * sheet opens before the refusal rather than after it.
+     */
+    private fun loadDeleteSafety() {
+        viewModelScope.launch {
+            runCatching {
+                val safety = api.getSystemSafety()
+                val totp = runCatching { api.getMe().totpEnabled }.getOrDefault(false)
+                FrontDeleteSafety(
+                    authTier = safety.settings.authTier,
+                    totpEnabled = totp,
+                    appliesToFronts = safety.settings.appliesToFronts,
+                    gracePeriodDays = safety.settings.gracePeriodDays,
+                )
+            }.onSuccess { safety -> _state.update { it.copy(deleteSafety = safety) } }
         }
     }
 
@@ -346,22 +453,86 @@ class HistoryViewModel @Inject constructor(
         loadInitial()
     }
 
-    fun deleteFront(id: String) {
+    /**
+     * Delete a history entry, or ask for credentials first if System Safety
+     * wants them.
+     *
+     * Two things this used to get wrong. It sent a bare DELETE, which the
+     * server refuses with 400 "Password required" under any auth tier, ticked
+     * category or not, leaving a "Delete failed" dialog with nowhere to type.
+     * And it removed the row on any 2xx, including the 202 that means the
+     * server has only QUEUED the deletion for a grace period, so the entry
+     * reappeared on the next load with nothing marking it as pending.
+     */
+    fun deleteFront(id: String, password: String? = null, totpCode: String? = null) {
+        val safety = _state.value.deleteSafety
+        if (safety.needsCredentials && password == null && totpCode == null) {
+            _state.update { it.copy(stepUpDeleteId = id, stepUpError = null) }
+            return
+        }
         viewModelScope.launch {
-            runCatching { api.deleteFront(id) }
-                .onSuccess {
-                    _state.update {
-                        it.copy(
-                            fronts = it.fronts.filterNot { f -> f.id == id },
-                            deleteError = null,
-                            // Total drops by one when we successfully delete.
-                            totalCount = it.totalCount?.let { t -> (t - 1).coerceAtLeast(0) },
-                        )
+            runCatching { api.deleteFrontOrQueue(id, password, totpCode) }
+                .onSuccess { pending ->
+                    if (pending?.pendingActionId != null) {
+                        // Still there, now carrying pending_delete_at. The row
+                        // already knows how to render that (dimmed, with a
+                        // badge), so reload rather than guessing at the date.
+                        val days = safety.gracePeriodDays
+                        _state.update {
+                            it.copy(
+                                deleteError = null,
+                                stepUpDeleteId = null,
+                                stepUpError = null,
+                                deleteQueuedMessage = "This entry is queued for deletion in " +
+                                    "$days day${if (days == 1) "" else "s"}. Cancel it from " +
+                                    "System Safety before then.",
+                            )
+                        }
+                        loadInitial()
+                    } else {
+                        _state.update {
+                            it.copy(
+                                fronts = it.fronts.filterNot { f -> f.id == id },
+                                deleteError = null,
+                                stepUpDeleteId = null,
+                                stepUpError = null,
+                                // Total drops by one when we really delete.
+                                totalCount = it.totalCount?.let { t -> (t - 1).coerceAtLeast(0) },
+                            )
+                        }
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(deleteError = e.toUserMessage()) } }
+                .onFailure { e ->
+                    // The tier can change between load and now, and a wrong
+                    // credential comes back the same way, so both land on the
+                    // sheet rather than on a dead-end error dialog.
+                    when (val err = e.toShareError("Couldn't delete this entry")) {
+                        is ShareError.StepUpRequired -> _state.update {
+                            it.copy(stepUpDeleteId = id, stepUpError = null)
+                        }
+                        is ShareError.BadCredentials -> _state.update {
+                            it.copy(stepUpDeleteId = id, stepUpError = err.message)
+                        }
+                        else -> _state.update {
+                            it.copy(
+                                stepUpDeleteId = null,
+                                deleteError = err.message("Couldn't delete this entry"),
+                            )
+                        }
+                    }
+                }
         }
     }
+
+    fun confirmDeleteStepUp(password: String?, totpCode: String?) {
+        val id = _state.value.stepUpDeleteId ?: return
+        deleteFront(id, password?.ifBlank { null }, totpCode?.ifBlank { null })
+    }
+
+    fun dismissDeleteStepUp() =
+        _state.update { it.copy(stepUpDeleteId = null, stepUpError = null) }
+
+    fun clearDeleteQueuedMessage() = _state.update { it.copy(deleteQueuedMessage = null) }
 
     fun clearDeleteError() = _state.update { it.copy(deleteError = null) }
 
@@ -416,19 +587,22 @@ class HistoryViewModel @Inject constructor(
         endedAt: String?,
         customStatus: String?,
     ) {
+        val original = _state.value.fronts.firstOrNull { it.id == id }
         viewModelScope.launch {
             runCatching {
                 api.updateFront(
                     id,
-                    FrontUpdate(
+                    // Only what changed. Sending everything rewrote both
+                    // timestamps on every save, including status-only edits.
+                    original?.let {
+                        frontEditPatch(it, memberIds, startedAt, endedAt, customStatus)
+                    } ?: FrontUpdate(
                         memberIds = memberIds,
                         startedAt = startedAt,
                         endedAt = endedAt,
-                        // The edit dialog always submits a definite end state,
-                        // so a null endedAt here means "still ongoing" — clear
-                        // it on the server rather than leaving it untouched.
                         clearEndedAt = endedAt == null,
                         customStatus = customStatus,
+                        clearCustomStatus = customStatus == null,
                     ),
                 )
             }.onSuccess { updated ->

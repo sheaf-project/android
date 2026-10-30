@@ -4,6 +4,33 @@ All notable changes to the Sheaf Android client are recorded here. Format loosel
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 uses semantic versioning (`MAJOR.MINOR.PATCH`).
 
+## [Unreleased]
+
+### Fixed
+
+- **Deleting a history entry works when System Safety asks for a password or
+  code.** The delete had no way to carry either, and the auth tier guards every
+  deletion whether or not Fronts is one of the ticked categories, so the server
+  refused and you got "Delete failed" with nowhere to type. It now asks first.
+
+- **A deletion held for a grace period stays on the list, marked pending.** It
+  used to disappear on the spot and come back on the next refresh, because the
+  app could not tell "deleted" from "queued for deletion in N days". The entry
+  now stays put, dimmed with its pending badge, and the app says when it will
+  go and where to cancel it.
+
+- **Emptying the custom status on an entry now clears it.** Saving an empty
+  status left the old one in place: the app read a blank field as "leave this
+  alone" rather than "remove it".
+
+- **Editing an entry no longer rewrites its start and end times.** Both were
+  resent on every save, rounded down to the minute, so changing just a status
+  rewrote both timestamps. That added edits you did not make to the entry's
+  history on the web, and it broke "fronting since" for coalesced fronts: a
+  chain of back-to-back entries is joined by the times matching exactly, so
+  rounding one side split the chain and restarted that member's timer. Only the
+  fields you actually changed are sent now.
+
 ## [1.6.1] - 2026-10-24
 
 ### Fixed

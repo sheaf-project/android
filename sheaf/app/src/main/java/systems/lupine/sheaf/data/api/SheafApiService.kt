@@ -350,8 +350,22 @@ interface SheafApiService {
     @PATCH("/v1/fronts/{id}")
     suspend fun updateFront(@Path("id") id: String, @Body body: FrontUpdate): FrontRead
 
-    @DELETE("/v1/fronts/{id}")
-    suspend fun deleteFront(@Path("id") id: String)
+    /**
+     * Delete a history entry.
+     *
+     * Carries a body, because System Safety's auth tier guards every deletion
+     * whether or not Fronts is a ticked category, and a bare DELETE can answer
+     * nothing: it came back 400 "Password required" and the screen showed
+     * "Delete failed" with nowhere to type.
+     *
+     * Returns the raw response so the caller can tell 204 (gone) from 202
+     * (queued for a grace period, still listed). See [deleteFrontOrQueue].
+     */
+    @HTTP(method = "DELETE", path = "/v1/fronts/{id}", hasBody = true)
+    suspend fun deleteFront(
+        @Path("id") id: String,
+        @Body body: MemberDeleteConfirm = MemberDeleteConfirm(),
+    ): Response<FrontDeletePending>
 
     /**
      * End one open front and start its replacement in a single transaction,
@@ -1189,6 +1203,20 @@ suspend fun SheafApiService.deleteTagOrQueue(
     totpCode: String? = null,
 ): TagDeletePending? {
     val resp = deleteTag(id, MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }))
+    if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
+    return if (resp.code() == 202) resp.body() else null
+}
+
+/** Returns null when deletion was immediate (204) or queued payload when safeguarded (202). */
+suspend fun SheafApiService.deleteFrontOrQueue(
+    id: String,
+    password: String? = null,
+    totpCode: String? = null,
+): FrontDeletePending? {
+    val resp = deleteFront(
+        id,
+        MemberDeleteConfirm(password?.ifBlank { null }, totpCode?.ifBlank { null }),
+    )
     if (!resp.isSuccessful) throw retrofit2.HttpException(resp)
     return if (resp.code() == 202) resp.body() else null
 }

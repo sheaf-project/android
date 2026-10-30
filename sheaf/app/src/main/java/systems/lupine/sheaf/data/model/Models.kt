@@ -761,9 +761,25 @@ data class FrontUpdate(
     val clearEndedAt: Boolean = false,
     val memberIds: List<String>? = null,
     val startedAt: String? = null,
-    // null still omits the field (leave as-is). Clearing a custom status via
-    // edit remains a follow-up to be wired up alongside audit edit.
+    // null omits the field, which the server reads as "leave as-is".
     val customStatus: String? = null,
+    // When true, emit an explicit `custom_status: null` to CLEAR the status.
+    // Same shape as clearEndedAt above and for the same reason: null already
+    // means "untouched", so emptying the field needs a way to say so. Without
+    // it the edit sheet trimmed an empty status to null, the adapter dropped
+    // it, and the old status survived a save that looked like it removed one.
+    val clearCustomStatus: Boolean = false,
+)
+
+/**
+ * The 202 answer to deleting a front, when System Safety is holding it for a
+ * grace period. The entry is still there and still listed, now carrying
+ * `pending_delete_at`; this says when it will actually go.
+ */
+@JsonClass(generateAdapter = true)
+data class FrontDeletePending(
+    @Json(name = "pending_action_id") val pendingActionId: String? = null,
+    @Json(name = "finalize_after") val finalizeAfter: String? = null,
 )
 
 // ── Groups ────────────────────────────────────────────────────────────────────

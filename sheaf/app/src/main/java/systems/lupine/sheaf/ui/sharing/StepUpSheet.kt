@@ -36,6 +36,13 @@ fun StepUpSheet(
     errorMessage: String?,
     onConfirm: (password: String?, totpCode: String?) -> Unit,
     onDismiss: () -> Unit,
+    // Defaults to the publishing wording this sheet was written for. System
+    // Safety also gates destructive actions, which are not publishing
+    // anything, so those pass their own: "Confirm before publishing" over a
+    // delete reads as the wrong dialog rather than a strict one.
+    title: String = "Confirm before publishing",
+    rationale: String = "This makes something visible to people outside your system, " +
+        "so it needs your credentials first.",
 ) {
     val needsPassword = authTier == "password" || authTier == "both"
     val needsTotp = (authTier == "totp" || authTier == "both") && totpEnabled
@@ -44,14 +51,10 @@ fun StepUpSheet(
 
     AlertDialog(
         onDismissRequest = { if (!isBusy) onDismiss() },
-        title = { Text("Confirm before publishing") },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "This makes something visible to people outside your system, " +
-                        "so it needs your credentials first.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(rationale, style = MaterialTheme.typography.bodyMedium)
                 if (needsPassword) {
                     OutlinedTextField(
                         value = password,
