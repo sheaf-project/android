@@ -48,7 +48,18 @@ class FrontUpdateJsonAdapter : JsonAdapter<FrontUpdate>() {
             writer.endArray()
         }
         value.startedAt?.let { writer.name("started_at").value(it) }
-        value.customStatus?.let { writer.name("custom_status").value(it) }
+        when {
+            value.clearCustomStatus -> {
+                // Same forced-null dance as ended_at: the server keys on the
+                // field being present, so the null has to survive the writer's
+                // global serializeNulls setting.
+                val previous = writer.serializeNulls
+                writer.serializeNulls = true
+                writer.name("custom_status").nullValue()
+                writer.serializeNulls = previous
+            }
+            value.customStatus != null -> writer.name("custom_status").value(value.customStatus)
+        }
         writer.endObject()
     }
 
@@ -58,6 +69,7 @@ class FrontUpdateJsonAdapter : JsonAdapter<FrontUpdate>() {
         var memberIds: List<String>? = null
         var startedAt: String? = null
         var customStatus: String? = null
+        var clearCustomStatus = false
         reader.beginObject()
         while (reader.hasNext()) {
             when (reader.nextName()) {
@@ -82,8 +94,12 @@ class FrontUpdateJsonAdapter : JsonAdapter<FrontUpdate>() {
                     if (reader.peek() == JsonReader.Token.NULL) reader.nextNull<Unit>()
                     else startedAt = reader.nextString()
                 "custom_status" ->
-                    if (reader.peek() == JsonReader.Token.NULL) reader.nextNull<Unit>()
-                    else customStatus = reader.nextString()
+                    if (reader.peek() == JsonReader.Token.NULL) {
+                        reader.nextNull<Unit>()
+                        clearCustomStatus = true
+                    } else {
+                        customStatus = reader.nextString()
+                    }
                 else -> reader.skipValue()
             }
         }
@@ -94,6 +110,7 @@ class FrontUpdateJsonAdapter : JsonAdapter<FrontUpdate>() {
             memberIds = memberIds,
             startedAt = startedAt,
             customStatus = customStatus,
+            clearCustomStatus = clearCustomStatus,
         )
     }
 }

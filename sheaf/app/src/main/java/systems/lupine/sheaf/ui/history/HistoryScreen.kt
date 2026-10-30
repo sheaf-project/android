@@ -127,7 +127,19 @@ fun HistoryScreen(
         AlertDialog(
             onDismissRequest = { frontToDelete = null },
             title = { Text("Delete front entry?") },
-            text = { Text("This will permanently delete the front entry for $names. This cannot be undone.") },
+            text = {
+                val days = state.deleteSafety.gracePeriodDays
+                Text(
+                    if (state.deleteSafety.appliesToFronts && days > 0) {
+                        "The front entry for $names will be queued for deletion in " +
+                            "$days day${if (days == 1) "" else "s"}. You can cancel it from " +
+                            "System Safety before then."
+                    } else {
+                        "This will permanently delete the front entry for $names. " +
+                            "This cannot be undone."
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.deleteFront(front.id); frontToDelete = null },
@@ -136,6 +148,36 @@ fun HistoryScreen(
             },
             dismissButton = {
                 TextButton(onClick = { frontToDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
+
+    // System Safety wants a password or a code before a deletion. Same sheet
+    // the sharing and custom-field screens use, so re-auth looks the same
+    // wherever it is asked for.
+    if (state.stepUpDeleteId != null) {
+        systems.lupine.sheaf.ui.sharing.StepUpSheet(
+            authTier = state.deleteSafety.authTier,
+            totpEnabled = state.deleteSafety.totpEnabled,
+            isBusy = false,
+            errorMessage = state.stepUpError,
+            onConfirm = { password, totp -> viewModel.confirmDeleteStepUp(password, totp) },
+            onDismiss = { viewModel.dismissDeleteStepUp() },
+            title = "Confirm before deleting",
+            rationale = "System Safety is set to ask for your credentials before " +
+                "anything is deleted.",
+        )
+    }
+
+    // The server held the deletion rather than carrying it out. The entry is
+    // still listed, dimmed with a pending badge, so this only has to say why.
+    state.deleteQueuedMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearDeleteQueuedMessage() },
+            title = { Text("Queued for deletion") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearDeleteQueuedMessage() }) { Text("OK") }
             },
         )
     }
@@ -739,10 +781,13 @@ private fun FrontEntrySheet(
         mutableStateOf(initialFront?.customStatus ?: "")
     }
     var startDate by remember { mutableStateOf(initialStart?.toLocalDate() ?: LocalDate.now()) }
-    var startTime by remember { mutableStateOf(initialStart?.toLocalTime()?.withSecond(0)?.withNano(0) ?: LocalTime.now().withSecond(0).withNano(0)) }
+    // An existing entry keeps its seconds. The pickers only show hours and
+    // minutes, so rounding here made every save rewrite the timestamp, which
+    // breaks contiguous-front coalescing (chains match on exact equality).
+    var startTime by remember { mutableStateOf(initialStart?.toLocalTime() ?: LocalTime.now().withSecond(0).withNano(0)) }
     var stillOngoing by remember { mutableStateOf(if (isEditing) initialFront?.endedAt == null else false) }
     var endDate by remember { mutableStateOf(initialEnd?.toLocalDate() ?: LocalDate.now()) }
-    var endTime by remember { mutableStateOf(initialEnd?.toLocalTime()?.withSecond(0)?.withNano(0) ?: LocalTime.now().withSecond(0).withNano(0)) }
+    var endTime by remember { mutableStateOf(initialEnd?.toLocalTime() ?: LocalTime.now().withSecond(0).withNano(0)) }
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
