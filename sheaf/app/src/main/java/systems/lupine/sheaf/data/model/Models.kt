@@ -571,6 +571,7 @@ data class MemberRead(
     @Json(name = "created_at") val createdAt: String,
     @Json(name = "updated_at") val updatedAt: String,
     val emoji: String? = null,
+    @Json(name = "is_custom_front") val isCustomFront: Boolean = false,
     // Set when the member is archived: a reversible soft-hide. The list
     // endpoint still returns archived members, so the client filters them
     // out of the main roster and surfaces them separately.
